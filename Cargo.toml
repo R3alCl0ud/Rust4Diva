@@ -1,14 +1,17 @@
 [package]
-name = "divamods"
+name = "rust4diva"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-druid = "0.8.3"
+egui = "0.28.1"
 regex = "1.10.5"
 curl = "0.4.46"
 json = "0.12.4"
 sonic-rs = "0.3.8"
 serde = { version = "1.0.203", features = ["derive"] }
+env_logger = "0.11.3"
+eframe = { version = "0.28.1" }
+toml = "0.8.14"
