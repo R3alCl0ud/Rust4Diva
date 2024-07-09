@@ -1,17 +1,16 @@
 mod gamebanana;
 
-use std::{fs, path};
+use std::{fs};
 use std::cmp::PartialEq;
 use std::collections::HashMap;
-use std::ops::Index;
 use std::path::Path;
 use crate::gamebanana::GbModDownload;
 use eframe::{egui, Frame};
-use egui::{Context, Rangef, TextBuffer, vec2};
-use egui::Align::{Center, Min};
+use egui::{Context, TextBuffer, vec2};
+use egui::Align::{Center};
 use keyvalues_parser::Vdf;
 use serde::{Deserialize, Serialize};
-use egui_extras::{TableBuilder, Size, Column};
+use egui_extras::{TableBuilder, Column};
 
 const ModsFolder: &str = "~/.local/share/Steam/steamapps/common/Hatsune Miku Project DIVA Mega Mix Plus/mods";
 const SteamFolder: &str = "/.local/share/Steam/config/libraryfolders.vdf";
@@ -53,7 +52,7 @@ impl DivaModConfig {
 
 impl DivaMod {
     pub fn set_enabled(&mut self, enabled: bool) -> Self {
-        let mut config = self.config.set_enabled(enabled);
+        let config = self.config.set_enabled(enabled);
         self.config = config;
         self.to_owned()
     }
@@ -81,7 +80,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Rust4Diva",
         options,
-        Box::new(|cc| {
+        Box::new(|_cc| {
             Ok(Box::<DivaData>::default())
         }),
     )
@@ -100,11 +99,6 @@ impl Default for DivaData {
     }
 }
 
-impl DivaData {
-    fn update_mod(&mut self, index: usize, diva_mod: DivaMod) {
-        self.mods[index] = diva_mod;
-    }
-}
 
 impl PartialEq for DivaMod {
     fn eq(&self, other: &Self) -> bool {
@@ -113,80 +107,34 @@ impl PartialEq for DivaMod {
 }
 
 impl eframe::App for DivaData {
-    fn update(&mut self, ctx: &Context, frame: &mut Frame) {
+    fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
         if !self.loaded {
             // try to find the mods folder
-            get_diva_mods_folder(self);
+            get_diva_mods_folder(self).expect("TODO: panic message");
             // load the mod folder now that we've hopefully found it
             self.mods = load_mods(self);
             // set loaded so this doesn't get called 20 billion times.
             self.loaded = true;
         }
-
+        // egui::SidePanel::left("side").show(ctx, |ui| {
+        //
+        // }) ;
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+            ui.horizontal_top(|ui| {
+                ui.label("File");
+                ui.label("Edit");
+                ui.label("View");
+                ui.label("Help");
+            });
+        });
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(egui::Layout::top_down_justified(Center), |lui| {
                 lui.heading("Rust4Diva Mod Manager");
                 // lui.horizontal(|hui| {
-                lui.style_mut().spacing.item_spacing = vec2(80.0, 16.0);
-                lui.with_layout(egui::Layout::top_down_justified(Min), |sui| {
-                    sui.style_mut().spacing.item_spacing = vec2(16.0, 16.0);
-                    TableBuilder::new(sui).resizable(true).striped(true).auto_shrink(true)
-                        .columns(Column::initial(300.0).at_least(300.0), 3)
-                        .columns(Column::auto(), 3)
-                        .header(60.0, |mut header| {
-                            header.col(|ui| {
-                                ui.heading("Mod");
-                            });
-                            header.col(|ui| {
-                                ui.heading("Author(s)");
-                            });
-                            header.col(|ui| {
-                                ui.heading("Description");
-                            });
-                            header.col(|ui| {
-                                ui.heading("Version");
-                            });
-                            header.col(|ui| {
-                                ui.heading("Enabled");
-                            });
-                            header.col(|ui| {
-                                ui.heading("Toggle");
-                            });
-                        })
-                        .body(|mut body| {
-                            for divamod in &mut self.mods {
-                                let mut config = &mut divamod.config;
-                                body.row(10.0, |mut row| {
-                                    row.col(|ui| {
-                                        ui.label(&config.name);
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(&config.author);
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(&config.description);
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(&config.version);
-                                    });
-                                    row.col(|ui| {
-                                        ui.label(if config.enabled { "True" } else { "False" });
-                                    });
-                                    row.col(|ui| {
-                                        if ui.button("Toggle").clicked() {
-                                            config.set_enabled(!config.enabled);
-                                        }
-                                    });
-                                });
-                            }
-                        });
-                });
-                // });
-            });
-            ui.with_layout(egui::Layout::top_down_justified(Center), |lui| {
+                // lui.with_layout(egui::Layout::top_down_justified(Center), |sui| {
                 lui.horizontal(|hui| {
                     if hui.button("Reload").clicked() {
-                        load_mods(self);
+                        self.mods = load_mods(self);
                         self.loaded = true;
                     }
                     if hui.button("Save").clicked() {
@@ -194,12 +142,68 @@ impl eframe::App for DivaData {
                         self.loaded = true;
                     }
                 });
+                lui.style_mut().spacing.item_spacing = vec2(16.0, 16.0);
+                // sui.style_mut().text_styles
+                TableBuilder::new(lui).resizable(true).striped(true).auto_shrink(true)
+                    .columns(Column::initial(300.0).at_least(300.0), 2)
+                    .columns(Column::initial(300.0).at_least(300.0), 1)
+                    .columns(Column::auto(), 3)
+                    .header(60.0, |mut header| {
+                        header.col(|ui| {
+                            ui.heading("Mod");
+                        });
+                        header.col(|ui| {
+                            ui.heading("Author(s)");
+                        });
+                        header.col(|ui| {
+                            ui.heading("Description");
+                        });
+                        header.col(|ui| {
+                            ui.heading("Version");
+                        });
+                        header.col(|ui| {
+                            ui.heading("Enabled");
+                        });
+                        header.col(|ui| {
+                            ui.heading("Toggle");
+                        });
+                    })
+                    .body(|mut body| {
+                        for divamod in &mut self.mods {
+                            let mod_path = &divamod.path;
+                            let mut config = &mut divamod.config;
+                            body.row(10.0, |mut row| {
+                                row.col(|ui| {
+                                    ui.label(&config.name);
+                                });
+                                row.col(|ui| {
+                                    ui.label(&config.author);
+                                });
+                                row.col(|ui| {
+                                    ui.label(&config.description);
+                                });
+                                row.col(|ui| {
+                                    ui.label(&config.version);
+                                });
+                                row.col(|ui| {
+                                    ui.label(if config.enabled { "True" } else { "False" });
+                                });
+                                row.col(|ui| {
+                                    if ui.button("Toggle").clicked() {
+                                        config.set_enabled(!config.enabled);
+                                        save_mod_config(mod_path, config);
+                                    }
+                                });
+                            });
+                        }
+                    });
             });
         });
+        // });
     }
 }
 
-fn load_mods(mut diva_data: &mut DivaData) -> Vec<DivaMod> {
+fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
     println!("Loading mods from {}", diva_data.clone().mods_directory);
     let mut mods: Vec<DivaMod> = Vec::new();
 
@@ -225,7 +229,7 @@ fn load_mods(mut diva_data: &mut DivaData) -> Vec<DivaMod> {
 }
 
 
-fn get_diva_mods_folder(mut diva_data: &mut DivaData) -> Result<(), Box<dyn std::error::Error>> {
+fn get_diva_mods_folder(diva_data: &mut DivaData) -> Result<(), Box<dyn std::error::Error>> {
     println!("Looking for the mods folder");
 
     if !Path::new((dirs::home_dir().unwrap().display().to_string() + SteamFolder).as_str()).exists() {
@@ -276,6 +280,6 @@ fn save_mod_configs(mut diva_data: &mut DivaData) {
         println!("{}\n{}", &diva_mod.path, toml::to_string(&diva_mod.config).unwrap());
     }
 }
-fn save_mod_config(mut diva_mod: &DivaMod) {
-    println!("{}\n{}", &diva_mod.path, toml::to_string(&diva_mod.config).unwrap());
+fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
+    println!("{}\n{}", path, toml::to_string(&diva_mod_config).unwrap());
 }
