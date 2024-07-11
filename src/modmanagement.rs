@@ -24,9 +24,13 @@ pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
         if mod_path.is_file() || !mod_path.clone().is_dir() {
             continue;
         }
-        let mut mod_config: DivaModConfig = toml::from_str(
+        let mod_config_res: Result<DivaModConfig, _> = toml::from_str(
             fs::read_to_string(mod_path.clone().display().to_string() + "/config.toml")
-                .unwrap().as_str()).unwrap();
+                .unwrap().as_str());
+        if mod_config_res.is_err() {
+            continue
+        }
+        let mut mod_config = mod_config_res.unwrap();
         // println!("Mod: {}, {}", mod_config.clone().name, mod_config.description.escape_default().to_string());
         mod_config.description = mod_config.description.escape_default().to_string();
         mods.push(DivaMod {

@@ -287,7 +287,7 @@ impl eframe::App for DivaData {
                             for mut file in gb_mod.files.iter() {
                                 ui.horizontal(|h| {
                                     let dll = h.label(format!("{}", file._sFile));
-                                    let mut dl = h.button("Download This file").labelled_by(dll.id);
+                                    let mut dl = h.button("Install This file").labelled_by(dll.id);
                                     if dl.clicked() {
                                         let res = download_mod_file(file);
                                         match res {

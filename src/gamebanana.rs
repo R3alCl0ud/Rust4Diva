@@ -5,7 +5,7 @@ use std::io::{BufRead, Write};
 use curl::easy::Easy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use sonic_rs::JsonValueTrait;
+use sonic_rs::{Error, JsonValueTrait};
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
 const _GB_DOMAIN: &str = "https://gamebanana.com";
@@ -36,7 +36,7 @@ pub struct GbModDownload {
 pub struct GBMod {
     pub(crate) name: String,
     pub(crate) files: Vec<GbModDownload>,
-    pub(crate) text: String
+    pub(crate) text: String,
 }
 pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     // let stream = InMemoryStream::default();
@@ -44,7 +44,7 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     // let mut mods: Vec<GBMod> = Vec::new();
     let mut easy = Easy::new();
     let mut the_mod = None;
-    easy.url(format!("{}{}?itemid={}&itemtype=Mod&fields=name,Files().aFiles(),text", GB_API_DOMAIN, GB_MOD_INFO, &mod_id).as_str()).unwrap();
+    easy.url(format!("{}{}?itemid={}&itemtype=Mod&fields=name,Files().aFiles()", GB_API_DOMAIN, GB_MOD_INFO, &mod_id).as_str()).unwrap();
     {
         let mut transfer = easy.transfer();
         transfer.write_function(|data| {
@@ -52,25 +52,27 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
             for line in data.lines() {
                 data_json.push_str(line.unwrap().as_str());
             }
-            let mod_data: sonic_rs::Value = sonic_rs::from_str(data_json.as_str()).unwrap();
+            println!("{:#}", data_json);
+            let mut res: Result<sonic_rs::Value, Error> = sonic_rs::from_str(data_json.as_str());
             let mut dl_files: Vec<GbModDownload> = Vec::new();
-
-
-            let info_mods = mod_data[1].clone().into_object();
-            // match info_mods {
-            // make sure we've actually got a proper response data
-            if info_mods.is_some() {
-                for (key, value) in info_mods.unwrap().iter() {
-                    // let file_str = sonic_rs::to_string(value).unwrap();
-                    let dl_file: GbModDownload = sonic_rs::from_value(value).unwrap();
-                    println!("{:?}: {:?}", key, dl_file);
-                    dl_files.push(dl_file);
+            if res.is_ok() {
+                let mod_data = res.unwrap();
+                let info_mods = mod_data[1].clone().into_object();
+                // match info_mods {
+                // make sure we've actually got a proper response data
+                if info_mods.is_some() {
+                    for (key, value) in info_mods.unwrap().iter() {
+                        // let file_str = sonic_rs::to_string(value).unwrap();
+                        let dl_file: GbModDownload = sonic_rs::from_value(value).unwrap();
+                        println!("{:?}: {:?}", key, dl_file);
+                        dl_files.push(dl_file);
+                    }
+                    the_mod = Some(GBMod {
+                        name: mod_data[0].to_string(),
+                        files: dl_files,
+                        text: mod_data[2].to_string(),
+                    });
                 }
-                the_mod = Some(GBMod {
-                    name: mod_data[0].to_string(),
-                    files: dl_files,
-                    text: mod_data[2].to_string()
-                });
             }
 
             return Ok(data.len());
