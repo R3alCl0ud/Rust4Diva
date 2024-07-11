@@ -36,6 +36,7 @@ pub struct GbModDownload {
 pub struct GBMod {
     pub(crate) name: String,
     pub(crate) files: Vec<GbModDownload>,
+    pub(crate) text: String
 }
 pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     // let stream = InMemoryStream::default();
@@ -43,7 +44,7 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     // let mut mods: Vec<GBMod> = Vec::new();
     let mut easy = Easy::new();
     let mut the_mod = None;
-    easy.url(format!("{}{}?itemid={}&itemtype=Mod&fields=name,Files().aFiles()", GB_API_DOMAIN, GB_MOD_INFO, &mod_id).as_str()).unwrap();
+    easy.url(format!("{}{}?itemid={}&itemtype=Mod&fields=name,Files().aFiles(),text", GB_API_DOMAIN, GB_MOD_INFO, &mod_id).as_str()).unwrap();
     {
         let mut transfer = easy.transfer();
         transfer.write_function(|data| {
@@ -54,18 +55,24 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
             let mod_data: sonic_rs::Value = sonic_rs::from_str(data_json.as_str()).unwrap();
             let mut dl_files: Vec<GbModDownload> = Vec::new();
 
-            let info_mods = mod_data[1].clone().into_object().unwrap();
-            // println!("{:?}", info_mods);
-            for (key, value) in info_mods.iter() {
-                // let file_str = sonic_rs::to_string(value).unwrap();
-                let dl_file: GbModDownload = sonic_rs::from_value(value).unwrap();
-                println!("{:?}: {:?}", key, dl_file);
-                dl_files.push(dl_file);
+
+            let info_mods = mod_data[1].clone().into_object();
+            // match info_mods {
+            // make sure we've actually got a proper response data
+            if info_mods.is_some() {
+                for (key, value) in info_mods.unwrap().iter() {
+                    // let file_str = sonic_rs::to_string(value).unwrap();
+                    let dl_file: GbModDownload = sonic_rs::from_value(value).unwrap();
+                    println!("{:?}: {:?}", key, dl_file);
+                    dl_files.push(dl_file);
+                }
+                the_mod = Some(GBMod {
+                    name: mod_data[0].to_string(),
+                    files: dl_files,
+                    text: mod_data[2].to_string()
+                });
             }
-            the_mod = Some(GBMod {
-                name: mod_data[0].to_string(),
-                files: dl_files,
-            });
+
             return Ok(data.len());
         }).expect("TODO: panic message");
         transfer.perform().unwrap();
@@ -112,5 +119,31 @@ pub fn download_mod_file(gb_file: &GbModDownload) -> std::io::Result<File> {
 
 
     return Ok(file);
-    // println!("{}", gb_file._sFile);
+}
+
+pub fn download_mod_file_from_id(gb_file_id: String) -> std::io::Result<File> {
+    println!("{}", gb_file_id);
+    let mut dst = Vec::new();
+    let mut easy = Easy::new();
+    easy.url(gb_file_id.as_str()).unwrap();
+    let _redirect = easy.follow_location(true);
+
+    {
+        let mut transfer = easy.transfer();
+        transfer.write_function(|data| {
+            dst.extend_from_slice(data);
+            // println!("File fetched");
+            Ok(data.len())
+        }).unwrap();
+        println!("fetching file");
+        transfer.perform().unwrap();
+    }
+
+    let mut file = File::create("/tmp/rust4diva/".to_owned() + &gb_file_id)?;
+    println!("Writing file");
+    file.write_all(dst.as_slice())?;
+    println!("Done writing file to tmp directory");
+
+
+    return Ok(file);
 }

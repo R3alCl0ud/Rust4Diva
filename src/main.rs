@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use eframe::{egui, Frame};
 use eframe::emath::Align;
-use egui::{Context, DroppedFile, FontId, Layout, TextBuffer, TextStyle, vec2};
+use egui::{Context, DroppedFile, FontId, Layout, Style, TextBuffer, TextStyle, vec2, Visuals};
 use egui::Align::Min;
 use egui::FontFamily::{Monospace, Proportional};
 use egui_extras::{Column, TableBuilder};
@@ -104,7 +104,13 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Rust4Diva",
         options,
-        Box::new(|_cc| {
+        Box::new(|cc| {
+            let style = Style {
+                visuals: Visuals::light(),
+                ..Style::default()
+            };
+            // visuals: Visuals::dark()
+            cc.egui_ctx.set_style(style);
             Ok(Box::<DivaData>::default())
         }),
     )
@@ -269,6 +275,8 @@ impl eframe::App for DivaData {
                             let gb_mod = fetch_mod_data(self.dl_mod_url.as_str());
                             if gb_mod.is_some() {
                                 self.downloads.push(gb_mod.unwrap());
+                            } else {
+                                println!("Could not get mod info");
                             }
                         }
                         for mut gb_mod in self.clone().downloads.iter() {
