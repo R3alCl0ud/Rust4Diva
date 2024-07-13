@@ -1,7 +1,9 @@
 use std::fs;
 use std::fs::File;
+use std::io::Write;
 use std::path::Path;
 use compress_tools::{Ownership, uncompress_archive};
+use egui::debug_text::print;
 use egui::TextBuffer;
 use keyvalues_parser::Vdf;
 use toml::de::Error;
@@ -9,7 +11,7 @@ use crate::{DIVA_MOD_FOLDER_SUFFIX, DivaData, DivaMod, DivaModConfig, DivaModLoa
 
 pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
     let mods_folder = format!("{}/{}", diva_data.diva_directory.as_str().to_owned(),
-                              diva_data.diva_mod_loader.mods.as_str());
+                              diva_data.dml.mods.as_str());
     println!("Loading mods from {}", mods_folder);
     let mut mods: Vec<DivaMod> = Vec::new();
 
@@ -28,7 +30,7 @@ pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
             fs::read_to_string(mod_path.clone().display().to_string() + "/config.toml")
                 .unwrap().as_str());
         if mod_config_res.is_err() {
-            continue
+            continue;
         }
         let mut mod_config = mod_config_res.unwrap();
         // println!("Mod: {}, {}", mod_config.clone().name, mod_config.description.escape_default().to_string());
@@ -55,14 +57,10 @@ pub fn get_diva_folder() -> Result<String, Box<dyn std::error::Error>> {
     for library_id in libraries.clone().keys() {
         // get the library obj
         let mut library = libraries.get(library_id).unwrap().first().unwrap().clone().unwrap_obj();
-
         // prevent a crash in case of malformed libraryfolders.vdf
         if !library.contains_key("apps") || !library.contains_key("path") { continue; }
-
         // get the list of apps installed to this library
         let apps = library.get("apps").unwrap().first().unwrap().clone().unwrap_obj();
-
-
         // self-explanatory
         if apps.contains_key(MEGA_MIX_APP_ID) {
             // get the path of the library
@@ -75,8 +73,6 @@ pub fn get_diva_folder() -> Result<String, Box<dyn std::error::Error>> {
             // concat the strings together properly
             path = format!("{}{}", path_chars.as_str(), DIVA_MOD_FOLDER_SUFFIX).to_string();
             println!("Fuck yes, we found it, {:?}", path);
-            // diva_data.diva_mod_loader = toml::from_str((path + "/config.toml").as_str()).unwrap();
-            // diva_data.mods_directory = path;
             break;
         }
     }
@@ -91,16 +87,27 @@ pub fn save_mod_configs(mut diva_data: &mut DivaData) {
 }
 pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     println!("{}\n{}", path, toml::to_string(&diva_mod_config).unwrap());
+    let config_path = Path::new(path);
+    if let config_str = toml::to_string(&diva_mod_config).unwrap() {
+        match fs::write(config_path, config_str) {
+            Ok(..) => {
+                println!("Sucessfully updated config for {}", diva_mod_config.name);
+            }
+            Err(e) => {
+                eprintln!("Something went wrong: {:#?}", e);
+            }
+        }
+    }
 }
 
-pub fn unpack_mod(mut mod_archive: File, diva_data: DivaData) {
-    uncompress_archive(mod_archive, Path::new(format!("{}/{}", &diva_data.diva_directory, &diva_data.diva_mod_loader.mods).as_str()), Ownership::Preserve)
-        .expect("Welp, wtf, idk what happened, must be out of space or someshit");
+pub fn unpack_mod(mod_archive: File, diva_data: &&mut DivaData) {
+    uncompress_archive(mod_archive, Path::new(format!("{}/{}", &diva_data.diva_directory, &diva_data.dml.mods).as_str()), Ownership::Preserve)
+        .expect("Welp, wtf, idk what happened, must be out of space or some shit");
 }
 
-pub fn load_diva_ml_config(diva_folder: String) -> Option<DivaModLoader> {
+pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
     println!("{}{}", diva_folder, "/config.toml");
-    let res: Result<DivaModLoader, Error> = toml::from_str(fs::read_to_string((diva_folder + "/config.toml")).unwrap().as_str());
+    let res: Result<DivaModLoader, Error> = toml::from_str(fs::read_to_string(diva_folder.to_string() + "/config.toml").unwrap().as_str());
     let mut loader: Option<DivaModLoader> = None;
     match res {
         Ok(diva_ml) => {
@@ -111,4 +118,8 @@ pub fn load_diva_ml_config(diva_folder: String) -> Option<DivaModLoader> {
         }
     }
     return loader;
+}
+
+pub fn one_click() {
+    println!("Test");
 }

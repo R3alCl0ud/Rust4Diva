@@ -83,17 +83,29 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     return the_mod;
 }
 
+struct GbUrlData {
+    name: String,
+    itemtype: String,
+    file: String,
+}
 
-pub fn get_diva_dl_id() -> String {
+pub fn parse_dmm_url(dmm_url: String) -> Option<GbUrlData> {
+    // check if this is a proper dmm 1 click url
+    if !dmm_url.starts_with("divamodmanager:https://gamebanana.com/mmdl/") {
+        return None;
+    }
+
     let mod_regex = Regex::new(r"([0-9]+),(.+),([0-9]+)").unwrap();
-    let args = env::args().collect::<Vec<String>>();
-    let Some(m_info) = mod_regex.captures(args.get(1).unwrap()) else {
+    // let args = env::args().collect::<Vec<String>>();
+    let Some(m_info) = mod_regex.captures(dmm_url.as_str()) else {
         println!("Sorry, no fucks in here");
-        return String::new();
+        return None;
     };
-    // println!("Mod DL ID: {:?} \nMod ID: {:?}", m_info.get(1).unwrap().as_str(), m_info.get(3).unwrap().as_str());
-
-    return format!("{}", m_info.get(1).unwrap().as_str());
+    return Some(GbUrlData {
+        name: m_info.get(0).unwrap().as_str().to_string(),
+        itemtype: m_info.get(1).unwrap().as_str().to_string(),
+        file: m_info.get(2).unwrap().as_str().to_string(),
+    });
 }
 
 pub fn download_mod_file(gb_file: &GbModDownload) -> std::io::Result<File> {
@@ -121,6 +133,9 @@ pub fn download_mod_file(gb_file: &GbModDownload) -> std::io::Result<File> {
 
     return Ok(file);
 }
+
+pub fn reqwest_mod_data() {}
+
 
 pub fn download_mod_file_from_id(gb_file_id: String) -> std::io::Result<File> {
     println!("{}", gb_file_id);
