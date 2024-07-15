@@ -2,14 +2,78 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use std::sync::mpsc;
+use std::thread::JoinHandle;
 
 use compress_tools::{Ownership, uncompress_archive};
-use egui::TextBuffer;
+use egui::{DroppedFile, TextBuffer};
 use keyvalues_parser::Vdf;
+use sonic_rs::{Deserialize, Serialize};
 use toml::de::Error;
 
-use crate::{DIVA_MOD_FOLDER_SUFFIX, DivaData, DivaMod, DivaModConfig, DivaModLoader, MEGA_MIX_APP_ID, STEAM_FOLDER};
-use crate::gamebanana_async::GbModDownload;
+use crate::gamebanana_async::{GBMod, GbModDownload};
+
+const STEAM_FOLDER: &str = "/.local/share/Steam/config/libraryfolders.vdf";
+const MEGA_MIX_APP_ID: &str = "1761390";
+const DIVA_MOD_FOLDER_SUFFIX: &str = "/steamapps/common/Hatsune Miku Project DIVA Mega Mix Plus";
+
+
+// begin structs for the diva configs and stuff
+
+#[derive(Clone, Deserialize, Serialize)]
+struct DivaModConfig {
+    enabled: bool,
+    #[serde(default)]
+    include: Vec<String>,
+    #[serde(default)]
+    dll: Vec<String>,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    description: String,
+    #[serde(default)]
+    version: String,
+    #[serde(default)]
+    date: String,
+    #[serde(default)]
+    author: String,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+struct DivaModLoader {
+    #[serde(default)]
+    enabled: bool,
+    #[serde(default)]
+    console: bool,
+    #[serde(default)]
+    mods: String,
+    #[serde(default)]
+    version: String,
+}
+
+
+#[derive(Clone)]
+struct DivaMod {
+    config: DivaModConfig,
+    path: String,
+}
+
+struct DivaData {
+    mods: Vec<DivaMod>,
+    current_dl: Option<GBMod>,
+    downloads: Vec<GBMod>,
+    mods_directory: String,
+    diva_directory: String,
+    dl_mod_url: String,
+    loaded: bool,
+    dropped_files: Vec<DroppedFile>,
+    show_dl: bool,
+    dml: DivaModLoader,
+    dlthreads: Vec<(JoinHandle<()>, mpsc::SyncSender<egui::Context>)>,
+    dl_done_tx: mpsc::SyncSender<f32>,
+    dl_done_rc: mpsc::Receiver<f32>,
+    should_dl: bool,
+}
 
 pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
     let mods_folder = format!("{}/{}", diva_data.diva_directory.as_str().to_owned(),

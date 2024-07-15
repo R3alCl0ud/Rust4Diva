@@ -23,3 +23,9 @@ reqwest = "0.12.5"
 tokio = { version = "1.38.0", features = ["full"] }
 interprocess = { version = "2.2.0", features = ["tokio"] }
 tokio-macros = { version = "0.2.0-alpha.6" }
+slint = "1.6.0"
+
+
+
+[build-dependencies]
+slint-build = "1.6"
