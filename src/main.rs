@@ -3,6 +3,8 @@ use std::{env, io};
 use std::cmp::PartialEq;
 use std::error::Error;
 use std::fs::File;
+use std::sync::{Arc, mpsc, Mutex};
+use std::thread::JoinHandle;
 
 use eframe::{CreationContext, egui, Frame};
 use eframe::emath::Align;
@@ -19,8 +21,8 @@ use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::try_join;
 
-use crate::gamebanana_async::{download_mod_file, fetch_mod_data, GBMod, GbModDownload};
-use crate::modmanagement::{get_diva_folder, load_diva_ml_config, load_mods, save_mod_config, save_mod_configs, unpack_mod};
+use crate::gamebanana_async::{download_mod_file, fetch_mod_data, GBMod, reqwest_mod_data};
+use crate::modmanagement::{get_diva_folder, load_diva_ml_config, load_mods, save_mod_config, save_mod_configs, old_unpack_mod, unpack_mod};
 
 mod modmanagement;
 mod gamebanana_async;
@@ -96,30 +98,35 @@ struct DivaData {
     dropped_files: Vec<DroppedFile>,
     show_dl: bool,
     dml: DivaModLoader,
+    dlthreads: Vec<(JoinHandle<()>, mpsc::SyncSender<egui::Context>)>,
+    dl_done_tx: mpsc::SyncSender<f32>,
+    dl_done_rc: mpsc::Receiver<f32>,
+    should_dl: bool,
 }
 
 struct ModDlThread {
     name: String,
-    gbmod: GbModDownload,
-    progress: f32,
+    // gbmod: GbModDownload,
+    progress: Arc<Mutex<f32>>,
 }
 
 impl ModDlThread {
-    fn new(name: String, gbmod: GbModDownload) -> Self {
+    // , gbmod: GbModDownload
+    fn new(name: String) -> Self {
         Self {
             name,
-            gbmod,
-            progress: 0.0,
+            // gbmod,
+            progress: Arc::new(Mutex::new(0.0)),
         }
     }
 
     fn show(&mut self, ctx: &egui::Context) {
-        egui::Window::new(&self.gbmod._sFile)
+        egui::Window::new("&self.gbmod._sFile")
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label("Downloading mod");
-                    let progress = ProgressBar::new(self.progress)
-                        .text(&self.gbmod._sFile);
+                    let progress = ProgressBar::new(*self.progress.lock().unwrap())
+                        .text("&self.gbmod._sFile");
                     ui.add(progress);
                 });
             });
@@ -269,12 +276,24 @@ fn oldmain() -> Result<(), eframe::Error> {
     return res;
 }
 
-fn start_ipc() {}
+fn start_ipc(name: String, dl_done_tx: mpsc::SyncSender<f32>) -> (JoinHandle<()>, mpsc::SyncSender<egui::Context>) {
+    let (show_tx, show_rc) = mpsc::sync_channel(0);
+    let handle = std::thread::Builder::new().name(name.clone())
+        .spawn(move || {
+            let mut state = ModDlThread::new(name);
+            while let Ok(ctx) = show_rc.recv() {
+                state.show(&ctx);
+                let _ = dl_done_tx.send(0.01);
+            }
+        }).expect("fuck");
+    (handle, show_tx)
+}
 
 
 impl DivaData {
     fn new(_cc: &CreationContext) -> Self {
-        Self {
+        let (dl_done_tx, dl_done_rc) = mpsc::sync_channel::<f32>(0);
+        let mut slf = Self {
             mods: Vec::new(),
             downloads: Vec::new(),
             current_dl: None,
@@ -290,12 +309,31 @@ impl DivaData {
                 mods: "".to_string(),
                 version: "".to_string(),
             },
+            dlthreads: Vec::with_capacity(1),
+            dl_done_tx,
+            dl_done_rc,
+            should_dl: false,
+        };
+
+        slf.spawn_dl_thread();
+
+        slf
+    }
+
+    fn spawn_dl_thread(&mut self) {
+        self.dlthreads.push(start_ipc("test".to_owned(), self.dl_done_tx.clone()));
+    }
+}
+
+impl std::ops::Drop for DivaData {
+    fn drop(&mut self) {
+        for (handle, show_tx) in self.dlthreads.drain(..) {
+            std::mem::drop(show_tx);
+            handle.join().unwrap();
         }
     }
-    // fn start_ipc(&mut self) {
-    //
-    // }
 }
+
 impl PartialEq for DivaMod {
     fn eq(&self, other: &Self) -> bool {
         self.path == other.path
@@ -467,22 +505,34 @@ impl eframe::App for DivaData {
                                 h.label("Files: ");
                             });
                             for mut file in gb_mod.files.iter() {
-                                ui.horizontal(|h| {
+                                ui.horizontal( |h| {
                                     let dll = h.label(format!("{}", file._sFile));
                                     let mut dl = h.button("Install This file").labelled_by(dll.id);
                                     if dl.clicked() {
                                         let res = download_mod_file(file);
+                                        // let res = reqwest_mod_data(file);
+                                        // res.
                                         match res {
                                             Ok(_) => {
-                                                unpack_mod(File::open("/tmp/rust4diva/".to_owned() + &file._sFile).unwrap(), &self);
+                                                unpack_mod(file, &self);
                                                 println!("Mod installed, reloading mods");
                                                 self.mods = load_mods(self);
                                             }
-                                            Err(e) => panic!("Failed to write data: {}", e)
+                                            Err(e) => eprintln!("Failed to write data: {}", e)
                                         }
                                         // unpack_mod(file, &self);
                                     }
                                 });
+                            }
+                            if ui.checkbox(&mut self.should_dl, "show dl test").clicked() {}
+                            if self.dlthreads.len() > 0 {
+                                if self.should_dl {
+                                    let (_handle, show_tx) = &self.dlthreads.last().unwrap();
+                                    let _ = show_tx.send(ctx.clone());
+                                    for _ in 0..self.dlthreads.len() {
+                                        let _ = self.dl_done_rc.recv();
+                                    }
+                                }
                             }
                         }
                     });

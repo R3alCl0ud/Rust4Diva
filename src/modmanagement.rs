@@ -2,12 +2,14 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+
 use compress_tools::{Ownership, uncompress_archive};
-use egui::debug_text::print;
 use egui::TextBuffer;
 use keyvalues_parser::Vdf;
 use toml::de::Error;
+
 use crate::{DIVA_MOD_FOLDER_SUFFIX, DivaData, DivaMod, DivaModConfig, DivaModLoader, MEGA_MIX_APP_ID, STEAM_FOLDER};
+use crate::gamebanana_async::GbModDownload;
 
 pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
     let mods_folder = format!("{}/{}", diva_data.diva_directory.as_str().to_owned(),
@@ -100,9 +102,19 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     }
 }
 
-pub fn unpack_mod(mod_archive: File, diva_data: &&mut DivaData) {
+pub fn old_unpack_mod(mod_archive: File, diva_data: &&mut DivaData) {
     uncompress_archive(mod_archive, Path::new(format!("{}/{}", &diva_data.diva_directory, &diva_data.dml.mods).as_str()), Ownership::Preserve)
         .expect("Welp, wtf, idk what happened, must be out of space or some shit");
+}
+
+pub fn unpack_mod(module: &GbModDownload, diva_data: &&mut DivaData) {
+    let module_path = "/tmp/rust4diva/".to_owned() + &*module._sFile;
+    if let file = File::open(&module_path).unwrap() {
+        uncompress_archive(file, Path::new(format!("{}/{}", &diva_data.diva_directory, &diva_data.dml.mods).as_str()), Ownership::Preserve)
+            .expect("Welp, wtf, idk what happened, must be out of space or some shit");
+    } else {
+        eprintln!("Unable to open archive at {:#}", module_path);
+    }
 }
 
 pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
@@ -119,6 +131,17 @@ pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
     }
     return loader;
 }
+
+pub fn create_tmp_if_not() -> std::io::Result<()> {
+    let path = Path::new("/tmp/rust4diva");
+    if !path.exists() {
+        let dir = fs::create_dir(path);
+        // return dir
+        return dir;
+    }
+    Ok(())
+}
+
 
 pub fn one_click() {
     println!("Test");

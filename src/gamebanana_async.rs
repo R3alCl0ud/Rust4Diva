@@ -4,8 +4,10 @@ use std::io::{BufRead, Write};
 
 use curl::easy::Easy;
 use regex::Regex;
+use reqwest::header;
 use serde::{Deserialize, Serialize};
 use sonic_rs::{Error, JsonValueTrait};
+use crate::modmanagement::create_tmp_if_not;
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
 const _GB_DOMAIN: &str = "https://gamebanana.com";
@@ -108,7 +110,7 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbUrlData> {
     });
 }
 
-pub fn download_mod_file(gb_file: &GbModDownload) -> std::io::Result<File> {
+pub fn download_mod_file(gb_file: &GbModDownload) -> std::io::Result<()> {
     println!("{}", gb_file._sFile);
     let mut dst = Vec::new();
     let mut easy = Easy::new();
@@ -126,15 +128,49 @@ pub fn download_mod_file(gb_file: &GbModDownload) -> std::io::Result<File> {
     }
 
     let mut file = File::create("/tmp/rust4diva/".to_owned() + &gb_file._sFile)?;
-    println!("Writing file");
-    file.write_all(dst.as_slice())?;
-    println!("Done writing file to tmp directory");
-
-
-    return Ok(file);
+    let dir = create_tmp_if_not();
+    match &dir {
+        Ok(..) => {
+            println!("Writing file");
+            file.write_all(dst.as_slice())?;
+            println!("Done writing file to tmp directory");
+            return Ok(());
+        }
+        Err(e) => {
+            return dir;
+        }
+    }
 }
 
-pub fn reqwest_mod_data() {}
+pub async fn reqwest_mod_data(gb_file: &GbModDownload) {
+    let result = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            println!("Begin retrieving the mod file");
+            let mut headers = header::HeaderMap::new();
+
+            let client = reqwest::Client::builder()
+                .default_headers(headers)
+                .build()
+                .unwrap();
+            let response = client.get(&gb_file._sDownloadUrl).send();
+            let t = response.await;
+            match t {
+                Ok(res) => {
+                    println!("Saving file to disk: {}", &gb_file._sFile);
+                    tokio::fs::write("/tmp/rust4diva/".to_owned() + &gb_file._sFile, res.bytes().await.unwrap()).await.expect("Fuck");
+                    // return Ok::<_, Box<dyn std::error::Error>>(res.bytes());
+                }
+                Err(e) => {
+                    eprintln!("Failed: {:#?}", e);
+                }
+            }
+        });
+
+    result
+}
 
 
 pub fn download_mod_file_from_id(gb_file_id: String) -> std::io::Result<File> {
