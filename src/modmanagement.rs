@@ -51,7 +51,10 @@ struct DivaModLoader {
     version: String,
 }
 
-
+///
+/// Represents a diva mod after it has been loaded in to program memory
+///
+///
 #[derive(Clone)]
 struct DivaMod {
     config: DivaModConfig,
@@ -109,12 +112,14 @@ pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
     mods
 }
 
-
+/// Parses the libraryfolders.vdf in the user's home folder it exists
+///
+/// If we are unable to fix the install location of Project Diva then an empty string is returned
 pub fn get_diva_folder() -> Result<String, Box<dyn std::error::Error>> {
     println!("Looking for the mods folder");
 
     if !Path::new((dirs::home_dir().unwrap().display().to_string() + STEAM_FOLDER).as_str()).exists() {
-        println!("mods folder not found");
+        println!("Steam install directory not found");
     }
     let mut path = "".to_owned();
     let binding = fs::read_to_string(dirs::home_dir().unwrap().display().to_string() + STEAM_FOLDER).unwrap();

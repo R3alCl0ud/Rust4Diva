@@ -1,0 +1,49 @@
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export struct DivaModConfig {
+    enabled: bool,
+    include: [string],
+    name: string,
+    descrition: string,
+    version: string,
+    author: string,
+    date: string,
+    dll: [string]
+}
+
+
+export component App inherits Window {
+    min-width: 1280px;
+    min-height: 720px;
+    title: "Rust4Diva: Project Diva MM+ Mod Manager";
+    in property <int> counter: 4;
+    // in property <Array<int>> fs: [4,3,2];
+    in property <[int]> fs: [1,2,3];
+    in property <[DivaModConfig]> mods: [];
+    callback clicked <=> btn.clicked;
+    VerticalBox {
+        Text { text: "Rust" + counter + "Diva"; }
+
+        btn := Button { text: "Diva Button"; }
+
+        GridLayout {
+            padding: 20px;
+            spacing: 10px;
+            Row {
+                Text { text: "Enabled";}
+                Text { text: "Name";}
+                Text { text: "Authors";}
+                Text { text: "Version";}
+                Text { text: "Description";}
+            }
+//            for mod in mods:
+                Row {
+                    Text { text: "1";}
+                    Text { text: "2";}
+                    Text { text: "3";}
+                    Text { text: "4";}
+                    Text { text: "5";}
+                }
+        }
+    }
+}
