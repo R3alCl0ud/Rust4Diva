@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: install libarchive
-        run: apt install libarchive-dev -y
+        run: sudo apt install libarchive-dev -y
       - name: Build
         run: cargo build --verbose
       - name: Upload artifact
