@@ -1,15 +1,75 @@
-use std::fs;
+use std::{env, fs};
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use compress_tools::{Ownership, uncompress_archive};
 use egui::TextBuffer;
 use keyvalues_parser::Vdf;
+use serde::{Deserialize, Serialize};
 use toml::de::Error;
 
-use crate::{DIVA_MOD_FOLDER_SUFFIX, DivaData, DivaMod, DivaModConfig, DivaModLoader, MEGA_MIX_APP_ID, STEAM_FOLDER};
+use crate::DivaData;
 use crate::gamebanana_async::GbModDownload;
+
+const STEAM_FOLDER: &str = ".local/share/Steam";
+const STEAM_LIBRARIES_CONFIG: &str = "config/libraryfolders.vdf";
+const MEGA_MIX_APP_ID: &str = "1761390";
+const DIVA_MOD_FOLDER_SUFFIX: &str = "/steamapps/common/Hatsune Miku Project DIVA Mega Mix Plus";
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct DivaModConfig {
+    pub(crate) enabled: bool,
+    #[serde(default)]
+    pub(crate) include: Vec<String>,
+    #[serde(default)]
+    pub(crate) dll: Vec<String>,
+    #[serde(default)]
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) description: String,
+    #[serde(default)]
+    pub(crate) version: String,
+    #[serde(default)]
+    pub(crate) date: String,
+    #[serde(default)]
+    pub(crate) author: String,
+}
+
+#[derive(Clone)]
+pub struct DivaMod {
+    pub(crate) config: DivaModConfig,
+    pub(crate) path: String,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct DivaModLoader {
+    #[serde(default)]
+    pub(crate) enabled: bool,
+    #[serde(default)]
+    pub(crate) console: bool,
+    #[serde(default)]
+    pub(crate) mods: String,
+    #[serde(default)]
+    pub(crate) version: String,
+}
+
+
+impl DivaModConfig {
+    pub fn set_enabled(&mut self, enabled: bool) -> Self {
+        // let change = self.enabled;
+        self.enabled = enabled;
+        self.to_owned()
+    }
+}
+
+impl DivaMod {
+    pub fn set_enabled(&mut self, enabled: bool) -> Self {
+        let config = self.config.set_enabled(enabled);
+        self.config = config;
+        self.to_owned()
+    }
+}
 
 pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
     let mods_folder = format!("{}/{}", diva_data.diva_directory.as_str().to_owned(),
@@ -46,39 +106,74 @@ pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
 }
 
 
-pub fn get_diva_folder() -> Result<String, Box<dyn std::error::Error>> {
-    println!("Looking for the mods folder");
-
-    if !Path::new((dirs::home_dir().unwrap().display().to_string() + STEAM_FOLDER).as_str()).exists() {
-        println!("mods folder not found");
+pub fn get_steam_folder() -> Option<String> {
+    let mut steam_str = None;
+    println!("Attempting to find the Steam folder");
+    match env::consts::OS {
+        "linux" => {
+            let mut binding = dirs::home_dir().unwrap();
+            binding.push(STEAM_FOLDER);
+            if !binding.exists() {
+                println!("Steam folder not found");
+            }
+            steam_str = Some(binding.display().to_string());
+        }
+        _ => { println!("Unsupported Operating system: {}", env::consts::OS) }
     }
-    let mut path = "".to_owned();
-    let binding = fs::read_to_string(dirs::home_dir().unwrap().display().to_string() + STEAM_FOLDER).unwrap();
-    let mut librariesfolders = Vdf::parse(binding.as_str())?;
-    let mut libraries = librariesfolders.value.unwrap_obj();
-    for library_id in libraries.clone().keys() {
-        // get the library obj
-        let mut library = libraries.get(library_id).unwrap().first().unwrap().clone().unwrap_obj();
-        // prevent a crash in case of malformed libraryfolders.vdf
-        if !library.contains_key("apps") || !library.contains_key("path") { continue; }
-        // get the list of apps installed to this library
-        let apps = library.get("apps").unwrap().first().unwrap().clone().unwrap_obj();
-        // self-explanatory
-        if apps.contains_key(MEGA_MIX_APP_ID) {
-            // get the path of the library
-            let path_str = library.get("path").unwrap().first().unwrap().to_string();
-            // this is set up for removing the quotes
-            let mut path_chars = path_str.chars();
-            // remove the quotes from the value
-            path_chars.next();
-            path_chars.next_back();
-            // concat the strings together properly
-            path = format!("{}{}", path_chars.as_str(), DIVA_MOD_FOLDER_SUFFIX).to_string();
-            println!("Fuck yes, we found it, {:?}", path);
-            break;
+
+    steam_str
+}
+
+
+pub fn get_diva_folder() -> Option<String> {
+    println!("Looking for the mods folder");
+    match get_steam_folder() {
+        Some(steam_folder) => {
+            println!("{}", steam_folder);
+            let mut path = "".to_owned();
+            let mut lib_path = PathBuf::new();
+            lib_path.push(steam_folder);
+            lib_path.push(STEAM_LIBRARIES_CONFIG);
+            println!("{}", lib_path.display());
+            let binding = fs::read_to_string(lib_path).unwrap();
+            let mut lf_res = Vdf::parse(binding.as_str());
+            match lf_res {
+                Ok(libraryfolders) => {
+                    let mut libraries = libraryfolders.value.unwrap_obj();
+                    for library_id in libraries.clone().keys() {
+                        // get the library obj
+                        let mut library = libraries.get(library_id).unwrap().first().unwrap().clone().unwrap_obj();
+                        // prevent a crash in case of malformed libraryfolders.vdf
+                        if !library.contains_key("apps") || !library.contains_key("path") { continue; }
+                        // get the list of apps installed to this library
+                        let apps = library.get("apps").unwrap().first().unwrap().clone().unwrap_obj();
+                        // self-explanatory
+                        if apps.contains_key(MEGA_MIX_APP_ID) {
+                            // get the path of the library
+                            let path_str = library.get("path").unwrap().first().unwrap().to_string();
+                            // this is set up for removing the quotes
+                            let mut path_chars = path_str.chars();
+                            // remove the quotes from the value
+                            path_chars.next();
+                            path_chars.next_back();
+                            // concat the strings together properly
+                            path = format!("{}{}", path_chars.as_str(), DIVA_MOD_FOLDER_SUFFIX).to_string();
+                            println!("Fuck yes, we found it, {:?}", path);
+                            break;
+                        }
+                    }
+                    Some(path)
+                }
+                Err(e) => {
+                    eprintln!("{}", e);
+                    None
+                }
+            }
+        }
+        None => {
+            return None;
         }
     }
-    Ok(path)
 }
 
 
@@ -93,7 +188,7 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     if let config_str = toml::to_string(&diva_mod_config).unwrap() {
         match fs::write(config_path, config_str) {
             Ok(..) => {
-                println!("Sucessfully updated config for {}", diva_mod_config.name);
+                println!("Successfully updated config for {}", diva_mod_config.name);
             }
             Err(e) => {
                 eprintln!("Something went wrong: {:#?}", e);

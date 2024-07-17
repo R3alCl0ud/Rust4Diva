@@ -1,12 +1,14 @@
-use std::env;
 use std::fs::File;
 use std::io::{BufRead, Write};
 
 use curl::easy::Easy;
+use futures_util::StreamExt;
 use regex::Regex;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 use sonic_rs::{Error, JsonValueTrait};
+use tokio::sync::mpsc::{channel, Sender};
+
 use crate::modmanagement::create_tmp_if_not;
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
@@ -42,7 +44,11 @@ pub struct GBMod {
 }
 pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     // let stream = InMemoryStream::default();
+    if mod_id.is_empty() {
+        return None;
+    }
     println!("Fetching Mod data for: {}", &mod_id);
+
     // let mut mods: Vec<GBMod> = Vec::new();
     let mut easy = Easy::new();
     let mut the_mod = None;
@@ -142,34 +148,65 @@ pub fn download_mod_file(gb_file: &GbModDownload) -> std::io::Result<()> {
     }
 }
 
-pub async fn reqwest_mod_data(gb_file: &GbModDownload) {
-    let result = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(async {
-            println!("Begin retrieving the mod file");
-            let mut headers = header::HeaderMap::new();
+pub fn reqwest_mod_data(gb_file: &GbModDownload, sender: Sender<GbModDownload>) -> tokio::sync::mpsc::Receiver<u64> {
+    let (tx, rx) = channel::<u64>(64);
+    let gb_file = gb_file.clone();
+    tokio::spawn(async move {
+        println!("Begin retrieving the mod file");
+        let gb_dl = gb_file.clone();
 
-            let client = reqwest::Client::builder()
-                .default_headers(headers)
-                .build()
-                .unwrap();
-            let response = client.get(&gb_file._sDownloadUrl).send();
-            let t = response.await;
-            match t {
-                Ok(res) => {
-                    println!("Saving file to disk: {}", &gb_file._sFile);
-                    tokio::fs::write("/tmp/rust4diva/".to_owned() + &gb_file._sFile, res.bytes().await.unwrap()).await.expect("Fuck");
-                    // return Ok::<_, Box<dyn std::error::Error>>(res.bytes());
+        let res = reqwest::get(&gb_dl._sDownloadUrl).await;
+        match res {
+            Ok(res) => {
+                let mut stream = &mut res.bytes_stream();
+                let mut handle = File::create("/tmp/rust4diva/".to_owned() + &*gb_dl._sFile);
+                match handle {
+                    Ok(mut file) => {
+                        let mut all_good = true;
+                        let mut downloaded_size: u64 = 0;
+                        while let Some(data) = stream.next().await {
+                            let chunk_res = data.or(Err("Error While Downloading file"));
+                            match chunk_res {
+                                Ok(chunk) => {
+                                    downloaded_size = downloaded_size + (chunk.len() as u64);
+                                    match file.write_all(&chunk) {
+                                        Ok(..) => {
+
+                                            tx.send(downloaded_size).await.expect("Fuck");
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Fuck: {}", e);
+                                            all_good = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                                Err(_) => {}
+                            }
+
+
+                        }
+                        if all_good {
+                            println!("Saving file to disk: {}", &gb_dl._sFile);
+                            if let Err(e) = sender.send(gb_dl).await {
+                                eprintln!("Unable to communicate with UI Thread: {}", e);
+                            }
+                        }
+                    }
+                    Err(_) => {}
                 }
-                Err(e) => {
-                    eprintln!("Failed: {:#?}", e);
-                }
+                // if Ok(file) = handle.or(Err("Unable to create temp file"))? {
+
+                // }
             }
-        });
-
-    result
+            Err(e) => {
+                eprintln!("Failed: {:#?}", e);
+            }
+        }
+        // });
+    });
+    // result
+    return rx;
 }
 
 

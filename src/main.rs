@@ -2,13 +2,14 @@ use core::time::Duration;
 use std::{env, io};
 use std::cmp::PartialEq;
 use std::error::Error;
-use std::fs::File;
+use std::future::Future;
 use std::sync::{Arc, mpsc, Mutex};
 use std::thread::JoinHandle;
 
 use eframe::{CreationContext, egui, Frame};
 use eframe::emath::Align;
 use egui::{Color32, Context, DroppedFile, FontId, Layout, ProgressBar, Style, TextBuffer, TextStyle, vec2, Visuals};
+use std::collections::HashMap;
 use egui::Align::{Center, Min};
 use egui::FontFamily::{Monospace, Proportional};
 use egui_extras::{Column, TableBuilder};
@@ -19,73 +20,18 @@ use interprocess::local_socket::{
 use interprocess::local_socket::ListenerOptions;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::try_join;
 
-use crate::gamebanana_async::{download_mod_file, fetch_mod_data, GBMod, reqwest_mod_data};
-use crate::modmanagement::{get_diva_folder, load_diva_ml_config, load_mods, save_mod_config, save_mod_configs, old_unpack_mod, unpack_mod};
+use crate::gamebanana_async::{download_mod_file, fetch_mod_data, GBMod, GbModDownload, reqwest_mod_data};
+use crate::modmanagement::{create_tmp_if_not, DivaMod, DivaModLoader, get_diva_folder, load_diva_ml_config, load_mods, save_mod_config, save_mod_configs, unpack_mod};
 
 mod modmanagement;
 mod gamebanana_async;
 
 
 const CYCLE_TIME: Duration = Duration::from_secs(1);
-const STEAM_FOLDER: &str = "/.local/share/Steam/config/libraryfolders.vdf";
-const MEGA_MIX_APP_ID: &str = "1761390";
-const DIVA_MOD_FOLDER_SUFFIX: &str = "/steamapps/common/Hatsune Miku Project DIVA Mega Mix Plus";
 
-#[derive(Clone, Deserialize, Serialize)]
-struct DivaModConfig {
-    enabled: bool,
-    #[serde(default)]
-    include: Vec<String>,
-    #[serde(default)]
-    dll: Vec<String>,
-    #[serde(default)]
-    name: String,
-    #[serde(default)]
-    description: String,
-    #[serde(default)]
-    version: String,
-    #[serde(default)]
-    date: String,
-    #[serde(default)]
-    author: String,
-}
-
-#[derive(Clone)]
-struct DivaMod {
-    config: DivaModConfig,
-    path: String,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-struct DivaModLoader {
-    #[serde(default)]
-    enabled: bool,
-    #[serde(default)]
-    console: bool,
-    #[serde(default)]
-    mods: String,
-    #[serde(default)]
-    version: String,
-}
-
-
-impl DivaModConfig {
-    pub fn set_enabled(&mut self, enabled: bool) -> Self {
-        // let change = self.enabled;
-        self.enabled = enabled;
-        self.to_owned()
-    }
-}
-
-impl DivaMod {
-    pub fn set_enabled(&mut self, enabled: bool) -> Self {
-        let config = self.config.set_enabled(enabled);
-        self.config = config;
-        self.to_owned()
-    }
-}
 
 struct DivaData {
     mods: Vec<DivaMod>,
@@ -99,9 +45,11 @@ struct DivaData {
     show_dl: bool,
     dml: DivaModLoader,
     dlthreads: Vec<(JoinHandle<()>, mpsc::SyncSender<egui::Context>)>,
-    dl_done_tx: mpsc::SyncSender<f32>,
-    dl_done_rc: mpsc::Receiver<f32>,
+    dl_done_tx: Sender<GbModDownload>,
+    dl_done_rc: Receiver<GbModDownload>,
     should_dl: bool,
+    dmm_url_rx: Receiver<String>,
+    dl_progress: HashMap<String, Receiver<u64>>,
 }
 
 struct ModDlThread {
@@ -134,7 +82,7 @@ impl ModDlThread {
 }
 
 #[tokio::main]
-async fn main() -> eframe::Result {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init(); // let us println! all the things!
     println!("Starting Rust4Diva");
     let options = eframe::NativeOptions {
@@ -154,24 +102,55 @@ async fn main() -> eframe::Result {
         }
     }
 
-    eframe::run_native(
-        "Rust4Diva",
-        options,
-        Box::new(|cc| {
-            let style = Style {
-                visuals: Visuals::light(),
-                ..Style::default()
-            };
-            cc.egui_ctx.set_style(style);
-            Ok(Box::new(DivaData::new(cc)))
-        }),
-    )
+    println!("{}", env::consts::OS);
+
+    match create_tmp_if_not() {
+        Ok(..) => {}
+        Err(e) => {
+            eprintln!("Unable to create my temp directory, {}", e);
+        }
+    }
+
+    // if !dl_mod.is_empty() {
+    //     return Ok(());
+    // }
+
+    let (url_tx, mut rx) = tokio::sync::mpsc::channel(2048);
+    // rx.try_recv();
+    match spawn_listener(url_tx).await {
+        Ok(listening) => {
+            if listening {
+                match eframe::run_native(
+                    "Rust4Diva",
+                    options,
+                    Box::new(|cc| {
+                        let style = Style {
+                            visuals: Visuals::light(),
+                            ..Style::default()
+                        };
+                        cc.egui_ctx.set_style(style);
+                        Ok(Box::new(DivaData::new(cc, rx)))
+                    }),
+                ) {
+                    Ok(..) => Ok(()),
+                    Err(e) => Err(e.into())
+                }
+            } else {
+                Ok(())
+            }
+        }
+        Err(e) => return Err(e)
+    }
 }
 
 
 // #[tokio::main]
+/// This is the function for the url handling, should this return Result(True) we know that we are
+/// the listening server and should run the display window
+async fn spawn_listener(dmm_url_tx: Sender<String>) -> Result<bool, Box<dyn std::error::Error>> {
+    println!("Starting dmm url listener");
 
-async fn spawn_listener() -> Result<(), Box<dyn std::error::Error>> {
+
     let printname = "rust4diva.sock";
     // Pick a name.
     let name = if GenericNamespaced::is_supported() {
@@ -183,8 +162,8 @@ async fn spawn_listener() -> Result<(), Box<dyn std::error::Error>> {
     // Await this here since we can't do a whole lot without a connection.
     // let conn = Stream::connect(name).await;
 
-
-    async fn handle_conn(conn: Stream) -> io::Result<()> {
+    // let send_url = dmm_url_tx.clone();
+    async fn handle_conn(conn: Stream, send_url: Sender<String>) -> io::Result<()> {
         let mut recver = BufReader::new(&conn);
         let mut sender = &conn;
 
@@ -202,11 +181,16 @@ async fn spawn_listener() -> Result<(), Box<dyn std::error::Error>> {
 
         // Produce our output!
         println!("DMM Url: {}", buffer.trim());
+        // let dmm_str = buffer.trim().clone().to_owned();
+        let mut dmm_url = buffer.trim();
+        // dmm_url_tx
+        send_url.send(dmm_url.to_string()).await.expect("unable to transmit the received url to main thread");
+
         Ok(())
     }
 
-    println!("Starting dmm url listener");
-    let name = printname.to_ns_name::<GenericNamespaced>()?;
+
+    // let name = printname.to_ns_name::<GenericNamespaced>()?;
 
     // Configure our listener...
     let opts = ListenerOptions::new().name(name);
@@ -227,63 +211,39 @@ is in use by another process and try again."
     // The syncronization between the server and client, if any is used, goes here.
     eprintln!("Server running at {printname}");
     // Set up our loop boilerplate that processes our incoming connections.
-    loop {
 
-        // Sort out situations when establishing an incoming connection caused an error.
-        let conn = match listener.accept().await {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("There was an error with an incoming connection: {e}");
-                continue;
-            }
-        };
-        // Spawn new parallel asynchronous tasks onto the Tokio runtime
-        tokio::spawn(async move {
+    tokio::spawn(async move {
+        loop {
+            let url_tx: Sender<String> = dmm_url_tx.clone();
+            // Sort out situations when establishing an incoming connection caused an error.
+            let conn = match listener.accept().await {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("There was an error with an incoming connection: {e}");
+                    continue;
+                }
+            };
+            // Spawn new parallel asynchronous tasks onto the Tokio runtime
+            // tokio::spawn(async move {
             // The outer match processes errors that happen when we're connecting to something.
             // The inner if-let processes errors that happen during the connection.
-            if let Err(e) = handle_conn(conn).await {
+            if let Err(e) = handle_conn(conn, url_tx).await {
                 eprintln!("Error while handling connection: {e}");
             }
-        });
-    }
-    Ok(())
+            // });
+        }
+    });
+    Ok(true)
 }
 
-
-fn oldmain() -> Result<(), eframe::Error> {
-    env_logger::init(); // let us println! all the things!
-    println!("Starting Rust4Diva");
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 720.0]),
-        ..Default::default()
-    };
-
-    let _args = env::args().collect::<Vec<String>>();
-
-    let res = eframe::run_native(
-        "Rust4Diva",
-        options,
-        Box::new(|cc| {
-            let style = Style {
-                visuals: Visuals::light(),
-                ..Style::default()
-            };
-            cc.egui_ctx.set_style(style);
-            Ok(Box::new(DivaData::new(cc)))
-        }),
-    );
-    // res..expect("fuck");
-    return res;
-}
-
-fn start_ipc(name: String, dl_done_tx: mpsc::SyncSender<f32>) -> (JoinHandle<()>, mpsc::SyncSender<egui::Context>) {
+fn start_ipc(name: String, dl_done_tx: Sender<GbModDownload>) -> (JoinHandle<()>, mpsc::SyncSender<egui::Context>) {
     let (show_tx, show_rc) = mpsc::sync_channel(0);
     let handle = std::thread::Builder::new().name(name.clone())
         .spawn(move || {
             let mut state = ModDlThread::new(name);
             while let Ok(ctx) = show_rc.recv() {
                 state.show(&ctx);
-                let _ = dl_done_tx.send(0.01);
+                // let _ = dl_done_tx.send(0.01);
             }
         }).expect("fuck");
     (handle, show_tx)
@@ -291,8 +251,9 @@ fn start_ipc(name: String, dl_done_tx: mpsc::SyncSender<f32>) -> (JoinHandle<()>
 
 
 impl DivaData {
-    fn new(_cc: &CreationContext) -> Self {
-        let (dl_done_tx, dl_done_rc) = mpsc::sync_channel::<f32>(0);
+    fn new(_cc: &CreationContext, dmm_rx: Receiver<String>) -> Self {
+        let (dl_tx, mut dl_rx) = tokio::sync::mpsc::channel::<GbModDownload>(2048);
+        // let (dl_done_tx, dl_done_rc) = mpsc::sync_channel::(0);
         let mut slf = Self {
             mods: Vec::new(),
             downloads: Vec::new(),
@@ -310,12 +271,14 @@ impl DivaData {
                 version: "".to_string(),
             },
             dlthreads: Vec::with_capacity(1),
-            dl_done_tx,
-            dl_done_rc,
+            dl_done_tx: dl_tx,
+            dl_done_rc: dl_rx,
             should_dl: false,
+            dmm_url_rx: dmm_rx,
+            dl_progress: HashMap::new(),
         };
 
-        slf.spawn_dl_thread();
+        // slf.spawn_dl_thread();
 
         slf
     }
@@ -352,6 +315,16 @@ impl eframe::App for DivaData {
             self.mods = load_mods(self);
             // set loaded so this doesn't get called 20 billion times.
             self.loaded = true;
+        }
+        if let Ok(dmm_url) = self.dmm_url_rx.try_recv() {
+            println!("recieved dmm url on gui thread: {}", dmm_url);
+        }
+
+        if let Ok(gb_mod_dl) = self.dl_done_rc.try_recv() {
+            println!("Finished downloading: {}", &gb_mod_dl._sFile);
+            unpack_mod(&gb_mod_dl, &self);
+            println!("Reloading mods");
+            self.mods = load_mods(self);
         }
         // begin the top bar of the app
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -491,7 +464,7 @@ impl eframe::App for DivaData {
                             res.labelled_by(dl_mod.id);
                         });
                         if ui.button("Get info").clicked() {
-                            println!("{}", self.dl_mod_url);
+                            // println!("{}", self.dl_mod_url);
                             let gb_mod = fetch_mod_data(self.dl_mod_url.as_str());
                             if gb_mod.is_some() {
                                 self.downloads.push(gb_mod.unwrap());
@@ -505,22 +478,21 @@ impl eframe::App for DivaData {
                                 h.label("Files: ");
                             });
                             for mut file in gb_mod.files.iter() {
-                                ui.horizontal( |h| {
+                                ui.horizontal(|h| {
                                     let dll = h.label(format!("{}", file._sFile));
                                     let mut dl = h.button("Install This file").labelled_by(dll.id);
-                                    if dl.clicked() {
-                                        let res = download_mod_file(file);
-                                        // let res = reqwest_mod_data(file);
-                                        // res.
-                                        match res {
-                                            Ok(_) => {
-                                                unpack_mod(file, &self);
-                                                println!("Mod installed, reloading mods");
-                                                self.mods = load_mods(self);
-                                            }
-                                            Err(e) => eprintln!("Failed to write data: {}", e)
+                                    if dl.clicked() && !self.dl_progress.contains_key(&file._sFile.to_string()) {
+                                        let prog_rx = reqwest_mod_data(file, self.dl_done_tx.clone());
+                                        self.dl_progress.insert(file._sFile.to_string(), prog_rx);
+                                    }
+                                    if self.dl_progress.contains_key(&file._sFile) {
+                                        let mut rx = self.dl_progress.get_mut(&file._sFile).unwrap();
+                                        if let Ok(prog) = rx.try_recv() {
+                                            let prog_float = file._nFilesize as f64 / prog as f64;
+                                            println!("DL Progress: {}", prog_float);
+                                            let progress = ProgressBar::new(prog_float as f32);
+                                            h.add(progress);
                                         }
-                                        // unpack_mod(file, &self);
                                     }
                                 });
                             }
