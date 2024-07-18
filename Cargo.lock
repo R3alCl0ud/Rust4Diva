@@ -4319,6 +4319,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "reqwest-streams"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee84cc47a7a0ac7562173c8f421c058e4c72089d6e662f32e2cb4bcc8e6e9201"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "cargo-husky",
+ "futures",
+ "reqwest",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "resvg"
 version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

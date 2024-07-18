@@ -6,7 +6,6 @@ use compress_tools::{Ownership, uncompress_archive};
 use keyvalues_parser::Vdf;
 use serde::{Deserialize, Serialize};
 use toml::de::Error;
-
 use crate::DivaData;
 use crate::gamebanana_async::GbModDownload;
 

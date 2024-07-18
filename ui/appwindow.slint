@@ -1,4 +1,4 @@
-import { Button, VerticalBox } from "std-widgets.slint";
+import { Button, VerticalBox,HorizontalBox, StandardTableView } from "std-widgets.slint";
 
 export struct DivaModConfig {
     enabled: bool,
@@ -20,30 +20,27 @@ export component App inherits Window {
     // in property <Array<int>> fs: [4,3,2];
     in property <[int]> fs: [1,2,3];
     in property <[DivaModConfig]> mods: [];
+    in property <[[StandardListViewItem]]> stuff;
+    property window_width <=> self.width;
+    property window_height <=> self.height;
     callback clicked <=> btn.clicked;
+    callback add-mod;
     VerticalBox {
-        Text { text: "Rust" + counter + "Diva"; }
+        StandardTableView {
+            min-width: window_width - 12px;
+            height: window_height - 200px;
+            columns: [
+                { title: "Enabled"},
+                { title: "Name"},
+                { title: "Authors"},
+                { title: "Version"},
+                { title: "Description"}
+             ];
+            rows: stuff;
+        }
+        btn := Button {
+            text: "Load Mods";
 
-        btn := Button { text: "Diva Button"; }
-
-        GridLayout {
-            padding: 20px;
-            spacing: 10px;
-            Row {
-                Text { text: "Enabled";}
-                Text { text: "Name";}
-                Text { text: "Authors";}
-                Text { text: "Version";}
-                Text { text: "Description";}
-            }
-//            for mod in mods:
-                Row {
-                    Text { text: "1";}
-                    Text { text: "2";}
-                    Text { text: "3";}
-                    Text { text: "4";}
-                    Text { text: "5";}
-                }
         }
     }
 }
