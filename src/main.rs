@@ -1,14 +1,12 @@
 use core::time::Duration;
 use std::{env, io};
 use std::cmp::PartialEq;
-use std::error::Error;
-use std::future::Future;
 use std::sync::{Arc, mpsc, Mutex};
 use std::thread::JoinHandle;
 
 use eframe::{CreationContext, egui, Frame};
 use eframe::emath::Align;
-use egui::{Color32, Context, DroppedFile, FontId, Layout, ProgressBar, Style, TextBuffer, TextStyle, vec2, Visuals};
+use egui::{Color32, Context, DroppedFile, FontId, Layout, ProgressBar, Style, TextStyle, vec2, Visuals};
 use std::collections::HashMap;
 use egui::Align::{Center, Min};
 use egui::FontFamily::{Monospace, Proportional};
@@ -23,8 +21,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::try_join;
 
-use crate::gamebanana_async::{download_mod_file, fetch_mod_data, GBMod, GbModDownload, reqwest_mod_data};
-use crate::modmanagement::{create_tmp_if_not, DivaMod, DivaModLoader, get_diva_folder, load_diva_ml_config, load_mods, save_mod_config, save_mod_configs, unpack_mod};
+use crate::gamebanana_async::{download_mod_file, fetch_mod_data, GBMod, GbModDownload, parse_dmm_url, reqwest_mod_data};
+use crate::modmanagement::{create_tmp_if_not, DivaMod, DivaModLoader, get_diva_folder, load_diva_ml_config, load_mods, save_mod_config, save_mod_configs, unpack_mod_from_temp};
 
 mod modmanagement;
 mod gamebanana_async;
@@ -32,6 +30,16 @@ mod gamebanana_async;
 
 const CYCLE_TIME: Duration = Duration::from_secs(1);
 
+
+struct DlProgress {
+    rx: Receiver<u64>,
+    progress: f32,
+}
+
+struct DlFinish {
+    success: bool,
+    file: GbModDownload,
+}
 
 struct DivaData {
     mods: Vec<DivaMod>,
@@ -45,11 +53,11 @@ struct DivaData {
     show_dl: bool,
     dml: DivaModLoader,
     dlthreads: Vec<(JoinHandle<()>, mpsc::SyncSender<egui::Context>)>,
-    dl_done_tx: Sender<GbModDownload>,
-    dl_done_rc: Receiver<GbModDownload>,
+    dl_done_tx: Sender<DlFinish>,
+    dl_done_rc: Receiver<DlFinish>,
     should_dl: bool,
     dmm_url_rx: Receiver<String>,
-    dl_progress: HashMap<String, Receiver<u64>>,
+    dl_progress: HashMap<String, DlProgress>,
 }
 
 struct ModDlThread {
@@ -144,7 +152,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 
-// #[tokio::main]
 /// This is the function for the url handling, should this return Result(True) we know that we are
 /// the listening server and should run the display window
 async fn spawn_listener(dmm_url_tx: Sender<String>) -> Result<bool, Box<dyn std::error::Error>> {
@@ -182,7 +189,7 @@ async fn spawn_listener(dmm_url_tx: Sender<String>) -> Result<bool, Box<dyn std:
         // Produce our output!
         println!("DMM Url: {}", buffer.trim());
         // let dmm_str = buffer.trim().clone().to_owned();
-        let mut dmm_url = buffer.trim();
+        let dmm_url = buffer.trim();
         // dmm_url_tx
         send_url.send(dmm_url.to_string()).await.expect("unable to transmit the received url to main thread");
 
@@ -236,7 +243,7 @@ is in use by another process and try again."
     Ok(true)
 }
 
-fn start_ipc(name: String, dl_done_tx: Sender<GbModDownload>) -> (JoinHandle<()>, mpsc::SyncSender<egui::Context>) {
+fn start_ipc(name: String, _dl_done_tx: Sender<Option<GbModDownload>>) -> (JoinHandle<()>, mpsc::SyncSender<egui::Context>) {
     let (show_tx, show_rc) = mpsc::sync_channel(0);
     let handle = std::thread::Builder::new().name(name.clone())
         .spawn(move || {
@@ -252,7 +259,7 @@ fn start_ipc(name: String, dl_done_tx: Sender<GbModDownload>) -> (JoinHandle<()>
 
 impl DivaData {
     fn new(_cc: &CreationContext, dmm_rx: Receiver<String>) -> Self {
-        let (dl_tx, mut dl_rx) = tokio::sync::mpsc::channel::<GbModDownload>(2048);
+        let (dl_tx, mut dl_rx) = tokio::sync::mpsc::channel::<DlFinish>(2048);
         // let (dl_done_tx, dl_done_rc) = mpsc::sync_channel::(0);
         let mut slf = Self {
             mods: Vec::new(),
@@ -261,7 +268,7 @@ impl DivaData {
             loaded: false,
             mods_directory: "".to_string(),
             dropped_files: Vec::new(),
-            dl_mod_url: "".to_string(),
+            dl_mod_url: "524621".to_string(),
             show_dl: false,
             diva_directory: "".to_string(),
             dml: DivaModLoader {
@@ -283,9 +290,9 @@ impl DivaData {
         slf
     }
 
-    fn spawn_dl_thread(&mut self) {
-        self.dlthreads.push(start_ipc("test".to_owned(), self.dl_done_tx.clone()));
-    }
+    // fn spawn_dl_thread(&mut self) {
+    //     self.dlthreads.push(start_ipc("test".to_owned(), self.dl_done_tx.clone()));
+    // }
 }
 
 impl std::ops::Drop for DivaData {
@@ -318,13 +325,21 @@ impl eframe::App for DivaData {
         }
         if let Ok(dmm_url) = self.dmm_url_rx.try_recv() {
             println!("recieved dmm url on gui thread: {}", dmm_url);
+            let _gb_item = parse_dmm_url(dmm_url);
+            // gb_item.unwrap().
         }
 
         if let Ok(gb_mod_dl) = self.dl_done_rc.try_recv() {
-            println!("Finished downloading: {}", &gb_mod_dl._sFile);
-            unpack_mod(&gb_mod_dl, &self);
-            println!("Reloading mods");
-            self.mods = load_mods(self);
+            self.dl_progress.remove(&gb_mod_dl.file._sFile);
+            if gb_mod_dl.success {
+                println!("Finished downloading: {}", &gb_mod_dl.file._sFile);
+                unpack_mod_from_temp(&gb_mod_dl.file, &self);
+                println!("Reloading mods");
+                self.mods = load_mods(self);
+
+            } else {
+                eprintln!("Failed downloading: {}", &gb_mod_dl.file._sFile);
+            }
         }
         // begin the top bar of the app
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -405,11 +420,11 @@ impl eframe::App for DivaData {
                                 ui.heading("Description");
                             });
                         })
-                        .body(|mut body| {
+                        .body(|body| {
                             body.rows(40.0, self.mods.len(), |mut row| {
-                                let mut divamod = &mut self.mods[row.index()];
+                                let divamod = &mut self.mods[row.index()];
                                 let mod_path = &divamod.path;
-                                let mut config = &mut divamod.config;
+                                let config = &mut divamod.config;
                                 row.col(|ui| {
                                     ui.with_layout(Layout::top_down_justified(Center), |ui| {
                                         let text = if config.enabled { "Yes" } else { "No" };
@@ -472,49 +487,45 @@ impl eframe::App for DivaData {
                                 println!("Could not get mod info");
                             }
                         }
-                        for mut gb_mod in self.downloads.clone().iter() {
+                        for gb_mod in self.downloads.clone().iter() {
                             ui.horizontal(|h| {
                                 h.label(&gb_mod.name);
                                 h.label("Files: ");
                             });
-                            for mut file in gb_mod.files.iter() {
+                            for file in gb_mod.files.iter() {
                                 ui.horizontal(|h| {
                                     let dll = h.label(format!("{}", file._sFile));
-                                    let mut dl = h.button("Install This file").labelled_by(dll.id);
-                                    if dl.clicked() && !self.dl_progress.contains_key(&file._sFile.to_string()) {
-                                        let prog_rx = reqwest_mod_data(file, self.dl_done_tx.clone());
-                                        self.dl_progress.insert(file._sFile.to_string(), prog_rx);
-                                    }
                                     if self.dl_progress.contains_key(&file._sFile) {
-                                        let mut rx = self.dl_progress.get_mut(&file._sFile).unwrap();
-                                        if let Ok(prog) = rx.try_recv() {
-                                            let prog_float = file._nFilesize as f64 / prog as f64;
-                                            println!("DL Progress: {}", prog_float);
-                                            let progress = ProgressBar::new(prog_float as f32);
-                                            h.add(progress);
+                                        let dl_prog = self.dl_progress.get_mut(&file._sFile).unwrap();
+                                        while !dl_prog.rx.is_empty() {
+                                            if let Ok(prog) = dl_prog.rx.try_recv() {
+                                                dl_prog.progress = prog as f32 / file._nFilesize as f32;
+                                            }
+                                        }
+                                        let progress = ProgressBar::new(dl_prog.progress)
+                                            .text(format!("{:.2}%", dl_prog.progress * 100.0));
+                                        h.add(progress);
+                                    } else {
+                                        let dl = h.button("Install This file").labelled_by(dll.id);
+                                        if dl.clicked() && !self.dl_progress.contains_key(&file._sFile.to_string()) {
+                                            let prog_rx = download_mod_file(file, self.dl_done_tx.clone());
+                                            self.dl_progress.insert(file._sFile.to_string(), DlProgress {
+                                                rx: prog_rx,
+                                                progress: 0.0,
+                                            });
                                         }
                                     }
                                 });
-                            }
-                            if ui.checkbox(&mut self.should_dl, "show dl test").clicked() {}
-                            if self.dlthreads.len() > 0 {
-                                if self.should_dl {
-                                    let (_handle, show_tx) = &self.dlthreads.last().unwrap();
-                                    let _ = show_tx.send(ctx.clone());
-                                    for _ in 0..self.dlthreads.len() {
-                                        let _ = self.dl_done_rc.recv();
-                                    }
-                                }
                             }
                         }
                     });
 
                     if ctx.input(|i| i.viewport().close_requested()) {
-                        // Tell parent viewport that we should not show next frame:
                         self.show_dl = false;
                     }
                 })
         }
+        ctx.request_repaint();
     }
 }
 

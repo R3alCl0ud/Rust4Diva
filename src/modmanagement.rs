@@ -1,10 +1,8 @@
 use std::{env, fs};
 use std::fs::File;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use compress_tools::{Ownership, uncompress_archive};
-use egui::TextBuffer;
 use keyvalues_parser::Vdf;
 use serde::{Deserialize, Serialize};
 use toml::de::Error;
@@ -136,13 +134,13 @@ pub fn get_diva_folder() -> Option<String> {
             lib_path.push(STEAM_LIBRARIES_CONFIG);
             println!("{}", lib_path.display());
             let binding = fs::read_to_string(lib_path).unwrap();
-            let mut lf_res = Vdf::parse(binding.as_str());
+            let lf_res = Vdf::parse(binding.as_str());
             match lf_res {
                 Ok(libraryfolders) => {
-                    let mut libraries = libraryfolders.value.unwrap_obj();
+                    let libraries = libraryfolders.value.unwrap_obj();
                     for library_id in libraries.clone().keys() {
                         // get the library obj
-                        let mut library = libraries.get(library_id).unwrap().first().unwrap().clone().unwrap_obj();
+                        let library = libraries.get(library_id).unwrap().first().unwrap().clone().unwrap_obj();
                         // prevent a crash in case of malformed libraryfolders.vdf
                         if !library.contains_key("apps") || !library.contains_key("path") { continue; }
                         // get the list of apps installed to this library
@@ -177,7 +175,7 @@ pub fn get_diva_folder() -> Option<String> {
 }
 
 
-pub fn save_mod_configs(mut diva_data: &mut DivaData) {
+pub fn save_mod_configs(diva_data: &mut DivaData) {
     for diva_mod in &diva_data.mods {
         println!("{}\n{}", &diva_mod.path, toml::to_string(&diva_mod.config).unwrap());
     }
@@ -185,7 +183,7 @@ pub fn save_mod_configs(mut diva_data: &mut DivaData) {
 pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     println!("{}\n{}", path, toml::to_string(&diva_mod_config).unwrap());
     let config_path = Path::new(path);
-    if let config_str = toml::to_string(&diva_mod_config).unwrap() {
+    if let Ok(config_str) = toml::to_string(&diva_mod_config) {
         match fs::write(config_path, config_str) {
             Ok(..) => {
                 println!("Successfully updated config for {}", diva_mod_config.name);
@@ -197,14 +195,14 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     }
 }
 
-pub fn old_unpack_mod(mod_archive: File, diva_data: &&mut DivaData) {
+pub fn unpack_mod(mod_archive: File, diva_data: &&mut DivaData) {
     uncompress_archive(mod_archive, Path::new(format!("{}/{}", &diva_data.diva_directory, &diva_data.dml.mods).as_str()), Ownership::Preserve)
         .expect("Welp, wtf, idk what happened, must be out of space or some shit");
 }
 
-pub fn unpack_mod(module: &GbModDownload, diva_data: &&mut DivaData) {
+pub fn unpack_mod_from_temp(module: &GbModDownload, diva_data: &&mut DivaData) {
     let module_path = "/tmp/rust4diva/".to_owned() + &*module._sFile;
-    if let file = File::open(&module_path).unwrap() {
+    if let Ok(file) = File::open(&module_path) {
         uncompress_archive(file, Path::new(format!("{}/{}", &diva_data.diva_directory, &diva_data.dml.mods).as_str()), Ownership::Preserve)
             .expect("Welp, wtf, idk what happened, must be out of space or some shit");
     } else {

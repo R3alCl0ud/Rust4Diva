@@ -19,4 +19,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: rust4diva${{ github.head_ref }}-linux.zip
-          path: .target/rust4diva
+          path: target/debug/rust4diva
