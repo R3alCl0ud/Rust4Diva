@@ -20,12 +20,13 @@ dirs = "5.0.1"
 keyvalues-parser = "0.2.0"
 egui_extras = "0.28.1"
 compress-tools = "0.15.0"
-reqwest = "0.12.5"
+reqwest = { version = "0.12.5", features = ["stream"] }
+reqwest-streams = "0.7.0"
 tokio = { version = "1.38.0", features = ["full"] }
 interprocess = { version = "2.2.0", features = ["tokio"] }
 tokio-macros = { version = "0.2.0-alpha.6" }
 slint = "1.6.0"
-
+futures-util = "0.3.30"
 
 
 [build-dependencies]

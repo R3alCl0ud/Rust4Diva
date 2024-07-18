@@ -1,81 +1,72 @@
-use std::fs;
+use std::{env, fs};
 use std::fs::File;
-use std::io::Write;
-use std::path::Path;
-use std::sync::mpsc;
-use std::thread::JoinHandle;
+use std::path::{Path, PathBuf};
 
 use compress_tools::{Ownership, uncompress_archive};
-use egui::{DroppedFile, TextBuffer};
 use keyvalues_parser::Vdf;
-use sonic_rs::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use toml::de::Error;
 
-use crate::gamebanana_async::{GBMod, GbModDownload};
+use crate::DivaData;
+use crate::gamebanana_async::GbModDownload;
 
-const STEAM_FOLDER: &str = "/.local/share/Steam/config/libraryfolders.vdf";
+const STEAM_FOLDER: &str = ".local/share/Steam";
+const STEAM_LIBRARIES_CONFIG: &str = "config/libraryfolders.vdf";
 const MEGA_MIX_APP_ID: &str = "1761390";
 const DIVA_MOD_FOLDER_SUFFIX: &str = "/steamapps/common/Hatsune Miku Project DIVA Mega Mix Plus";
 
-
-// begin structs for the diva configs and stuff
-
 #[derive(Clone, Deserialize, Serialize)]
-struct DivaModConfig {
-    enabled: bool,
+pub struct DivaModConfig {
+    pub(crate) enabled: bool,
     #[serde(default)]
-    include: Vec<String>,
+    pub(crate) include: Vec<String>,
     #[serde(default)]
-    dll: Vec<String>,
+    pub(crate) dll: Vec<String>,
     #[serde(default)]
-    name: String,
+    pub(crate) name: String,
     #[serde(default)]
-    description: String,
+    pub(crate) description: String,
     #[serde(default)]
-    version: String,
+    pub(crate) version: String,
     #[serde(default)]
-    date: String,
+    pub(crate) date: String,
     #[serde(default)]
-    author: String,
+    pub(crate) author: String,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-struct DivaModLoader {
-    #[serde(default)]
-    enabled: bool,
-    #[serde(default)]
-    console: bool,
-    #[serde(default)]
-    mods: String,
-    #[serde(default)]
-    version: String,
-}
-
-///
-/// Represents a diva mod after it has been loaded in to program memory
-///
-///
 #[derive(Clone)]
-struct DivaMod {
-    config: DivaModConfig,
-    path: String,
+pub struct DivaMod {
+    pub(crate) config: DivaModConfig,
+    pub(crate) path: String,
 }
 
-struct DivaData {
-    mods: Vec<DivaMod>,
-    current_dl: Option<GBMod>,
-    downloads: Vec<GBMod>,
-    mods_directory: String,
-    diva_directory: String,
-    dl_mod_url: String,
-    loaded: bool,
-    dropped_files: Vec<DroppedFile>,
-    show_dl: bool,
-    dml: DivaModLoader,
-    dlthreads: Vec<(JoinHandle<()>, mpsc::SyncSender<egui::Context>)>,
-    dl_done_tx: mpsc::SyncSender<f32>,
-    dl_done_rc: mpsc::Receiver<f32>,
-    should_dl: bool,
+#[derive(Clone, Deserialize, Serialize)]
+pub struct DivaModLoader {
+    #[serde(default)]
+    pub(crate) enabled: bool,
+    #[serde(default)]
+    pub(crate) console: bool,
+    #[serde(default)]
+    pub(crate) mods: String,
+    #[serde(default)]
+    pub(crate) version: String,
+}
+
+
+impl DivaModConfig {
+    pub fn set_enabled(&mut self, enabled: bool) -> Self {
+        // let change = self.enabled;
+        self.enabled = enabled;
+        self.to_owned()
+    }
+}
+
+impl DivaMod {
+    pub fn set_enabled(&mut self, enabled: bool) -> Self {
+        let config = self.config.set_enabled(enabled);
+        self.config = config;
+        self.to_owned()
+    }
 }
 
 pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
@@ -112,46 +103,79 @@ pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
     mods
 }
 
-/// Parses the libraryfolders.vdf in the user's home folder it exists
-///
-/// If we are unable to fix the install location of Project Diva then an empty string is returned
-pub fn get_diva_folder() -> Result<String, Box<dyn std::error::Error>> {
-    println!("Looking for the mods folder");
 
-    if !Path::new((dirs::home_dir().unwrap().display().to_string() + STEAM_FOLDER).as_str()).exists() {
-        println!("Steam install directory not found");
-    }
-    let mut path = "".to_owned();
-    let binding = fs::read_to_string(dirs::home_dir().unwrap().display().to_string() + STEAM_FOLDER).unwrap();
-    let mut librariesfolders = Vdf::parse(binding.as_str())?;
-    let mut libraries = librariesfolders.value.unwrap_obj();
-    for library_id in libraries.clone().keys() {
-        // get the library obj
-        let mut library = libraries.get(library_id).unwrap().first().unwrap().clone().unwrap_obj();
-        // prevent a crash in case of malformed libraryfolders.vdf
-        if !library.contains_key("apps") || !library.contains_key("path") { continue; }
-        // get the list of apps installed to this library
-        let apps = library.get("apps").unwrap().first().unwrap().clone().unwrap_obj();
-        // self-explanatory
-        if apps.contains_key(MEGA_MIX_APP_ID) {
-            // get the path of the library
-            let path_str = library.get("path").unwrap().first().unwrap().to_string();
-            // this is set up for removing the quotes
-            let mut path_chars = path_str.chars();
-            // remove the quotes from the value
-            path_chars.next();
-            path_chars.next_back();
-            // concat the strings together properly
-            path = format!("{}{}", path_chars.as_str(), DIVA_MOD_FOLDER_SUFFIX).to_string();
-            println!("Fuck yes, we found it, {:?}", path);
-            break;
+pub fn get_steam_folder() -> Option<String> {
+    let mut steam_str = None;
+    println!("Attempting to find the Steam folder");
+    match env::consts::OS {
+        "linux" => {
+            let mut binding = dirs::home_dir().unwrap();
+            binding.push(STEAM_FOLDER);
+            if !binding.exists() {
+                println!("Steam folder not found");
+            }
+            steam_str = Some(binding.display().to_string());
         }
+        _ => { println!("Unsupported Operating system: {}", env::consts::OS) }
     }
-    Ok(path)
+
+    steam_str
 }
 
 
-pub fn save_mod_configs(mut diva_data: &mut DivaData) {
+pub fn get_diva_folder() -> Option<String> {
+    println!("Looking for the mods folder");
+    match get_steam_folder() {
+        Some(steam_folder) => {
+            println!("{}", steam_folder);
+            let mut path = "".to_owned();
+            let mut lib_path = PathBuf::new();
+            lib_path.push(steam_folder);
+            lib_path.push(STEAM_LIBRARIES_CONFIG);
+            println!("{}", lib_path.display());
+            let binding = fs::read_to_string(lib_path).unwrap();
+            let lf_res = Vdf::parse(binding.as_str());
+            match lf_res {
+                Ok(libraryfolders) => {
+                    let libraries = libraryfolders.value.unwrap_obj();
+                    for library_id in libraries.clone().keys() {
+                        // get the library obj
+                        let library = libraries.get(library_id).unwrap().first().unwrap().clone().unwrap_obj();
+                        // prevent a crash in case of malformed libraryfolders.vdf
+                        if !library.contains_key("apps") || !library.contains_key("path") { continue; }
+                        // get the list of apps installed to this library
+                        let apps = library.get("apps").unwrap().first().unwrap().clone().unwrap_obj();
+                        // self-explanatory
+                        if apps.contains_key(MEGA_MIX_APP_ID) {
+                            // get the path of the library
+                            let path_str = library.get("path").unwrap().first().unwrap().to_string();
+                            // this is set up for removing the quotes
+                            let mut path_chars = path_str.chars();
+                            // remove the quotes from the value
+                            path_chars.next();
+                            path_chars.next_back();
+                            // concat the strings together properly
+                            path = format!("{}{}", path_chars.as_str(), DIVA_MOD_FOLDER_SUFFIX).to_string();
+                            println!("Fuck yes, we found it, {:?}", path);
+                            break;
+                        }
+                    }
+                    Some(path)
+                }
+                Err(e) => {
+                    eprintln!("{}", e);
+                    None
+                }
+            }
+        }
+        None => {
+            return None;
+        }
+    }
+}
+
+
+pub fn save_mod_configs(diva_data: &mut DivaData) {
     for diva_mod in &diva_data.mods {
         println!("{}\n{}", &diva_mod.path, toml::to_string(&diva_mod.config).unwrap());
     }
@@ -159,10 +183,10 @@ pub fn save_mod_configs(mut diva_data: &mut DivaData) {
 pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     println!("{}\n{}", path, toml::to_string(&diva_mod_config).unwrap());
     let config_path = Path::new(path);
-    if let config_str = toml::to_string(&diva_mod_config).unwrap() {
+    if let Ok(config_str) = toml::to_string(&diva_mod_config) {
         match fs::write(config_path, config_str) {
             Ok(..) => {
-                println!("Sucessfully updated config for {}", diva_mod_config.name);
+                println!("Successfully updated config for {}", diva_mod_config.name);
             }
             Err(e) => {
                 eprintln!("Something went wrong: {:#?}", e);
@@ -171,14 +195,14 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     }
 }
 
-pub fn old_unpack_mod(mod_archive: File, diva_data: &&mut DivaData) {
+pub fn unpack_mod(mod_archive: File, diva_data: &&mut DivaData) {
     uncompress_archive(mod_archive, Path::new(format!("{}/{}", &diva_data.diva_directory, &diva_data.dml.mods).as_str()), Ownership::Preserve)
         .expect("Welp, wtf, idk what happened, must be out of space or some shit");
 }
 
-pub fn unpack_mod(module: &GbModDownload, diva_data: &&mut DivaData) {
+pub fn unpack_mod_from_temp(module: &GbModDownload, diva_data: &&mut DivaData) {
     let module_path = "/tmp/rust4diva/".to_owned() + &*module._sFile;
-    if let file = File::open(&module_path).unwrap() {
+    if let Ok(file) = File::open(&module_path) {
         uncompress_archive(file, Path::new(format!("{}/{}", &diva_data.diva_directory, &diva_data.dml.mods).as_str()), Ownership::Preserve)
             .expect("Welp, wtf, idk what happened, must be out of space or some shit");
     } else {

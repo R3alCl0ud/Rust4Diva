@@ -1,13 +1,14 @@
-use std::env;
 use std::fs::File;
 use std::io::{BufRead, Write};
 
 use curl::easy::Easy;
+use futures_util::StreamExt;
 use regex::Regex;
-use reqwest::header;
 use serde::{Deserialize, Serialize};
-use sonic_rs::{Error, JsonValueTrait};
-use crate::modmanagement::create_tmp_if_not;
+use sonic_rs::Error;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+
+use crate::DlFinish;
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
 const _GB_DOMAIN: &str = "https://gamebanana.com";
@@ -42,7 +43,11 @@ pub struct GBMod {
 }
 pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     // let stream = InMemoryStream::default();
+    if mod_id.is_empty() {
+        return None;
+    }
     println!("Fetching Mod data for: {}", &mod_id);
+
     // let mut mods: Vec<GBMod> = Vec::new();
     let mut easy = Easy::new();
     let mut the_mod = None;
@@ -54,19 +59,17 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
             for line in data.lines() {
                 data_json.push_str(line.unwrap().as_str());
             }
-            println!("{:#}", data_json);
+            // println!("{:#}", data_json);
             let mut res: Result<sonic_rs::Value, Error> = sonic_rs::from_str(data_json.as_str());
             let mut dl_files: Vec<GbModDownload> = Vec::new();
             if res.is_ok() {
                 let mod_data = res.unwrap();
                 let info_mods = mod_data[1].clone().into_object();
-                // match info_mods {
                 // make sure we've actually got a proper response data
                 if info_mods.is_some() {
                     for (key, value) in info_mods.unwrap().iter() {
-                        // let file_str = sonic_rs::to_string(value).unwrap();
                         let dl_file: GbModDownload = sonic_rs::from_value(value).unwrap();
-                        println!("{:?}: {:?}", key, dl_file);
+                        // println!("{:?}: {:?}", key, dl_file);
                         dl_files.push(dl_file);
                     }
                     the_mod = Some(GBMod {
@@ -85,95 +88,150 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     return the_mod;
 }
 
-struct GbUrlData {
-    name: String,
-    itemtype: String,
-    file: String,
+pub struct GbDmmItem {
+    pub(crate) item_id: String,
+    pub(crate) itemtype: String,
+    pub(crate) file_id: String,
 }
 
-pub fn parse_dmm_url(dmm_url: String) -> Option<GbUrlData> {
+pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     // check if this is a proper dmm 1 click url
     if !dmm_url.starts_with("divamodmanager:https://gamebanana.com/mmdl/") {
         return None;
     }
 
     let mod_regex = Regex::new(r"([0-9]+),(.+),([0-9]+)").unwrap();
-    // let args = env::args().collect::<Vec<String>>();
     let Some(m_info) = mod_regex.captures(dmm_url.as_str()) else {
         println!("Sorry, no fucks in here");
         return None;
     };
-    return Some(GbUrlData {
-        name: m_info.get(0).unwrap().as_str().to_string(),
+    return Some(GbDmmItem {
+        item_id: m_info.get(0).unwrap().as_str().to_string(),
         itemtype: m_info.get(1).unwrap().as_str().to_string(),
-        file: m_info.get(2).unwrap().as_str().to_string(),
+        file_id: m_info.get(2).unwrap().as_str().to_string(),
     });
 }
 
-pub fn download_mod_file(gb_file: &GbModDownload) -> std::io::Result<()> {
+pub fn download_mod_file(gb_file: &GbModDownload, sender: Sender<DlFinish>) -> Receiver<u64> {
     println!("{}", gb_file._sFile);
-    let mut dst = Vec::new();
-    let mut easy = Easy::new();
-    easy.url(gb_file._sDownloadUrl.as_str()).unwrap();
-    let _redirect = easy.follow_location(true);
-
-    {
-        let mut transfer = easy.transfer();
-        transfer.write_function(|data| {
-            dst.extend_from_slice(data);
-            Ok(data.len())
-        }).unwrap();
-        println!("fetching file");
-        transfer.perform().unwrap();
-    }
-
-    let mut file = File::create("/tmp/rust4diva/".to_owned() + &gb_file._sFile)?;
-    let dir = create_tmp_if_not();
-    match &dir {
-        Ok(..) => {
-            println!("Writing file");
-            file.write_all(dst.as_slice())?;
-            println!("Done writing file to tmp directory");
-            return Ok(());
+    let (tx, rx) = channel::<u64>(2048);
+    let gb_file = gb_file.clone();
+    tokio::spawn(async move {
+        let mut dst = Vec::new();
+        let mut easy = Easy::new();
+        easy.url(gb_file._sDownloadUrl.as_str()).unwrap();
+        let _redirect = easy.follow_location(true);
+        let mut downloaded_size: u64 = 0;
+        {
+            let mut transfer = easy.transfer();
+            transfer.write_function(|data| {
+                dst.extend_from_slice(data);
+                downloaded_size = downloaded_size + data.len() as u64;
+                let _ = tx.try_send(downloaded_size);
+                Ok(data.len())
+            }).unwrap();
+            println!("fetching file");
+            transfer.perform().unwrap();
         }
-        Err(e) => {
-            return dir;
+        let mut file_res = File::create("/tmp/rust4diva/".to_owned() + &gb_file._sFile);
+        match file_res {
+            Ok(mut file) => {
+                println!("Writing file");
+                file.write_all(dst.as_slice()).expect("Failed to write to file");
+                sender.send(DlFinish {
+                    file: gb_file,
+                    success: true,
+                }).await.unwrap();
+            }
+            Err(e) => {
+                sender.send(DlFinish {
+                    file: gb_file,
+                    success: false,
+                }).await.expect("uh oh");
+            }
         }
-    }
+    });
+    return rx;
 }
 
-pub async fn reqwest_mod_data(gb_file: &GbModDownload) {
-    let result = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(async {
-            println!("Begin retrieving the mod file");
-            let mut headers = header::HeaderMap::new();
+pub fn reqwest_mod_data(gb_file: &GbModDownload, sender: Sender<Option<GbModDownload>>) -> tokio::sync::mpsc::Receiver<u64> {
+    let (tx, rx) = channel::<u64>(2048);
+    let gb_file = gb_file.clone();
+    tokio::spawn(async move {
+        println!("Begin retrieving the mod file");
+        let gb_dl = gb_file.clone();
 
-            let client = reqwest::Client::builder()
-                .default_headers(headers)
-                .build()
-                .unwrap();
-            let response = client.get(&gb_file._sDownloadUrl).send();
-            let t = response.await;
-            match t {
-                Ok(res) => {
-                    println!("Saving file to disk: {}", &gb_file._sFile);
-                    tokio::fs::write("/tmp/rust4diva/".to_owned() + &gb_file._sFile, res.bytes().await.unwrap()).await.expect("Fuck");
-                    // return Ok::<_, Box<dyn std::error::Error>>(res.bytes());
-                }
-                Err(e) => {
-                    eprintln!("Failed: {:#?}", e);
+        let res = reqwest::get(&gb_dl._sDownloadUrl).await;
+        match res {
+            Ok(res) => {
+                println!("Has received response from GameBanana");
+                let mut stream = &mut res.bytes_stream();
+                let mut handle = File::create("/tmp/rust4diva/".to_owned() + &*gb_dl._sFile);
+                match handle {
+                    Ok(mut file) => {
+                        let mut all_good = true;
+                        let mut downloaded_size: u64 = 0;
+                        while let Some(data) = stream.next().await {
+                            let chunk_res = data.or(Err("Error While Downloading file"));
+                            match chunk_res {
+                                Ok(chunk) => {
+                                    downloaded_size = downloaded_size + (chunk.len() as u64);
+                                    match file.write_all(&chunk) {
+                                        Ok(..) => {
+                                            let _ = tx.try_send(downloaded_size);
+                                            // match  {
+                                            // Ok(_) => {
+                                            //     println!("Progress sent");
+                                            // }
+                                            // Err(e) => {
+                                            //     eprintln!("Failed to send progress back to ui thread: {}", e);
+                                            // }
+                                            // }
+                                            // tx.send(downloaded_size)
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Fuck: {}", e);
+                                            all_good = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    all_good = false;
+                                    eprintln!("Download ended early: {}", e);
+                                }
+                            }
+                        }
+                        if downloaded_size < gb_file._nFilesize as u64 {
+                            all_good = false;
+                        }
+                        if all_good {
+                            println!("Saving file to disk: {}", &gb_dl._sFile);
+                            if let Err(e) = sender.send(Some(gb_dl)).await {
+                                eprintln!("Unable to communicate with UI Thread: {}", e);
+                            }
+                        } else {
+                            eprintln!("Something went wrong during the download");
+                            sender.send(None).await.expect("Fuck");
+                        }
+                    }
+                    Err(w) => {
+                        eprintln!("{}", w);
+                        sender.send(None).await.expect("Fuck");
+                    }
                 }
             }
-        });
-
-    result
+            Err(e) => {
+                eprintln!("Failed: {:#?}", e);
+                sender.send(None).await.expect("Fuck");
+            }
+        }
+    });
+    return rx;
 }
 
 
-pub fn download_mod_file_from_id(gb_file_id: String) -> std::io::Result<File> {
+pub fn _download_mod_file_from_id(gb_file_id: String) -> std::io::Result<File> {
     println!("{}", gb_file_id);
     let mut dst = Vec::new();
     let mut easy = Easy::new();

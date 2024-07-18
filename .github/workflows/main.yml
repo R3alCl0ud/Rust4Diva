@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
+      - name: install libarchive
+        run: sudo apt install libarchive-dev -y
       - name: Build
         run: cargo build --verbose
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: rust4diva${{ github.head_ref }}.zip
-          path: |
-            ${{ steps.compile.outputs.BUILT_ARCHIVE }}
-            ${{ steps.compile.outputs.BUILT_CHECKSUM }}
+          name: rust4diva${{ github.head_ref }}-linux.zip
+          path: target/debug/rust4diva
