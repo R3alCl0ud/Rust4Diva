@@ -1,4 +1,4 @@
-import { Button, VerticalBox,HorizontalBox, StandardTableView } from "std-widgets.slint";
+import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEdit } from "std-widgets.slint";
 
 export struct SlintModConfig {
     enabled: bool,
@@ -10,6 +10,13 @@ export struct SlintModConfig {
     date: string,
     dll: [string]
 }
+
+//export component downloads inherits Window {
+//    min-width: 1280px;
+//    min-height: 720px;
+//    title: "Rust4Diva: Project Diva MM+ Mod Manager Mod Search";
+//}
+
 
 
 export component App inherits Window {
@@ -24,36 +31,60 @@ export component App inherits Window {
     property window_height <=> self.height;
     callback load-mods <=> load-mods-btn.clicked;
     callback toggle-mod(int);
-    callback add-mod <=> abtn.clicked;
+
 //    in-out property mods-table: mod-table;
     default-font-size: 16px;
     VerticalBox {
-        mod-table := StandardTableView {
-            min-width: window_width - 12px;
-            height: window_height - 200px;
-            columns: [
-                { title: "Enabled"},
-                { title: "Name"},
-                { title: "Authors"},
-                { title: "Version"},
-                { title: "Description"}
-             ];
-            rows: stuff;
+        Text {
+            text: "Goodmorning Mother Fuckers!~~!~~~!";
         }
-        HorizontalBox {
-            load-mods-btn := Button {
-                text: "Reload Mods";
-            }
-            toggle-mod-btn := Button {
-                text: "Toggle selected";
-                clicked => {
-                    toggle-mod(mod-table.current-row)
+        TabWidget {
+             manager := Tab {
+                title: "Manage";
+                VerticalBox {
+                    mod-table := StandardTableView {
+                        min-width: window_width - 12px;
+                        height: window_height - 200px;
+                        columns: [
+                            { title: "Enabled", width: 60px },
+                            { title: "Name"},
+                            { title: "Authors"},
+                            { title: "Version" , width: 60px},
+                            { title: "Description" }
+                         ];
+                        rows: stuff;
+                    }
+                    HorizontalBox {
+                        load-mods-btn := Button {
+                            text: "Reload Mods";
+                        }
+                        toggle-mod-btn := Button {
+                            text: "Toggle selected";
+                            clicked => {
+                                toggle-mod(mod-table.current-row)
+                            }
+                        }
+                    }
                 }
-//                on-click:
             }
-        }
-        abtn := Button {
-            text: "Add dummy mod";
+            downloads := Tab {
+                title: "Search Online";
+                VerticalBox {
+                    HorizontalBox {
+                        search := Text {
+                            text: "Search: ";
+                        }
+                        Rectangle {
+
+                            TextInput {
+                                font-size: 22px;
+                                wrap: no-wrap;
+                                text: "fuck";
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -1,9 +1,9 @@
 use std::{env, io};
-use std::collections::HashMap;
 use std::error::Error;
 use std::rc::Rc;
 use std::sync::Arc;
-// use egui::DroppedFile;
+
+use futures_util::SinkExt;
 use interprocess::local_socket::{GenericFilePath, GenericNamespaced, NameType, ToFsName, ToNsName};
 use interprocess::local_socket::ListenerOptions;
 use interprocess::local_socket::tokio::{prelude::*, Stream};
@@ -75,6 +75,7 @@ async fn main() {
                            &diva_state.dml.mods.as_str());
     println!("gets past 77");
     let mut diva_arc = Arc::new(Mutex::new(diva_state));
+    let load_diva_arc = Arc::clone(&diva_arc);
     app.on_load_mods(move || {
         let app = app_weak.upgrade().unwrap();
         app.set_counter(app.get_counter() + 1);
@@ -97,49 +98,47 @@ async fn main() {
         }
         let model = ModelRc::new(model_vec);
         app.set_stuff(model);
-        let mut darc = Arc::clone(&diva_arc);
+        let mut darc = Arc::clone(&load_diva_arc);
         tokio::spawn(async move {
             darc.lock().await.mods = mods.clone();
         });
     });
-    // let app_weak = app.as_weak();
-    // let value = Arc::clone(&diva_arc);
-    // app.on_toggle_mod(move |row_num| {
-    //     let app = app_weak.upgrade().unwrap();
-    //     // let mod_table = app.get_mod_table();
-    //     println!("Selected row: {}", row_num);
-    //
-    //     if row_num > -1 {
-    //         // let value = Arc::clone(&diva_arc);
-    //         let t: usize = row_num as usize;
-    //         let value = value.clone();
-    //         tokio::spawn(async move {
-    //             let binding = Arc::clone(&value);
-    //             let mut darc = binding.lock().await;
-    //             let module = &darc.mods[t];
-    //             println!("Selected Mod = {}", module.config.name);
-    //         });
-    //     }
-    // });
     let app_weak = app.as_weak();
-    app.on_add_mod(move || {
-        let app = app_weak.upgrade().unwrap();
-        let binding = app.get_stuff();
-        if let Some(model_vec) = binding.as_any().downcast_ref::<VecModel<slint::ModelRc<StandardListViewItem>>>() {
-            let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
-            let enabled = StandardListViewItem::from("enabled");
-            let name = StandardListViewItem::from("dummy mod");
-            let authors = StandardListViewItem::from("neptune");
-            let version = StandardListViewItem::from("420.69");
-            let description = StandardListViewItem::from("this is a dummy item because I'm not sure otherwise on how to add items");
-            items.push(enabled);
-            items.push(name);
-            items.push(authors);
-            items.push(version);
-            items.push(description);
-            model_vec.push(items.into());
+    let diva_binding = Arc::clone(&diva_arc);
+    app.on_toggle_mod(move |row_num| {
+        // let mod_table = app.get_mod_table();
+        println!("Selected row: {}", row_num);
+        let diva_binding = Arc::clone(&diva_binding);
+        if row_num > -1 {
+            let row_num: usize = row_num as usize;
+            let value = app_weak.clone();
+            tokio::spawn(async move {
+                let diva_binding = Arc::clone(&diva_binding);
+                let mut darc = diva_binding.lock().await;
+                if darc.mods.len() < row_num {
+                    return;
+                }
+                let mut module = &mut darc.mods[row_num];
+                module.config.enabled = !module.config.enabled;
+                println!("Selected Mod = {}, Enabled: {}", module.config.name, module.config.enabled);
+                // model_vec.set
+                let module = module.clone();
+                value.upgrade_in_event_loop( move |ui| {
+                    let stuff_bind = ui.get_stuff();
+                    if let Some(mut model_vec) = stuff_bind.as_any().downcast_ref::<VecModel<slint::ModelRc<StandardListViewItem>>>() {
+                        if let Some(item) = model_vec.row_data(row_num) {
+                            let enable_str = if module.config.enabled { "Enabled" } else { "Disabled" };
+                            let enabled = StandardListViewItem::from(enable_str);
+                            // enabled.
+                            item.set_row_data(0, enabled);
+                        }
+                    }
+                }).unwrap();
+            });
         }
     });
+    let app_weak = app.as_weak();
+
     println!("Does the app run?");
     app.run().unwrap();
 }
