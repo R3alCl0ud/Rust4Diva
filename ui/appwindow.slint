@@ -1,6 +1,6 @@
 import { Button, VerticalBox,HorizontalBox, StandardTableView } from "std-widgets.slint";
 
-export struct DivaModConfig {
+export struct SlintModConfig {
     enabled: bool,
     include: [string],
     name: string,
@@ -17,16 +17,18 @@ export component App inherits Window {
     min-height: 720px;
     title: "Rust4Diva: Project Diva MM+ Mod Manager";
     in property <int> counter: 4;
-    // in property <Array<int>> fs: [4,3,2];
     in property <[int]> fs: [1,2,3];
-    in property <[DivaModConfig]> mods: [];
-    in property <[[StandardListViewItem]]> stuff;
+    in property <[SlintModConfig]> mods: [];
+    in property <[[StandardListViewItem]]> stuff: [];
     property window_width <=> self.width;
     property window_height <=> self.height;
-    callback clicked <=> btn.clicked;
-    callback add-mod;
+    callback load-mods <=> load-mods-btn.clicked;
+    callback toggle-mod(int);
+    callback add-mod <=> abtn.clicked;
+//    in-out property mods-table: mod-table;
+    default-font-size: 16px;
     VerticalBox {
-        StandardTableView {
+        mod-table := StandardTableView {
             min-width: window_width - 12px;
             height: window_height - 200px;
             columns: [
@@ -38,9 +40,20 @@ export component App inherits Window {
              ];
             rows: stuff;
         }
-        btn := Button {
-            text: "Load Mods";
-
+        HorizontalBox {
+            load-mods-btn := Button {
+                text: "Reload Mods";
+            }
+            toggle-mod-btn := Button {
+                text: "Toggle selected";
+                clicked => {
+                    toggle-mod(mod-table.current-row)
+                }
+//                on-click:
+            }
+        }
+        abtn := Button {
+            text: "Add dummy mod";
         }
     }
 }

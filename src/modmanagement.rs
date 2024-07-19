@@ -68,9 +68,13 @@ impl DivaMod {
     }
 }
 
-pub fn load_mods(diva_data: &mut DivaData) -> Vec<DivaMod> {
-    let mods_folder = format!("{}/{}", diva_data.diva_directory.as_str().to_owned(),
-                              diva_data.dml.mods.as_str());
+pub fn load_mods(diva_data: &DivaData) -> Vec<DivaMod> {
+    load_mods_from_dir(format!("{}/{}", diva_data.diva_directory.as_str().to_owned(),
+                                      diva_data.dml.mods.as_str()))
+}
+
+pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
+    let mods_folder = dir;
     println!("Loading mods from {}", mods_folder);
     let mut mods: Vec<DivaMod> = Vec::new();
 
