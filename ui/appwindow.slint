@@ -28,6 +28,8 @@ export component App inherits Window {
     in property <int> counter: 4;
     in property <[int]> fs: [1, 2, 3];
     in property <[SlintModConfig]> mods: [];
+    in property <[[StandardListViewItem]]> search-results: [];
+    in property <[[StandardListViewItem]]> file-results: [];
     in property <[[StandardListViewItem]]> stuff: [];
     in property <string> dml-version: "";
     in property <bool> dml-enabled: false;
@@ -103,6 +105,7 @@ export component App inherits Window {
                             font-size: 22px;
                             text: "Search: ";
                         }
+
                         Rectangle {
                             height: 32px;
                             border-width: 2px;
@@ -119,13 +122,39 @@ export component App inherits Window {
                             }
                         }
                     }
+
                     search-table := StandardTableView {
                         columns: [
                             { title: "Name" },
-                            { title: "Authors" },
-                            { title: "Version", width: 60px },
-                            { title: "Description" }
+                            { title: "Authors" }
                         ];
+                        rows: search-results;
+                    }
+
+                    HorizontalBox {
+                        Text {
+                            text: "Selected Mod: " + (search-table.current-row == -1 ? "" : search-table.current-row);
+                        }
+                        Button {
+                            text: "List files";
+                            clicked => {}
+                        }
+                    }
+                    files-table := StandardTableView {
+                        columns: [
+                            { title: "Name" },
+                            { title: "Size" }
+                        ];
+                        rows: file-results;
+                    }
+                    HorizontalBox {
+                        Text {
+                            text: "Selected Mod: " + (files-table.current-row == -1 ? "" : files-table.current-row);
+                        }
+                        Button {
+                            text: "List files";
+                            clicked => {}
+                        }
                     }
                 }
             }

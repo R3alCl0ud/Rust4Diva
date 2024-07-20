@@ -139,12 +139,10 @@ pub fn get_diva_folder() -> Option<String> {
     println!("Looking for the mods folder");
     match get_steam_folder() {
         Some(steam_folder) => {
-            println!("{}", steam_folder);
             let mut path = "".to_owned();
             let mut lib_path = PathBuf::new();
             lib_path.push(steam_folder);
             lib_path.push(STEAM_LIBRARIES_CONFIG);
-            println!("{}", lib_path.display());
             let binding = fs::read_to_string(lib_path).unwrap();
             let lf_res = Vdf::parse(binding.as_str());
             match lf_res {
@@ -305,7 +303,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                 let mut module = module.clone();
                 ui_toggle_handle.upgrade_in_event_loop(move |ui| {
                     let stuff_bind = ui.get_stuff();
-                    if let Some(mut model_vec) = stuff_bind.as_any().downcast_ref::<VecModel<slint::ModelRc<StandardListViewItem>>>() {
+                    if let Some(mut model_vec) = stuff_bind.as_any().downcast_ref::<VecModel<ModelRc<StandardListViewItem>>>() {
                         if let Some(item) = model_vec.row_data(row_num) {
                             let enable_str = if module.config.enabled { "Enabled" } else { "Disabled" };
                             let enabled = StandardListViewItem::from(enable_str);
@@ -322,7 +320,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
 pub fn push_mods_to_table(mods: &Vec<DivaMod>, weak: Weak<App>) {
     let app = weak.upgrade().unwrap();
     let binding = app.get_stuff();
-    if let Some(model_vec) = binding.as_any().downcast_ref::<VecModel<slint::ModelRc<StandardListViewItem>>>() {
+    if let Some(model_vec) = binding.as_any().downcast_ref::<VecModel<ModelRc<StandardListViewItem>>>() {
         for item in mods {
             let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
             let enable_str = if item.config.enabled { "Enabled" } else { "Disabled" };

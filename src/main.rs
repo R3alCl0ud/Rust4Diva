@@ -11,7 +11,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::try_join;
 
-use crate::gamebanana_async::{GBMod, GbModDownload};
+use crate::gamebanana_async::{GBMod, GbModDownload, GBSearch};
 use crate::modmanagement::{create_tmp_if_not, DivaMod, DivaModLoader, get_diva_folder, load_diva_ml_config, load_mods, push_mods_to_table};
 
 mod gamebanana_async;
@@ -31,6 +31,7 @@ struct DlFinish {
 #[derive(Clone)]
 struct DivaData {
     mods: Vec<DivaMod>,
+    search_results: Vec<GBSearch>,
     mods_directory: String,
     diva_directory: String,
     dl_mod_url: String,
@@ -77,6 +78,7 @@ impl DivaData {
         let (dl_tx, dl_rx) = tokio::sync::mpsc::channel::<DlFinish>(2048);
         Self {
             mods: Vec::new(),
+            search_results: Vec::new(),
             mods_directory: "".to_string(),
             dl_mod_url: "524621".to_string(),
             diva_directory: "".to_string(),
