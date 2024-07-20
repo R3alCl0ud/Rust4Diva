@@ -1,38 +1,55 @@
 use std::fs::File;
 use std::io::{BufRead, Write};
-
+use std::sync::Arc;
 use curl::easy::Easy;
 use futures_util::StreamExt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use slint::ComponentHandle;
 use sonic_rs::Error;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-
-use crate::DlFinish;
+use tokio::sync::Mutex;
+use crate::{App, DivaData, DlFinish};
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
 const _GB_DOMAIN: &str = "https://gamebanana.com";
 const _GB_DIVA_ID: i32 = 16522;
 
 const GB_MOD_INFO: &str = "/Core/Item/Data";
+const GB_MOD_SEARCH: &str = "apiv9/Util/Game/Submissions";
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GbModDownload {
-    pub(crate) _idRow: u32,
-    pub(crate) _sFile: String,
-    pub(crate) _nFilesize: u32,
-    pub(crate) _sDescription: String,
-    pub(crate) _tsDateAdded: u32,
-    pub(crate) _nDownloadCount: u32,
-    pub(crate) _sMd5Checksum: String,
-    pub(crate) _sDownloadUrl: String,
-    pub(crate) _sClamAvResult: String,
-    pub(crate) _sAvastAvResult: String,
-    pub(crate) _sAnalysisState: String,
-    pub(crate) _sAnalysisResult: String,
-    pub(crate) _sAnalysisResultCode: String,
-    pub(crate) _bContainsExe: bool,
+    #[serde(rename(serialize = "_idRow", deserialize = "_idRow"))]
+    pub(crate) id: u32,
+    #[serde(rename(serialize = "_sFile", deserialize = "_sFile"))]
+    pub(crate) file: String,
+    #[serde(rename(serialize = "_nFilesize", deserialize = "_nFilesize"))]
+    pub(crate) filesize: u32,
+    #[serde(rename(serialize = "_sDescription", deserialize = "_sDescription"))]
+    pub(crate) description: String,
+    #[serde(rename(serialize = "_tsDateAdded", deserialize = "_tsDateAdded"))]
+    pub(crate) date_added: u32,
+    #[serde(rename(serialize = "_nDownloadCount", deserialize = "_nDownloadCount"))]
+    pub(crate) download_count: u32,
+    #[serde(rename(serialize = "_sMd5Checksum", deserialize = "_sMd5Checksum"))]
+    pub(crate) md5_checksum: String,
+    #[serde(rename(serialize = "_sDownloadUrl", deserialize = "_sDownloadUrl"))]
+    pub(crate) download_url: String,
+    #[serde(rename(serialize = "_sClamAvResult", deserialize = "_sClamAvResult"))]
+    pub(crate) clam_av_result: String,
+    #[serde(rename(serialize = "_sAvastAvResult", deserialize = "_sAvastAvResult"))]
+    pub(crate) avast_av_result: String,
+    #[serde(rename(serialize = "_sAnalysisState", deserialize = "_sAnalysisState"))]
+    pub(crate) analysis_state: String,
+    #[serde(rename(serialize = "_sAnalysisResult", deserialize = "_sAnalysisResult"))]
+    pub(crate) analysis_result: String,
+    #[serde(rename(serialize = "_sAnalysisResultCode", deserialize = "_sAnalysisResultCode"))]
+    pub(crate) analysis_result_code: String,
+    #[serde(rename(serialize = "_bContainsExe", deserialize = "_bContainsExe"))]
+    pub(crate) contains_exe: bool,
+
 }
 
 #[derive(Clone, Debug)]
@@ -41,6 +58,79 @@ pub struct GBMod {
     pub(crate) files: Vec<GbModDownload>,
     pub(crate) text: String,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GBSearch {
+    #[serde(rename(serialize = "_idRow", deserialize = "_idRow"))]
+    id: u64,
+    #[serde(rename(serialize = "_sModelName", deserialize = "_sModelName"))]
+    model_name: String,
+    #[serde(rename(serialize = "_sSingularTitle", deserialize = "_sSingularTitle"))]
+    title: String,
+    #[serde(rename(serialize = "_sIconClasses", deserialize = "_sIconClasses"))]
+    icon_classes: String,
+    #[serde(rename(serialize = "_sName", deserialize = "_sName"))]
+    name: String,
+    #[serde(rename(serialize = "_sProfileUrl", deserialize = "_sProfileUrl"))]
+    profile_url: String,
+    #[serde(rename(serialize = "_tsDateAdded", deserialize = "_tsDateAdded"))]
+    date_added: u64,
+    #[serde(rename(serialize = "_bHasFiles", deserialize = "_bHasFiles"))]
+    has_files: bool,
+    #[serde(rename(serialize = "_aSubmitter", deserialize = "_aSubmitter"))]
+    submitter: GbSubmitter,
+    #[serde(rename(serialize = "_tsDateUpdated", deserialize = "_tsDateUpdated"))]
+    date_updated: u64,
+    #[serde(rename(serialize = "_bIsNsfw", deserialize = "_bIsNsfw"))]
+    is_nsfw: bool,
+    #[serde(rename(serialize = "_sInitialVisibility", deserialize = "_sInitialVisibility"))]
+    initial_visibility: String,
+    #[serde(rename(serialize = "_nLikeCount", deserialize = "_nLikeCount"))]
+    like_count: i32,
+    #[serde(rename(serialize = "_nPostCount", deserialize = "_nPostCount"))]
+    post_count: i32,
+    #[serde(rename(serialize = "_bWasFeatured", deserialize = "_bWasFeatured"))]
+    was_featured: bool,
+    #[serde(rename(serialize = "_nViewCount", deserialize = "_nViewCount"))]
+    view_count: i32,
+    #[serde(rename(serialize = "_bIsOwnedByAccessor", deserialize = "_bIsOwnedByAccessor"))]
+    is_owned_by_accessor: bool,
+    #[serde(rename(serialize = "_aPreviewMedia", deserialize = "_aPreviewMedia"))]
+    preview_media: GbPreview,
+}
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GbSubmitter {
+    #[serde(rename(serialize = "_idRow", deserialize = "_idRow"))]
+    id: u64,
+    #[serde(rename(serialize = "_sName", deserialize = "_sName"))]
+    name: String,
+    #[serde(rename(serialize = "_bIsOnline", deserialize = "_bIsOnline"))]
+    is_online: bool,
+    #[serde(rename(serialize = "_bHasRipe", deserialize = "_bHasRipe"))]
+    has_ripe: bool,
+    #[serde(rename(serialize = "_sProfileUrl", deserialize = "_sProfileUrl"))]
+    profile_url: String,
+    #[serde(rename(serialize = "_sAvatarUrl", deserialize = "_sAvatarUrl"))]
+    avatar_rl: String,
+    #[serde(rename(serialize = "_sUpicUrl", deserialize = "_sUpicUrl"))]
+    upic_url: String,
+}
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GbPreview {
+    #[serde(rename(serialize = "_aImages", deserialize = "_aImages"))]
+    images: Vec<GbPreviewImage>,
+}
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GbPreviewImage {
+    #[serde(rename(serialize = "_sType", deserialize = "_sType"))]
+    img_type: String,
+    #[serde(rename(serialize = "_sBaseUrl", deserialize = "_sBaseUrl"))]
+    base_url: String,
+    #[serde(rename(serialize = "_sFile", deserialize = "_sFile"))]
+    file: String,
+}
+
+
 pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     // let stream = InMemoryStream::default();
     if mod_id.is_empty() {
@@ -60,16 +150,15 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
                 data_json.push_str(line.unwrap().as_str());
             }
             // println!("{:#}", data_json);
-            let mut res: Result<sonic_rs::Value, Error> = sonic_rs::from_str(data_json.as_str());
+            let res: Result<sonic_rs::Value, Error> = sonic_rs::from_str(data_json.as_str());
             let mut dl_files: Vec<GbModDownload> = Vec::new();
             if res.is_ok() {
                 let mod_data = res.unwrap();
                 let info_mods = mod_data[1].clone().into_object();
                 // make sure we've actually got a proper response data
                 if info_mods.is_some() {
-                    for (key, value) in info_mods.unwrap().iter() {
+                    for (_key, value) in info_mods.unwrap().iter() {
                         let dl_file: GbModDownload = sonic_rs::from_value(value).unwrap();
-                        // println!("{:?}: {:?}", key, dl_file);
                         dl_files.push(dl_file);
                     }
                     the_mod = Some(GBMod {
@@ -113,13 +202,13 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
 }
 
 pub fn download_mod_file(gb_file: &GbModDownload, sender: Sender<DlFinish>) -> Receiver<u64> {
-    println!("{}", gb_file._sFile);
+    println!("{}", gb_file.file);
     let (tx, rx) = channel::<u64>(2048);
     let gb_file = gb_file.clone();
     tokio::spawn(async move {
         let mut dst = Vec::new();
         let mut easy = Easy::new();
-        easy.url(gb_file._sDownloadUrl.as_str()).unwrap();
+        easy.url(gb_file.download_url.as_str()).unwrap();
         let _redirect = easy.follow_location(true);
         let mut downloaded_size: u64 = 0;
         {
@@ -133,7 +222,7 @@ pub fn download_mod_file(gb_file: &GbModDownload, sender: Sender<DlFinish>) -> R
             println!("fetching file");
             transfer.perform().unwrap();
         }
-        let mut file_res = File::create("/tmp/rust4diva/".to_owned() + &gb_file._sFile);
+        let mut file_res = File::create("/tmp/rust4diva/".to_owned() + &gb_file.file);
         match file_res {
             Ok(mut file) => {
                 println!("Writing file");
@@ -143,7 +232,7 @@ pub fn download_mod_file(gb_file: &GbModDownload, sender: Sender<DlFinish>) -> R
                     success: true,
                 }).await.unwrap();
             }
-            Err(e) => {
+            Err(_e) => {
                 sender.send(DlFinish {
                     file: gb_file,
                     success: false,
@@ -161,12 +250,12 @@ pub fn reqwest_mod_data(gb_file: &GbModDownload, sender: Sender<Option<GbModDown
         println!("Begin retrieving the mod file");
         let gb_dl = gb_file.clone();
 
-        let res = reqwest::get(&gb_dl._sDownloadUrl).await;
+        let res = reqwest::get(&gb_dl.download_url).await;
         match res {
             Ok(res) => {
                 println!("Has received response from GameBanana");
                 let mut stream = &mut res.bytes_stream();
-                let mut handle = File::create("/tmp/rust4diva/".to_owned() + &*gb_dl._sFile);
+                let mut handle = File::create("/tmp/rust4diva/".to_owned() + &*gb_dl.file);
                 match handle {
                     Ok(mut file) => {
                         let mut all_good = true;
@@ -179,15 +268,6 @@ pub fn reqwest_mod_data(gb_file: &GbModDownload, sender: Sender<Option<GbModDown
                                     match file.write_all(&chunk) {
                                         Ok(..) => {
                                             let _ = tx.try_send(downloaded_size);
-                                            // match  {
-                                            // Ok(_) => {
-                                            //     println!("Progress sent");
-                                            // }
-                                            // Err(e) => {
-                                            //     eprintln!("Failed to send progress back to ui thread: {}", e);
-                                            // }
-                                            // }
-                                            // tx.send(downloaded_size)
                                         }
                                         Err(e) => {
                                             eprintln!("Fuck: {}", e);
@@ -202,11 +282,11 @@ pub fn reqwest_mod_data(gb_file: &GbModDownload, sender: Sender<Option<GbModDown
                                 }
                             }
                         }
-                        if downloaded_size < gb_file._nFilesize as u64 {
+                        if downloaded_size < gb_file.filesize as u64 {
                             all_good = false;
                         }
                         if all_good {
-                            println!("Saving file to disk: {}", &gb_dl._sFile);
+                            println!("Saving file to disk: {}", &gb_dl.file);
                             if let Err(e) = sender.send(Some(gb_dl)).await {
                                 eprintln!("Unable to communicate with UI Thread: {}", e);
                             }
@@ -229,7 +309,20 @@ pub fn reqwest_mod_data(gb_file: &GbModDownload, sender: Sender<Option<GbModDown
     });
     return rx;
 }
+pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
 
+
+    let ui_search_handle = ui.as_weak();
+    ui.on_search_gb(move |search| {
+        println!("Searching for {}", search);
+
+    });
+}
+pub fn search_mods(search: String) {
+    tokio::spawn(async move {
+        println!("{}", search);
+    });
+}
 
 pub fn _download_mod_file_from_id(gb_file_id: String) -> std::io::Result<File> {
     println!("{}", gb_file_id);

@@ -1,13 +1,22 @@
+// use eframe::App;
+// use crate::App;
 use std::{env, fs};
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::Arc;
 
 use compress_tools::{Ownership, uncompress_archive};
 use keyvalues_parser::Vdf;
 use serde::{Deserialize, Serialize};
+use slint::{ComponentHandle, Model, ModelRc, StandardListViewItem, VecModel, Weak};
+use tokio::sync::Mutex;
 use toml::de::Error;
+
 use crate::DivaData;
 use crate::gamebanana_async::GbModDownload;
+use crate::slint_generatedApp::App;
+
 
 const STEAM_FOLDER: &str = ".local/share/Steam";
 const STEAM_LIBRARIES_CONFIG: &str = "config/libraryfolders.vdf";
@@ -70,7 +79,7 @@ impl DivaMod {
 
 pub fn load_mods(diva_data: &DivaData) -> Vec<DivaMod> {
     load_mods_from_dir(format!("{}/{}", diva_data.diva_directory.as_str().to_owned(),
-                                      diva_data.dml.mods.as_str()))
+                               diva_data.dml.mods.as_str()))
 }
 
 pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
@@ -184,7 +193,6 @@ pub fn save_mod_configs(diva_data: &mut DivaData) {
     }
 }
 pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
-    println!("{}\n{}", path, toml::to_string(&diva_mod_config).unwrap());
     let config_path = Path::new(path);
     if let Ok(config_str) = toml::to_string(&diva_mod_config) {
         match fs::write(config_path, config_str) {
@@ -204,10 +212,9 @@ pub fn unpack_mod(mod_archive: File, diva_data: &&mut DivaData) {
 }
 
 pub fn unpack_mod_from_temp(module: &GbModDownload, diva_data: &&mut DivaData) {
-    let module_path = "/tmp/rust4diva/".to_owned() + &*module._sFile;
+    let module_path = "/tmp/rust4diva/".to_owned() + &*module.file;
     if let Ok(file) = File::open(&module_path) {
-        uncompress_archive(file, Path::new(format!("{}/{}", &diva_data.diva_directory, &diva_data.dml.mods).as_str()), Ownership::Preserve)
-            .expect("Welp, wtf, idk what happened, must be out of space or some shit");
+        unpack_mod(file, diva_data);
     } else {
         eprintln!("Unable to open archive at {:#}", module_path);
     }
@@ -222,7 +229,7 @@ pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
             loader = Some(diva_ml);
         }
         Err(e) => {
-            panic!("Failed to write data: {}", e)
+            panic!("Failed to read data: {}", e)
         }
     }
     return loader;
@@ -232,7 +239,6 @@ pub fn create_tmp_if_not() -> std::io::Result<()> {
     let path = Path::new("/tmp/rust4diva");
     if !path.exists() {
         let dir = fs::create_dir(path);
-        // return dir
         return dir;
     }
     Ok(())
@@ -241,4 +247,96 @@ pub fn create_tmp_if_not() -> std::io::Result<()> {
 
 pub fn one_click() {
     println!("Test");
+}
+
+pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
+    let ui_toggle_handle = ui.as_weak();
+    let ui_load_handle = ui.as_weak();
+    let toggle_diva = diva_arc.clone();
+    let load_diva = diva_arc.clone();
+    let diva_state = diva_arc.lock().await;
+    let mods_dir = format!("{}/{}", &diva_state.diva_directory.as_str().to_owned(),
+                           &diva_state.dml.mods.as_str());
+
+    ui.on_load_mods(move || {
+        let app = ui_load_handle.upgrade().unwrap();
+        app.set_counter(app.get_counter() + 1);
+        let mods = load_mods_from_dir(mods_dir.clone());
+        let model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
+        for item in &mods {
+            let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
+            let enable_str = if item.config.enabled { "Enabled" } else { "Disabled" };
+            let enabled = StandardListViewItem::from(enable_str);
+            let name = StandardListViewItem::from(item.config.name.as_str());
+            let authors = StandardListViewItem::from(item.config.author.as_str());
+            let version = StandardListViewItem::from(item.config.version.as_str());
+            let description = StandardListViewItem::from(item.config.description.as_str());
+            items.push(enabled);
+            items.push(name);
+            items.push(authors);
+            items.push(version);
+            items.push(description);
+            model_vec.push(items.into());
+        }
+        let model = ModelRc::new(model_vec);
+        app.set_stuff(model);
+        let darc = load_diva.clone();
+        tokio::spawn(async move {
+            darc.lock().await.mods = mods.clone();
+        });
+    });
+
+
+    ui.on_toggle_mod(move |row_num| {
+        if row_num > -1 {
+            let row_num: usize = row_num as usize;
+            // let value = ui_toggle_handle.clone();
+            let toggle_diva = Arc::clone(&toggle_diva);
+            let ui_toggle_handle = ui_toggle_handle.clone();
+            tokio::spawn(async move {
+                let mut darc = &mut toggle_diva.lock().await;
+                if darc.mods.len() < row_num {
+                    return;
+                }
+                let mods_dir = darc.mods_directory.clone();
+                let mut module = &mut darc.mods[row_num];
+                let mod_path = format!("{}{}", mods_dir, &module.path.clone());
+                module.config.enabled = !module.config.enabled;
+                let mut module = module.clone();
+                ui_toggle_handle.upgrade_in_event_loop(move |ui| {
+                    let stuff_bind = ui.get_stuff();
+                    if let Some(mut model_vec) = stuff_bind.as_any().downcast_ref::<VecModel<slint::ModelRc<StandardListViewItem>>>() {
+                        if let Some(item) = model_vec.row_data(row_num) {
+                            let enable_str = if module.config.enabled { "Enabled" } else { "Disabled" };
+                            let enabled = StandardListViewItem::from(enable_str);
+                            item.set_row_data(0, enabled);
+                            save_mod_config(mod_path.as_str(), &mut module.config);
+                        }
+                    }
+                }).unwrap();
+            });
+        }
+    });
+}
+
+pub fn push_mods_to_table(mods: &Vec<DivaMod>, weak: Weak<App>) {
+    let app = weak.upgrade().unwrap();
+    let binding = app.get_stuff();
+    if let Some(model_vec) = binding.as_any().downcast_ref::<VecModel<slint::ModelRc<StandardListViewItem>>>() {
+        for item in mods {
+            let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
+            let enable_str = if item.config.enabled { "Enabled" } else { "Disabled" };
+            let enabled = StandardListViewItem::from(enable_str);
+            let name = StandardListViewItem::from(item.config.name.as_str());
+            let authors = StandardListViewItem::from(item.config.author.as_str());
+            let version = StandardListViewItem::from(item.config.version.as_str());
+            let description = StandardListViewItem::from(item.config.description.as_str());
+            items.push(enabled);
+            items.push(name);
+            items.push(authors);
+            items.push(version);
+            items.push(description);
+            model_vec.push(items.into());
+        }
+    }
 }

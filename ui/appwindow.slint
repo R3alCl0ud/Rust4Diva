@@ -1,4 +1,4 @@
-import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEdit } from "std-widgets.slint";
+import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox } from "std-widgets.slint";
 
 export struct SlintModConfig {
     enabled: bool,
@@ -21,43 +21,70 @@ export struct SlintModConfig {
 
 export component App inherits Window {
     min-width: 1280px;
+    preferred-width: 1280px;
     min-height: 720px;
+    preferred-height: 720px;
     title: "Rust4Diva: Project Diva MM+ Mod Manager";
     in property <int> counter: 4;
-    in property <[int]> fs: [1,2,3];
+    in property <[int]> fs: [1, 2, 3];
     in property <[SlintModConfig]> mods: [];
     in property <[[StandardListViewItem]]> stuff: [];
+    in property <string> dml-version: "";
+    in property <bool> dml-enabled: false;
     property window_width <=> self.width;
     property window_height <=> self.height;
     callback load-mods <=> load-mods-btn.clicked;
     callback toggle-mod(int);
+    callback toggle-dml();
+    callback search-gb(string);
 
-//    in-out property mods-table: mod-table;
+    //    in-out property mods-table: mod-table;
     default-font-size: 16px;
     VerticalBox {
         Text {
+            font-size: 24px;
             text: "Goodmorning Mother Fuckers!~~!~~~!";
         }
+
+        HorizontalBox {
+            Text {
+                text: "Diva Mod Loader";
+            }
+
+            Text {
+                text: "Version: " + dml-version;
+            }
+
+            CheckBox {
+                text: dml-enabled ? "Enabled" : "Disabled";
+                toggled => {
+                    toggle-dml();
+                }
+            }
+        }
+
         TabWidget {
-             manager := Tab {
-                title: "Manage";
+            manager := Tab {
+                title: "Mods";
                 VerticalBox {
                     mod-table := StandardTableView {
                         min-width: window_width - 12px;
                         height: window_height - 200px;
                         columns: [
                             { title: "Enabled", width: 60px },
-                            { title: "Name"},
-                            { title: "Authors"},
-                            { title: "Version" , width: 60px},
+                            { title: "Name" },
+                            { title: "Authors" },
+                            { title: "Version", width: 60px },
                             { title: "Description" }
-                         ];
+                        ];
                         rows: stuff;
                     }
+
                     HorizontalBox {
                         load-mods-btn := Button {
                             text: "Reload Mods";
                         }
+
                         toggle-mod-btn := Button {
                             text: "Toggle selected";
                             clicked => {
@@ -67,21 +94,38 @@ export component App inherits Window {
                     }
                 }
             }
+
             downloads := Tab {
                 title: "Search Online";
                 VerticalBox {
                     HorizontalBox {
                         search := Text {
+                            font-size: 22px;
                             text: "Search: ";
                         }
                         Rectangle {
-
-                            TextInput {
+                            height: 32px;
+                            border-width: 2px;
+                            border-color: #d0d0d0;
+                            border-radius: 5px;
+                            background: #f0f0f0;
+                            sbox := TextInput {
                                 font-size: 22px;
-                                wrap: no-wrap;
-                                text: "fuck";
+                                wrap: word-wrap;
+                                text: "";
+                                accepted => {
+                                    search-gb(self.text)
+                                }
                             }
                         }
+                    }
+                    search-table := StandardTableView {
+                        columns: [
+                            { title: "Name" },
+                            { title: "Authors" },
+                            { title: "Version", width: 60px },
+                            { title: "Description" }
+                        ];
                     }
                 }
             }

@@ -1,20 +1,18 @@
 use std::{env, io};
 use std::error::Error;
-use std::rc::Rc;
 use std::sync::Arc;
-
 use futures_util::SinkExt;
 use interprocess::local_socket::{GenericFilePath, GenericNamespaced, NameType, ToFsName, ToNsName};
 use interprocess::local_socket::ListenerOptions;
 use interprocess::local_socket::tokio::{prelude::*, Stream};
-use slint::{Model, ModelRc, StandardListViewItem, VecModel, Weak};
+
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::try_join;
 
 use crate::gamebanana_async::{GBMod, GbModDownload};
-use crate::modmanagement::{DivaMod, DivaModLoader, get_diva_folder, load_diva_ml_config, load_mods, load_mods_from_dir};
+use crate::modmanagement::{create_tmp_if_not, DivaMod, DivaModLoader, get_diva_folder, load_diva_ml_config, load_mods, push_mods_to_table};
 
 mod gamebanana_async;
 mod modmanagement;
@@ -33,30 +31,26 @@ struct DlFinish {
 #[derive(Clone)]
 struct DivaData {
     mods: Vec<DivaMod>,
-    current_dl: Option<GBMod>,
-    downloads: Vec<GBMod>,
     mods_directory: String,
     diva_directory: String,
     dl_mod_url: String,
-    loaded: bool,
-    show_dl: bool,
     dml: DivaModLoader,
     dl_done_tx: Sender<DlFinish>,
-    // dl_done_rc: Receiver<DlFinish>,
-    should_dl: bool,
-    // dmm_url_rx: Receiver<String>,
-    // dl_progress: HashMap<String, DlProgress>,
 }
 
 #[tokio::main]
 async fn main() {
     println!("Starting Rust4Diva Slint Edition");
     let (url_tx, rx) = tokio::sync::mpsc::channel(2048);
+
+    create_tmp_if_not().expect("Failed to create temp directory, now we are panicking");
+
     // rx.try_recv();
     match spawn_listener(url_tx).await {
         Ok(_) => {}
         Err(_) => {}
     }
+
 
     let mut diva_state = DivaData::new(rx);
 
@@ -65,118 +59,26 @@ async fn main() {
     diva_state.dml = load_diva_ml_config(&diva_state.diva_directory.as_str()).unwrap();
     diva_state.mods = load_mods(&diva_state);
 
-    diva_state.loaded = true;
     let app = App::new().unwrap();
     let app_weak = app.as_weak();
 
     push_mods_to_table(&diva_state.mods, app_weak.clone());
-    println!("gets past 75");
-    let mods_dir = format!("{}/{}", &diva_state.diva_directory.as_str().to_owned(),
-                           &diva_state.dml.mods.as_str());
-    println!("gets past 77");
-    let mut diva_arc = Arc::new(Mutex::new(diva_state));
-    let load_diva_arc = Arc::clone(&diva_arc);
-    app.on_load_mods(move || {
-        let app = app_weak.upgrade().unwrap();
-        app.set_counter(app.get_counter() + 1);
-        let mods = load_mods_from_dir(mods_dir.clone());
-        let mut model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
-        for item in &mods {
-            let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
-            let enable_str = if item.config.enabled { "Enabled" } else { "Disabled" };
-            let enabled = StandardListViewItem::from(enable_str);
-            let name = StandardListViewItem::from(item.config.name.as_str());
-            let authors = StandardListViewItem::from(item.config.author.as_str());
-            let version = StandardListViewItem::from(item.config.version.as_str());
-            let description = StandardListViewItem::from(item.config.description.as_str());
-            items.push(enabled);
-            items.push(name);
-            items.push(authors);
-            items.push(version);
-            items.push(description);
-            model_vec.push(items.into());
-        }
-        let model = ModelRc::new(model_vec);
-        app.set_stuff(model);
-        let mut darc = Arc::clone(&load_diva_arc);
-        tokio::spawn(async move {
-            darc.lock().await.mods = mods.clone();
-        });
-    });
-    let app_weak = app.as_weak();
-    let diva_binding = Arc::clone(&diva_arc);
-    app.on_toggle_mod(move |row_num| {
-        // let mod_table = app.get_mod_table();
-        println!("Selected row: {}", row_num);
-        let diva_binding = Arc::clone(&diva_binding);
-        if row_num > -1 {
-            let row_num: usize = row_num as usize;
-            let value = app_weak.clone();
-            tokio::spawn(async move {
-                let diva_binding = Arc::clone(&diva_binding);
-                let mut darc = diva_binding.lock().await;
-                if darc.mods.len() < row_num {
-                    return;
-                }
-                let mut module = &mut darc.mods[row_num];
-                module.config.enabled = !module.config.enabled;
-                println!("Selected Mod = {}, Enabled: {}", module.config.name, module.config.enabled);
-                // model_vec.set
-                let module = module.clone();
-                value.upgrade_in_event_loop( move |ui| {
-                    let stuff_bind = ui.get_stuff();
-                    if let Some(mut model_vec) = stuff_bind.as_any().downcast_ref::<VecModel<slint::ModelRc<StandardListViewItem>>>() {
-                        if let Some(item) = model_vec.row_data(row_num) {
-                            let enable_str = if module.config.enabled { "Enabled" } else { "Disabled" };
-                            let enabled = StandardListViewItem::from(enable_str);
-                            // enabled.
-                            item.set_row_data(0, enabled);
-                        }
-                    }
-                }).unwrap();
-            });
-        }
-    });
-    let app_weak = app.as_weak();
-
+    let diva_arc = Arc::new(Mutex::new(diva_state));
+    modmanagement::init(&app, Arc::clone(&diva_arc)).await;
+    gamebanana_async::init(&app, Arc::clone(&diva_arc)).await;
     println!("Does the app run?");
+    // app.
     app.run().unwrap();
 }
 
-
-fn push_mods_to_table(mods: &Vec<DivaMod>, weak: Weak<App>) {
-    let app = weak.upgrade().unwrap();
-    let binding = app.get_stuff();
-    if let Some(model_vec) = binding.as_any().downcast_ref::<VecModel<slint::ModelRc<StandardListViewItem>>>() {
-        for item in mods {
-            let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
-            let enable_str = if item.config.enabled { "Enabled" } else { "Disabled" };
-            let enabled = StandardListViewItem::from(enable_str);
-            let name = StandardListViewItem::from(item.config.name.as_str());
-            let authors = StandardListViewItem::from(item.config.author.as_str());
-            let version = StandardListViewItem::from(item.config.version.as_str());
-            let description = StandardListViewItem::from(item.config.description.as_str());
-            items.push(enabled);
-            items.push(name);
-            items.push(authors);
-            items.push(version);
-            items.push(description);
-            model_vec.push(items.into());
-        }
-    }
-}
 
 impl DivaData {
     fn new(dmm_rx: Receiver<String>) -> Self {
         let (dl_tx, dl_rx) = tokio::sync::mpsc::channel::<DlFinish>(2048);
         Self {
             mods: Vec::new(),
-            downloads: Vec::new(),
-            current_dl: None,
-            loaded: false,
             mods_directory: "".to_string(),
             dl_mod_url: "524621".to_string(),
-            show_dl: false,
             diva_directory: "".to_string(),
             dml: DivaModLoader {
                 enabled: false,
@@ -185,15 +87,7 @@ impl DivaData {
                 version: "".to_string(),
             },
             dl_done_tx: dl_tx,
-            // dl_done_rc: dl_rx,
-            should_dl: false,
-            // dmm_url_rx: dmm_rx,
-            // dl_progress: HashMap::new(),
         }
-    }
-    fn load_mods(&mut self) -> &Vec<DivaMod> {
-        self.mods = load_mods(self);
-        return &self.mods;
     }
 }
 
