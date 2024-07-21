@@ -1,17 +1,19 @@
 use std::{env, io};
+use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
+
 use futures_util::SinkExt;
 use interprocess::local_socket::{GenericFilePath, GenericNamespaced, NameType, ToFsName, ToNsName};
 use interprocess::local_socket::ListenerOptions;
 use interprocess::local_socket::tokio::{prelude::*, Stream};
-
+use slint_interpreter::ComponentHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use tokio::try_join;
 
-use crate::gamebanana_async::{GBMod, GbModDownload, GBSearch};
+use crate::gamebanana_async::{GbModDownload, GBSearch};
 use crate::modmanagement::{create_tmp_if_not, DivaMod, DivaModLoader, get_diva_folder, load_diva_ml_config, load_mods, push_mods_to_table};
 
 mod gamebanana_async;
@@ -37,11 +39,14 @@ struct DivaData {
     dl_mod_url: String,
     dml: DivaModLoader,
     dl_done_tx: Sender<DlFinish>,
+    mod_files: HashMap<u64, Vec<GbModDownload>>
 }
 
 #[tokio::main]
 async fn main() {
     println!("Starting Rust4Diva Slint Edition");
+    // let mut compiler = ComponentCompiler::default();
+    // compiler.set_style("material".into());
     let (url_tx, rx) = tokio::sync::mpsc::channel(2048);
 
     create_tmp_if_not().expect("Failed to create temp directory, now we are panicking");
@@ -89,6 +94,7 @@ impl DivaData {
                 version: "".to_string(),
             },
             dl_done_tx: dl_tx,
+            mod_files: HashMap::new(),
         }
     }
 }

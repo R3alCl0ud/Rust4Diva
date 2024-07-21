@@ -1,4 +1,6 @@
-import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox } from "std-widgets.slint";
+import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator } from "std-widgets.slint";
+import { FileTable } from "filetable.slint";
+
 
 export struct SlintModConfig {
     enabled: bool,
@@ -10,6 +12,12 @@ export struct SlintModConfig {
     date: string,
     dll: [string]
 }
+
+
+export struct download {
+    name: string,
+    size: string,
+    progress: int}
 
 //export component downloads inherits Window {
 //    min-width: 1280px;
@@ -32,13 +40,18 @@ export component App inherits Window {
     in property <[[StandardListViewItem]]> file-results: [];
     in property <[[StandardListViewItem]]> stuff: [];
     in property <string> dml-version: "";
+    in-out property <string> selected-search: "";
+    in-out property <string> selected-file: "";
     in property <bool> dml-enabled: false;
+    in property <bool> s-prog-vis: false;
     property window_width <=> self.width;
     property window_height <=> self.height;
     callback load-mods <=> load-mods-btn.clicked;
     callback toggle-mod(int);
     callback toggle-dml();
     callback search-gb(string);
+    callback list-files(int);
+    callback download-file(int, int);
 
     //    in-out property mods-table: mod-table;
     default-font-size: 16px;
@@ -71,12 +84,12 @@ export component App inherits Window {
                 VerticalBox {
                     mod-table := StandardTableView {
                         min-width: window_width - 12px;
-                        height: window_height - 200px;
+                        height: window_height - 260px;
                         columns: [
-                            { title: "Enabled", width: 60px },
+                            { title: "Enabled", width: 100px },
                             { title: "Name" },
                             { title: "Authors" },
-                            { title: "Version", width: 60px },
+                            { title: "Version", width: 100px },
                             { title: "Description" }
                         ];
                         rows: stuff;
@@ -102,17 +115,24 @@ export component App inherits Window {
                 VerticalBox {
                     HorizontalBox {
                         search := Text {
+                            height: 36px;
+                            y: 3px;
                             font-size: 22px;
                             text: "Search: ";
+                            vertical-alignment: TextVerticalAlignment.center;
                         }
 
                         Rectangle {
-                            height: 32px;
+                            y: -6px;
+                            height: 35px;
                             border-width: 2px;
-                            border-color: #d0d0d0;
+                            border-color: #292929;
                             border-radius: 5px;
-                            background: #f0f0f0;
+                            background: #1c1c1c;
                             sbox := TextInput {
+                                x: 5px;
+                                y: 3px;
+                                height: 30px;
                                 font-size: 22px;
                                 wrap: word-wrap;
                                 text: "";
@@ -121,39 +141,67 @@ export component App inherits Window {
                                 }
                             }
                         }
+
+                        search-prog := ProgressIndicator {
+                            visible: s-prog-vis;
+                            height: 32px;
+                            width: 100px;
+                            indeterminate: true;
+                            progress: 0;
+                        }
                     }
 
                     search-table := StandardTableView {
-                        columns: [
-                            { title: "Name" },
-                            { title: "Authors" }
-                        ];
+                        columns: [{ title: "Name" }, { title: "Authors" }, { title: "Category" }];
                         rows: search-results;
+                        current-row-changed(row) => {
+                            selected-search = search-results[row][0].text;
+                        }
                     }
 
                     HorizontalBox {
                         Text {
-                            text: "Selected Mod: " + (search-table.current-row == -1 ? "" : search-table.current-row);
+                            text: "Selected Mod: " + selected-search;
                         }
+
                         Button {
                             text: "List files";
-                            clicked => {}
+                            width: (window_width / 2) - 40px;
+                            clicked => {
+                                list-files(search-table.current-row);
+                            }
                         }
                     }
-                    files-table := StandardTableView {
-                        columns: [
-                            { title: "Name" },
-                            { title: "Size" }
+
+                    files-table := FileTable {
+                        columns: [{ title: "Name" }, { title: "Size" }, { title: "progress" }];
+                        files: [
+                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
+                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
+                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
+                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
+                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
+                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
+                            { name: "Fuck.zip", size: "123456789", progress: 0.5 }
                         ];
-                        rows: file-results;
+                        // rows: file-results;
+                        // // rows: [[ {title: "yeah"}]];
+                        // current-row-changed(row) => {
+                        //     selected-file = file-results[row][0].text;
+                        // }
                     }
+
                     HorizontalBox {
                         Text {
-                            text: "Selected Mod: " + (files-table.current-row == -1 ? "" : files-table.current-row);
+                            text: "Selected File: " + selected-file;
                         }
+
                         Button {
-                            text: "List files";
-                            clicked => {}
+                            text: "Download and Install";
+                            width: (window_width / 2) - 40px;
+                            clicked => {
+                                // download-file(files-table.current-row, search-table.current-row);
+                            }
                         }
                     }
                 }

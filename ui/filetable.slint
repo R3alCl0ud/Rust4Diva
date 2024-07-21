@@ -1,0 +1,211 @@
+import { ListView, VerticalBox, ProgressIndicator } from "std-widgets.slint";
+
+export struct download {
+    name: string,
+    size: string,
+    progress: float}
+
+
+
+export component FileTable inherits Rectangle {
+    in-out property <[download]> files;
+    in-out property <[TableColumn]> columns;
+    in-out property <int> current-row;
+    callback row-pointer-event(int /* row-index */, PointerEvent /* event */, Point /* absolute mouse position */);
+    callback current-row-changed(int /* current-row */);
+
+    private property <length> item-height: scroll-view.viewport-height / files.length;
+    private property <length> current-item-y: scroll-view.viewport-y + current-row * item-height;
+
+    private property <length> e: self.width / root.columns.length;
+    private property <[length]> column_sizes: [
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+        root.e,
+    ];
+
+    public function set-current-row(index: int) {
+        if(index < 0 || index >= files.length) {
+            return;
+        }
+
+        current-row = index;
+        current-row-changed(current-row);
+
+        if(current-item-y < 0) {
+            scroll-view.viewport-y += 0 - current-item-y;
+        }
+
+        if(current-item-y + item-height > scroll-view.visible-height) {
+            scroll-view.viewport-y -= current-item-y + item-height - scroll-view.visible-height;
+        }
+    }
+
+
+    VerticalBox {
+        padding: 5px;
+        HorizontalLayout {
+            padding: 5px;
+            spacing: 5px;
+            vertical-stretch: 0;
+            width: max(self.preferred-width, parent.width);
+            for col[idx] in root.columns: HorizontalLayout {
+                min-width: max(col.min-width, col.width);
+                preferred-width: self.min-width;
+                max-width: (idx < columns.length && col.width >= 1px) ? max(col.min-width, col.width) : 100000px;
+                Text {
+                    overflow: elide;
+                    text: col.title;
+                }
+
+                Rectangle {
+                    width: 1px;
+                    background: gray;
+                    TouchArea {
+                        width: 10px;
+                        x: (parent.width - self.width) / 2;
+                        property <length> cached;
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                self.cached = root.column_sizes[idx];
+                            }
+                        }
+                        moved => {
+                            if (self.pressed) {
+                                root.column_sizes[idx] += (self.mouse-x - self.pressed-x);
+                                if (root.column_sizes[idx] < 0) {
+                                    root.column_sizes[idx] = 0;
+                                }
+                            }
+                        }
+                        mouse-cursor: ew-resize;
+                    }
+                }
+            }
+        }
+
+        scroll-view := ListView {
+            for file[i] in root.files: HorizontalLayout {
+
+                padding: 5px;
+                spacing: 5px;
+                row-ta := TouchArea {
+                    clicked => {
+                        // root.focus();
+                        root.set-current-row(i);
+                    }
+    
+                    pointer-event(pe) => {
+                        root.row-pointer-event(i, pe, {
+                            x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                            y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
+                        });
+                    }
+                }
+                HorizontalLayout {
+                    horizontal-stretch: columns[0].horizontal-stretch;
+                    min-width: max(columns[0].min-width, columns[0].width);
+                    preferred-width: self.min-width;
+                    max-width: (2 < columns.length && columns[0].width >= 1px) ? max(columns[0].min-width, columns[0].width) : 100000px;
+                    // width: root.column_sizes[0];
+                    Text {
+                        overflow: elide;
+                        text: file.name;
+                    }
+                }
+
+                HorizontalLayout {
+                    horizontal-stretch: columns[1].horizontal-stretch;
+                    min-width: max(columns[1].min-width, columns[1].width);
+                    preferred-width: self.min-width;
+                    max-width: (1 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
+                    // width: root.column_sizes[1];
+                    Text {
+                        overflow: elide;
+                        text: file.size + "Bytes";
+                    }
+                }
+
+                HorizontalLayout {
+                    horizontal-stretch: columns[2].horizontal-stretch;
+                    min-width: max(columns[2].min-width, columns[2].width);
+                    preferred-width: self.min-width;
+                    max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
+                    // width: root.column_sizes[2];
+                    ProgressIndicator {
+                        indeterminate: false;
+                        progress: file.progress;
+                    }
+                }
+
+                // for t[idx] in file : HorizontalLayout {
+                    //     width: root.column_sizes[idx];
+                    //     Text { overflow: elide; text: t; }
+                    // }
+                }
+        }
+    }
+}
