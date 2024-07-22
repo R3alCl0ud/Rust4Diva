@@ -8,7 +8,7 @@ use curl::easy::Easy;
 use futures_util::StreamExt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use slint::{ComponentHandle, ModelRc, SharedString, StandardListViewItem, VecModel, Weak};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, StandardListViewItem, VecModel, Weak};
 use sonic_rs::{Error, JsonContainerTrait, Value};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::Mutex;
@@ -205,7 +205,7 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     });
 }
 
-pub fn download_mod_file(gb_file: &GbModDownload, sender: Sender<DlFinish>) -> Receiver<u64> {
+pub fn _download_mod_file(gb_file: &GbModDownload, sender: Sender<DlFinish>) -> Receiver<u64> {
     println!("{}", gb_file.file);
     let (tx, rx) = channel::<u64>(2048);
     let gb_file = gb_file.clone();
@@ -314,25 +314,29 @@ pub fn reqwest_mod_data(gb_file: &GbModDownload, sender: Sender<Option<GbModDown
     return rx;
 }
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
+    let file_arc: Arc<Mutex<Vec<GbModDownload>>> = Arc::new(Mutex::new(Vec::new()));
+
+
     let search_diva = Arc::clone(&diva_arc);
     let ui_search_handle = ui.as_weak();
-    let file_diva = Arc::clone(&diva_arc);
-    let ui_file_handle = ui.as_weak();
-    let files_map: HashMap<u32, GbModDownload> = HashMap::new();
-    let file_arc: Arc<Mutex<Option<GbModDownload>>> = Arc::new(Mutex::new(None));
-
-    let files = Arc::new(Mutex::new(files_map));
     ui.on_search_gb(move |search| {
         println!("Searching for {}", search);
         search_mods(search.parse().unwrap(), &search_diva, ui_search_handle.clone());
     });
-    let list_file = Arc::clone(&file_arc);
+
+    let file_diva = Arc::clone(&diva_arc);
+    let ui_file_handle = ui.as_weak();
+    let list_files = Arc::clone(&file_arc);
     ui.on_list_files(move |mod_row| {
-        get_mod_files(mod_row, &file_diva, ui_file_handle.clone());
+        get_mod_files(mod_row, &file_diva, &list_files, ui_file_handle.clone());
     });
 
+    let download_diva = Arc::clone(&diva_arc);
+    let download_files = Arc::clone(&file_arc);
+    let ui_download_handle = ui.as_weak();
     ui.on_download_file(move |file_row, search_row| {
         println!("Download: {}, {}", search_row, file_row);
+        download_mod_file(file_row, &download_files, &download_diva, ui_download_handle.clone());
     });
     // ui.on_download_file()
 }
@@ -411,8 +415,9 @@ pub fn search_mods(search: String, search_diva: &Arc<Mutex<DivaData>>, ui_search
 }
 
 
-pub fn get_mod_files(mod_row: i32, file_diva: &Arc<Mutex<DivaData>>, ui_file_handle: Weak<App>) {
+pub fn get_mod_files(mod_row: i32, file_diva: &Arc<Mutex<DivaData>>, files: &Arc<Mutex<Vec<GbModDownload>>>, ui_file_handle: Weak<App>) {
     let file_diva = Arc::clone(file_diva);
+    let files = files.clone();
     ui_file_handle.upgrade_in_event_loop(move |ui| {
         ui.set_s_prog_vis(true);
     }).expect("TODO: panic message");
@@ -423,6 +428,9 @@ pub fn get_mod_files(mod_row: i32, file_diva: &Arc<Mutex<DivaData>>, ui_file_han
             if diva.mod_files.contains_key(&module.id) {
                 if let Some(gb) = diva.mod_files.get(&module.id) {
                     set_files_list(ui_file_handle.clone(), gb);
+                    let mut files = files.lock().await;
+                    // files.c
+                    *files = gb.clone();
                 }
                 ui_file_handle.upgrade_in_event_loop(move |ui| {
                     ui.set_s_prog_vis(false);
@@ -436,6 +444,8 @@ pub fn get_mod_files(mod_row: i32, file_diva: &Arc<Mutex<DivaData>>, ui_file_han
             if let Some(gb) = gb_module {
                 diva.mod_files.insert(module.id, gb.files.clone());
                 set_files_list(ui_file_handle.clone(), &gb.files);
+                let mut files = files.lock().await;
+                *files = gb.files.clone();
             }
         }
         ui_file_handle.upgrade_in_event_loop(move |ui| {
@@ -458,6 +468,87 @@ pub fn set_files_list(ui_handle: Weak<App>, files: &Vec<GbModDownload>) {
         let model = ModelRc::new(model_vec);
         ui.set_file_results(model);
     }).expect("TODO: panic message");
+}
+
+pub fn download_mod_file(file_idx: i32, files: &Arc<Mutex<Vec<GbModDownload>>>, download_diva: &Arc<Mutex<DivaData>>, ui_download_handle: Weak<App>) {
+    let files = Arc::clone(files);
+    tokio::spawn(async move {
+        let lfiles = files.lock().await;
+        // make channels for sending the progress between
+        let (prog_tx, mut prog_rx) = channel::<i32>(2048);
+        let mybind = lfiles.clone();
+        tokio::spawn(async move {
+            let binding = mybind.clone();
+            let file = binding.get(file_idx as usize);
+            let prog_tx = prog_tx.clone();
+            if let Some(file) = file.clone() {
+                println!("setting up the download");
+                let mut easy = Easy::new();
+                let mut dst = Vec::new();
+                easy.url(file.download_url.as_str()).unwrap();
+                let _redirect = easy.follow_location(true);
+                {
+                    let mut transfer = easy.transfer();
+                    transfer.write_function(|data| {
+                        dst.extend_from_slice(data);
+                        let _ = prog_tx.try_send(data.len() as i32);
+                        Ok(data.len())
+                    }).unwrap();
+                    transfer.perform().unwrap();
+                }
+                let mut file_res = File::create("/tmp/rust4diva/".to_owned() + &file.file);
+                // files
+                match file_res {
+                    Ok(mut f) => {
+                        match f.write_all(dst.as_slice()) {
+                            Ok(_) => {
+                                println!("Saved successfully, will try to extract");
+                            }
+                            Err(e) => {
+                                eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                    }
+                }
+            }
+        });
+        let mybind = lfiles.clone();
+        tokio::spawn(async move {
+            let binding = mybind.clone();
+            let mut downloaded = 0;
+            let file = binding.get(file_idx as usize);
+            // let file = files.clone();
+            let file_size = if file.is_some() { file.unwrap().filesize } else { 1000000000 };
+            while !prog_rx.is_closed() {
+                // println!("Waiting");
+                match prog_rx.try_recv() {
+                    Err(e) => {
+                        // println!("nothing");
+                    }
+                    Ok(chunk_size) => {
+                        downloaded += chunk_size;
+                        let progress = (downloaded as f32) / (file_size as f32);
+                        ui_download_handle.upgrade_in_event_loop(move |ui| {
+                            let files = ui.get_file_results();
+                            if let Some(files) = files.as_any().downcast_ref::<VecModel<Download>>() {
+                                if let Some(mut file) = files.row_data(file_idx as usize) {
+                                    file.progress = progress;
+                                    // let model: ModelRc<Download> = ModelRc::new(files.);
+                                    files.set_row_data(file_idx as usize, file);
+                                    // ui.set_file_results(model);
+                                }
+                            }
+                        }).expect("");
+                    }
+                }
+            }
+
+            println!("Download closed");
+        });
+    });
 }
 
 

@@ -128,6 +128,8 @@ pub fn get_steam_folder() -> Option<String> {
             }
             steam_str = Some(binding.display().to_string());
         }
+        "windows" => {
+        }
         _ => { println!("Unsupported Operating system: {}", env::consts::OS) }
     }
 

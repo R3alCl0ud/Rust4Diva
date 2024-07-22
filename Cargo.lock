@@ -3937,6 +3937,7 @@ dependencies = [
  "tokio",
  "tokio-macros 0.2.6",
  "toml",
+ "winreg",
 ]
 
 [[package]]
