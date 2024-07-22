@@ -4,15 +4,17 @@ import {CosmicPalette, CosmicFontSettings} from "./cosmic-styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
 // import {Icons} from ""
 
-export struct Download {
+export struct DivaMod {
     name: string,
-    size: string,
-    progress: float}
+    author: string,
+    version: string,
+    description: string,
+    enabled: bool
+}
 
 
-
-export component FileTable {
-    in-out property <[Download]> files;
+export component ModTable {
+    in-out property <[DivaMod]> files;
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
     out property <int> current-sort-column: -1;
@@ -166,7 +168,7 @@ export component FileTable {
                             height: 100%;
                             overflow: elide;
                             vertical-alignment: center;
-                            text: file.size + "Bytes";
+                            text: mod.name + "Bytes";
                             font-weight: CosmicFontSettings.body.font-weight;
                             font-size: CosmicFontSettings.body.font-size;
                             color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
@@ -186,10 +188,10 @@ export component FileTable {
                     preferred-width: self.min-width;
                     max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
                     // width: root.column_sizes[2];
-                    ProgressIndicator {
-                        indeterminate: false;
-                        progress: file.progress;
-                    }
+                    // ProgressIndicator {
+                    //     indeterminate: false;
+                    //     progress: file.progress;
+                    // }
                 }
             }
         }

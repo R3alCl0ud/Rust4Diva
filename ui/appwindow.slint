@@ -1,5 +1,6 @@
 import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator } from "std-widgets.slint";
-import { FileTable } from "filetable.slint";
+import { FileTable, Download } from "filetable.slint";
+import { CosmicPalette } from "cosmic-styling.slint";
 
 
 export struct SlintModConfig {
@@ -12,12 +13,6 @@ export struct SlintModConfig {
     date: string,
     dll: [string]
 }
-
-
-export struct download {
-    name: string,
-    size: string,
-    progress: int}
 
 //export component downloads inherits Window {
 //    min-width: 1280px;
@@ -37,7 +32,7 @@ export component App inherits Window {
     in property <[int]> fs: [1, 2, 3];
     in property <[SlintModConfig]> mods: [];
     in property <[[StandardListViewItem]]> search-results: [];
-    in property <[[StandardListViewItem]]> file-results: [];
+    in property <[Download]> file-results: [];
     in property <[[StandardListViewItem]]> stuff: [];
     in property <string> dml-version: "";
     in-out property <string> selected-search: "";
@@ -126,9 +121,9 @@ export component App inherits Window {
                             y: -6px;
                             height: 35px;
                             border-width: 2px;
-                            border-color: #292929;
+                            border-color: CosmicPalette.border;
                             border-radius: 5px;
-                            background: #1c1c1c;
+                            background: CosmicPalette.alternate-background;
                             sbox := TextInput {
                                 x: 5px;
                                 y: 3px;
@@ -175,20 +170,11 @@ export component App inherits Window {
 
                     files-table := FileTable {
                         columns: [{ title: "Name" }, { title: "Size" }, { title: "progress" }];
-                        files: [
-                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
-                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
-                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
-                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
-                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
-                            { name: "Fuck.zip", size: "123456789", progress: 0.5 },
-                            { name: "Fuck.zip", size: "123456789", progress: 0.5 }
-                        ];
-                        // rows: file-results;
-                        // // rows: [[ {title: "yeah"}]];
-                        // current-row-changed(row) => {
-                        //     selected-file = file-results[row][0].text;
-                        // }
+                        files: file-results;
+                        current-row-changed(row) => {
+                            // selected-file = row;
+                            selected-file = file-results[row].name;
+                        }
                     }
 
                     HorizontalBox {
@@ -200,7 +186,7 @@ export component App inherits Window {
                             text: "Download and Install";
                             width: (window_width / 2) - 40px;
                             clicked => {
-                                // download-file(files-table.current-row, search-table.current-row);
+                                download-file(files-table.current-row, search-table.current-row);
                             }
                         }
                     }
@@ -208,4 +194,5 @@ export component App inherits Window {
             }
         }
     }
+    
 }

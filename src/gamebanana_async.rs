@@ -8,12 +8,12 @@ use curl::easy::Easy;
 use futures_util::StreamExt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use slint::{ComponentHandle, ModelRc, StandardListViewItem, VecModel, Weak};
+use slint::{ComponentHandle, ModelRc, SharedString, StandardListViewItem, VecModel, Weak};
 use sonic_rs::{Error, JsonContainerTrait, Value};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::Mutex;
 
-use crate::{App, DivaData, DlFinish};
+use crate::{App, DivaData, DlFinish, Download};
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
 const GB_DOMAIN: &str = "https://gamebanana.com";
@@ -319,20 +319,22 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     let file_diva = Arc::clone(&diva_arc);
     let ui_file_handle = ui.as_weak();
     let files_map: HashMap<u32, GbModDownload> = HashMap::new();
-
+    let file_arc: Arc<Mutex<Option<GbModDownload>>> = Arc::new(Mutex::new(None));
 
     let files = Arc::new(Mutex::new(files_map));
     ui.on_search_gb(move |search| {
         println!("Searching for {}", search);
         search_mods(search.parse().unwrap(), &search_diva, ui_search_handle.clone());
     });
+    let list_file = Arc::clone(&file_arc);
     ui.on_list_files(move |mod_row| {
         get_mod_files(mod_row, &file_diva, ui_file_handle.clone());
     });
 
     ui.on_download_file(move |file_row, search_row| {
-
-    })
+        println!("Download: {}, {}", search_row, file_row);
+    });
+    // ui.on_download_file()
 }
 pub fn search_mods(search: String, search_diva: &Arc<Mutex<DivaData>>, ui_search_handle: Weak<App>) {
     let search_diva = Arc::clone(search_diva);
@@ -445,18 +447,13 @@ pub fn get_mod_files(mod_row: i32, file_diva: &Arc<Mutex<DivaData>>, ui_file_han
 pub fn set_files_list(ui_handle: Weak<App>, files: &Vec<GbModDownload>) {
     let files = files.clone();
     ui_handle.upgrade_in_event_loop(move |ui| {
-        let model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
+        let model_vec = VecModel::default();
         for item in files {
-            println!("{}", item.file);
-            let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
-            let name = StandardListViewItem::from(item.file.as_str());
-            let size = format!("{}bytes", item.filesize);
-            let size = StandardListViewItem::from(size.as_str());
-            let thing = StandardListViewItem::from("0%");
-            items.push(name);
-            items.push(size);
-            items.push(thing);
-            model_vec.push(items.into());
+            model_vec.push(Download {
+                name: SharedString::from(item.file),
+                size: SharedString::from(item.filesize.to_string()),
+                progress: 0.0,
+            });
         }
         let model = ModelRc::new(model_vec);
         ui.set_file_results(model);
