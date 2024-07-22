@@ -523,12 +523,9 @@ pub fn download_mod_file(file_idx: i32, files: &Arc<Mutex<Vec<GbModDownload>>>, 
             // let file = files.clone();
             let file_size = if file.is_some() { file.unwrap().filesize } else { 1000000000 };
             while !prog_rx.is_closed() {
-                // println!("Waiting");
-                match prog_rx.try_recv() {
-                    Err(e) => {
-                        // println!("nothing");
-                    }
-                    Ok(chunk_size) => {
+                match prog_rx.recv().await {
+                    None => {}
+                    Some(chunk_size) => {
                         downloaded += chunk_size;
                         let progress = (downloaded as f32) / (file_size as f32);
                         ui_download_handle.upgrade_in_event_loop(move |ui| {
@@ -536,9 +533,7 @@ pub fn download_mod_file(file_idx: i32, files: &Arc<Mutex<Vec<GbModDownload>>>, 
                             if let Some(files) = files.as_any().downcast_ref::<VecModel<Download>>() {
                                 if let Some(mut file) = files.row_data(file_idx as usize) {
                                     file.progress = progress;
-                                    // let model: ModelRc<Download> = ModelRc::new(files.);
                                     files.set_row_data(file_idx as usize, file);
-                                    // ui.set_file_results(model);
                                 }
                             }
                         }).expect("");

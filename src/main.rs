@@ -45,8 +45,6 @@ struct DivaData {
 #[tokio::main]
 async fn main() {
     println!("Starting Rust4Diva Slint Edition");
-    // let mut compiler = ComponentCompiler::default();
-    // compiler.set_style("material".into());
     let (url_tx, rx) = tokio::sync::mpsc::channel(2048);
 
     create_tmp_if_not().expect("Failed to create temp directory, now we are panicking");

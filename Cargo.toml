@@ -25,6 +25,10 @@ tokio-macros = { version = "0.2.0-alpha.6" }
 slint = "1.6.0"
 slint-interpreter = "1.7.0"
 futures-util = "0.3.30"
+cfg-if = "1.0.0"
+
+
+[target.'cfg(windows)'.dependencies]
 winreg = "0.52.0"
 
 

@@ -1,5 +1,3 @@
-// use eframe::App;
-// use crate::App;
 use std::{env, fs};
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -12,6 +10,13 @@ use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, Model, ModelRc, StandardListViewItem, VecModel, Weak};
 use tokio::sync::Mutex;
 use toml::de::Error;
+
+cfg_if::cfg_if! {
+    if #[cfg(windows)] {
+        use winreg::enums::*;
+        use winreg::RegKey;
+    }
+}
 
 use crate::DivaData;
 use crate::gamebanana_async::GbModDownload;
@@ -129,6 +134,13 @@ pub fn get_steam_folder() -> Option<String> {
             steam_str = Some(binding.display().to_string());
         }
         "windows" => {
+            cfg_if::cfg_if! {
+                if #[cfg(windows)] {/**/
+                    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+                    let steam_key = hklm.open_subkey(r#"SOFTWARE\WOW6432Node\Valve\Steam"#);
+                    let install_path =
+                }
+            }
         }
         _ => { println!("Unsupported Operating system: {}", env::consts::OS) }
     }

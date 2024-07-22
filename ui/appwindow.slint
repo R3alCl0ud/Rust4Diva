@@ -33,6 +33,7 @@ export component App inherits Window {
     in property <[SlintModConfig]> mods: [];
     in property <[[StandardListViewItem]]> search-results: [];
     in property <[Download]> file-results: [];
+    in property <[{key: int, value: Download}]> file-map;
     in property <[[StandardListViewItem]]> stuff: [];
     in property <string> dml-version: "";
     in-out property <string> selected-search: "";
