@@ -32,8 +32,10 @@ export component App inherits Window {
     in property <[int]> fs: [1, 2, 3];
     in property <[SlintModConfig]> mods: [];
     in property <[[StandardListViewItem]]> search-results: [];
+
     in property <[Download]> file-results: [];
-    in property <[{key: int, value: Download}]> file-map;
+    in property <[{key: int, value: Download}]> downloads-map;
+    in-out property <[Download]> downloads-list: [];
     in property <[[StandardListViewItem]]> stuff: [];
     in property <string> dml-version: "";
     in-out property <string> selected-search: "";
@@ -47,7 +49,7 @@ export component App inherits Window {
     callback toggle-dml();
     callback search-gb(string);
     callback list-files(int);
-    callback download-file(int, int);
+    callback download-file(Download, int);
 
     //    in-out property mods-table: mod-table;
     default-font-size: 16px;
@@ -106,7 +108,7 @@ export component App inherits Window {
                 }
             }
 
-            downloads := Tab {
+            search-tab := Tab {
                 title: "Search Online";
                 VerticalBox {
                     HorizontalBox {
@@ -187,13 +189,27 @@ export component App inherits Window {
                             text: "Download and Install";
                             width: (window_width / 2) - 40px;
                             clicked => {
-                                download-file(files-table.current-row, search-table.current-row);
+                                download-file(file-results[files-table.current-row], downloads-list.length);
+                                // downloads-list.push()
                             }
                         }
                     }
                 }
             }
+
+            downloads := Tab {
+                title: "Downloads";
+                VerticalBox {
+                    for dl in downloads-map: Text {
+                        text: dl.value.name;
+                    }
+                    FileTable {
+                        columns: [{ title: "Name" }, { title: "Size" }, { title: "progress" }];
+                        files: downloads-list;
+                    }
+                    
+                }
+            }
         }
     }
-    
 }

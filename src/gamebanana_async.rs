@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{BufRead, Write};
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, MutexGuard};
 
 use curl::easy::Easy;
 use futures_util::StreamExt;
@@ -21,6 +21,9 @@ const GB_DIVA_ID: i32 = 16522;
 
 const GB_MOD_INFO: &str = "/Core/Item/Data";
 const GB_MOD_SEARCH: &str = "apiv9/Util/Game/Submissions";
+
+
+const DOWNLOAD_QUEUE: std::sync::Mutex<VecDeque<(i32, Download)>> = std::sync::Mutex::new(VecDeque::new());
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -187,6 +190,7 @@ pub struct GbDmmItem {
     pub(crate) file_id: String,
 }
 
+
 pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     // check if this is a proper dmm 1 click url
     if !dmm_url.starts_with("divamodmanager:https://gamebanana.com/mmdl/") {
@@ -334,10 +338,31 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     let download_diva = Arc::clone(&diva_arc);
     let download_files = Arc::clone(&file_arc);
     let ui_download_handle = ui.as_weak();
-    ui.on_download_file(move |file_row, search_row| {
-        println!("Download: {}, {}", search_row, file_row);
-        download_mod_file(file_row, &download_files, &download_diva, ui_download_handle.clone());
+    ui.on_download_file(move |file, file_row| {
+        println!("Download: {}, {}", file.name, file_row);
+        // let binding = DOWNLOAD_QUEUE;
+        // let mut q = binding.lock().unwrap();
+        // // let mut q = queue.blocking_lock();
+        // q.push_back((file_row, file));
+        // do_download_queue(q, ui_download_handle.clone());
+        let ui_file = file.clone();
+        let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
+            let file = ui_file.clone();
+            let downloads = ui.get_downloads_list();
+            let dc = downloads.as_any().downcast_ref::<VecModel<Download>>();
+            match dc {
+                Some(mut downloads) => {
+                    println!("Pushing");
+                    downloads.push(file);
+                }
+                None => {
+                    println!("wasn't able to downcast wtf");
+                }
+            }
+        });
+        download_mod_file(file_row, &download_diva, ui_download_handle.clone(), file);
     });
+
     // ui.on_download_file()
 }
 pub fn search_mods(search: String, search_diva: &Arc<Mutex<DivaData>>, ui_search_handle: Weak<App>) {
@@ -460,8 +485,10 @@ pub fn set_files_list(ui_handle: Weak<App>, files: &Vec<GbModDownload>) {
         let model_vec = VecModel::default();
         for item in files {
             model_vec.push(Download {
+                id: item.id as i32,
+                url: SharedString::from(item.download_url),
                 name: SharedString::from(item.file),
-                size: SharedString::from(item.filesize.to_string()),
+                size: item.filesize as i32,
                 progress: 0.0,
             });
         }
@@ -470,78 +497,96 @@ pub fn set_files_list(ui_handle: Weak<App>, files: &Vec<GbModDownload>) {
     }).expect("TODO: panic message");
 }
 
-pub fn download_mod_file(file_idx: i32, files: &Arc<Mutex<Vec<GbModDownload>>>, download_diva: &Arc<Mutex<DivaData>>, ui_download_handle: Weak<App>) {
-    let files = Arc::clone(files);
+pub fn do_download_queue(q: MutexGuard<VecDeque<(i32, Download)>>, ui_download_handle: Weak<App>) {
+
+}
+
+
+pub fn download_mod_file(file_idx: i32, download_diva: &Arc<Mutex<DivaData>>, ui_download_handle: Weak<App>, download: Download) {
+    // let files = Arc::clone(files);
+    let download = download.clone();
     tokio::spawn(async move {
-        let lfiles = files.lock().await;
+        let download = download.clone();
+        // let lfiles = files.lock().await;
         // make channels for sending the progress between
-        let (prog_tx, mut prog_rx) = channel::<i32>(2048);
-        let mybind = lfiles.clone();
+        let (prog_tx, mut prog_rx) = channel::<i32>(204800);
+
+        // actually do the download
         tokio::spawn(async move {
-            let binding = mybind.clone();
-            let file = binding.get(file_idx as usize);
             let prog_tx = prog_tx.clone();
-            if let Some(file) = file.clone() {
-                println!("setting up the download");
-                let mut easy = Easy::new();
-                let mut dst = Vec::new();
-                easy.url(file.download_url.as_str()).unwrap();
-                let _redirect = easy.follow_location(true);
-                {
-                    let mut transfer = easy.transfer();
-                    transfer.write_function(|data| {
-                        dst.extend_from_slice(data);
-                        let _ = prog_tx.try_send(data.len() as i32);
-                        Ok(data.len())
-                    }).unwrap();
-                    transfer.perform().unwrap();
-                }
-                let mut file_res = File::create("/tmp/rust4diva/".to_owned() + &file.file);
-                // files
-                match file_res {
-                    Ok(mut f) => {
-                        match f.write_all(dst.as_slice()) {
-                            Ok(_) => {
-                                println!("Saved successfully, will try to extract");
-                            }
-                            Err(e) => {
-                                eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                            }
+            println!("setting up the download");
+
+            let mut easy = Easy::new();
+            let mut dst = Vec::new();
+            easy.url(download.url.as_str()).unwrap();
+            let mut started = false;
+
+            let _redirect = easy.follow_location(true);
+            {
+                let mut transfer = easy.transfer();
+                transfer.write_function(|data| {
+                    if !started {
+                        started = true;
+                        println!("First chunk received");
+                    }
+                    dst.extend_from_slice(data);
+                    let p = prog_tx.try_send(data.len() as i32);
+                    match p {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("{}", e);
                         }
                     }
-                    Err(e) => {
-                        eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                    Ok(data.len())
+                }).unwrap();
+                transfer.perform().unwrap();
+            }
+            let mut file_res = File::create("/tmp/rust4diva/".to_owned() + &download.name);
+            // files
+            match file_res {
+                Ok(mut f) => {
+                    match f.write_all(dst.as_slice()) {
+                        Ok(_) => {
+                            println!("Saved successfully, will try to extract");
+                        }
+                        Err(e) => {
+                            eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                        }
                     }
+                }
+                Err(e) => {
+                    eprintln!("Something went wrong while saving the file to disk \n{}", e);
                 }
             }
         });
-        let mybind = lfiles.clone();
+
+        // update ui with progress
         tokio::spawn(async move {
-            let binding = mybind.clone();
             let mut downloaded = 0;
-            let file = binding.get(file_idx as usize);
             // let file = files.clone();
-            let file_size = if file.is_some() { file.unwrap().filesize } else { 1000000000 };
+            let file_size = download.size;
             while !prog_rx.is_closed() {
-                match prog_rx.recv().await {
-                    None => {}
-                    Some(chunk_size) => {
+                // println!("Waiting");
+                match prog_rx.try_recv() {
+                    Err(e) => {
+                        // println!("nothing rx'd");
+                    }
+                    Ok(chunk_size) => {
                         downloaded += chunk_size;
                         let progress = (downloaded as f32) / (file_size as f32);
                         ui_download_handle.upgrade_in_event_loop(move |ui| {
-                            let files = ui.get_file_results();
-                            if let Some(files) = files.as_any().downcast_ref::<VecModel<Download>>() {
-                                if let Some(mut file) = files.row_data(file_idx as usize) {
-                                    file.progress = progress;
-                                    files.set_row_data(file_idx as usize, file);
+                            let downloads = ui.get_downloads_list();
+                            if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>() {
+                                if let Some(mut download) = downloads.row_data(file_idx as usize) {
+                                    download.progress = progress;
+                                    downloads.set_row_data(file_idx as usize, download);
                                 }
                             }
                         }).expect("");
                     }
                 }
             }
-
-            println!("Download closed");
+            println!("Download channel closed");
         });
     });
 }

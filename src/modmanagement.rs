@@ -134,11 +134,12 @@ pub fn get_steam_folder() -> Option<String> {
             steam_str = Some(binding.display().to_string());
         }
         "windows" => {
+            // only compiles on windows
             cfg_if::cfg_if! {
                 if #[cfg(windows)] {/**/
                     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
                     let steam_key = hklm.open_subkey(r#"SOFTWARE\WOW6432Node\Valve\Steam"#);
-                    let install_path =
+                    let install_path = "";
                 }
             }
         }
