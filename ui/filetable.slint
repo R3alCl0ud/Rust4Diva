@@ -29,7 +29,6 @@ export component FileTable {
 
     private property <length> e: self.width / root.columns.length;
 
-
     public function set-current-row(index: int) {
         if (index < 0 || index >= files.length) {
             return;
@@ -49,8 +48,7 @@ export component FileTable {
         if (root.current-sort-column != index) {
             root.columns[root.current-sort-column].sort-order = SortOrder.unsorted;
         }
-
-        if(root.columns[index].sort-order == SortOrder.ascending) {
+        if (root.columns[index].sort-order == SortOrder.ascending) {
             root.columns[index].sort-order = SortOrder.descending;
             root.sort-descending(index);
         } else {
@@ -148,7 +146,7 @@ export component FileTable {
                             color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
 
                             states [
-                                selected when idx == root.current-row : {
+                                selected when idx == root.current-row: {
                                     name-text.color: CosmicPalette.accent-background;
                                 }
                             ]
@@ -174,7 +172,7 @@ export component FileTable {
                             color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
 
                             states [
-                                selected when idx == root.current-row : {
+                                selected when idx == root.current-row: {
                                     bytes-text.color: CosmicPalette.accent-background;
                                 }
                             ]
@@ -182,6 +180,7 @@ export component FileTable {
                     }
                 }
 
+                if columns.length >= 3:
                 TableViewCell {
                     horizontal-stretch: columns[2].horizontal-stretch;
                     min-width: max(columns[2].min-width, columns[2].width);
@@ -190,15 +189,17 @@ export component FileTable {
                     // width: root.column_sizes[2];
                     ProgressIndicator {
                         indeterminate: false;
-                        progress: file.progress;
+                        progress: file.progress / file.size;
                     }
                 }
             }
         }
     }
+
     focus-scope := FocusScope {
         x: 0;
-        width: 0; // Do not react on clicks
+        width: 0;
+        // Do not react on clicks
 
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {

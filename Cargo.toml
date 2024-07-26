@@ -22,8 +22,8 @@ reqwest-streams = "0.7.0"
 tokio = { version = "1.38.0", features = ["full"] }
 interprocess = { version = "2.2.0", features = ["tokio"] }
 tokio-macros = { version = "0.2.0-alpha.6" }
-slint = "1.6.0"
-slint-interpreter = "1.7.0"
+slint = "1.7.1"
+slint-interpreter = "1.7.1"
 futures-util = "0.3.30"
 cfg-if = "1.0.0"
 

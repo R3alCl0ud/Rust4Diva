@@ -317,8 +317,10 @@ pub fn reqwest_mod_data(gb_file: &GbModDownload, sender: Sender<Option<GbModDown
     });
     return rx;
 }
-pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
+pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, Download)>) {
     let file_arc: Arc<Mutex<Vec<GbModDownload>>> = Arc::new(Mutex::new(Vec::new()));
+
+    // setup thread for downloading, this will listen for Download objects
 
 
     let search_diva = Arc::clone(&diva_arc);
@@ -340,11 +342,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     let ui_download_handle = ui.as_weak();
     ui.on_download_file(move |file, file_row| {
         println!("Download: {}, {}", file.name, file_row);
-        // let binding = DOWNLOAD_QUEUE;
-        // let mut q = binding.lock().unwrap();
-        // // let mut q = queue.blocking_lock();
-        // q.push_back((file_row, file));
-        // do_download_queue(q, ui_download_handle.clone());
         let ui_file = file.clone();
         let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
             let file = ui_file.clone();
@@ -360,7 +357,8 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                 }
             }
         });
-        download_mod_file(file_row, &download_diva, ui_download_handle.clone(), file);
+        // download_mod_file(file_row, &download_diva, ui_download_handle.clone(), file);
+        let _ = dl_tx.clone().try_send((file_row, file)).unwrap();
     });
 
     // ui.on_download_file()
@@ -497,9 +495,7 @@ pub fn set_files_list(ui_handle: Weak<App>, files: &Vec<GbModDownload>) {
     }).expect("TODO: panic message");
 }
 
-pub fn do_download_queue(q: MutexGuard<VecDeque<(i32, Download)>>, ui_download_handle: Weak<App>) {
-
-}
+pub fn do_download_queue(q: MutexGuard<VecDeque<(i32, Download)>>, ui_download_handle: Weak<App>) {}
 
 
 pub fn download_mod_file(file_idx: i32, download_diva: &Arc<Mutex<DivaData>>, ui_download_handle: Weak<App>, download: Download) {

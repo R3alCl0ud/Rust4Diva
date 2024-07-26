@@ -1,15 +1,22 @@
 use std::{env, fs};
 use std::fs::File;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
 use compress_tools::{Ownership, uncompress_archive};
+use curl::easy::Easy;
 use keyvalues_parser::Vdf;
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, Model, ModelRc, StandardListViewItem, VecModel, Weak};
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use toml::de::Error;
+
+use crate::{DivaData, Download};
+use crate::gamebanana_async::GbModDownload;
+use crate::slint_generatedApp::App;
 
 cfg_if::cfg_if! {
     if #[cfg(windows)] {
@@ -17,11 +24,6 @@ cfg_if::cfg_if! {
         use winreg::RegKey;
     }
 }
-
-use crate::DivaData;
-use crate::gamebanana_async::GbModDownload;
-use crate::slint_generatedApp::App;
-
 
 const STEAM_FOLDER: &str = ".local/share/Steam";
 const STEAM_LIBRARIES_CONFIG: &str = "config/libraryfolders.vdf";
@@ -224,6 +226,17 @@ pub fn unpack_mod(mod_archive: File, diva_data: &&mut DivaData) {
         .expect("Welp, wtf, idk what happened, must be out of space or some shit");
 }
 
+pub async fn new_unpack_mod(mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) {
+    let diva = diva_arc.lock().await;
+    uncompress_archive(mod_archive, Path::new(format!("{}/{}", &diva.diva_directory, &diva.dml.mods).as_str()), Ownership::Preserve)
+        .expect("Welp, wtf, idk what happened, must be out of space or some shit");
+}
+
+
+
+
+
+
 pub fn unpack_mod_from_temp(module: &GbModDownload, diva_data: &&mut DivaData) {
     let module_path = "/tmp/rust4diva/".to_owned() + &*module.file;
     if let Ok(file) = File::open(&module_path) {
@@ -262,14 +275,19 @@ pub fn one_click() {
     println!("Test");
 }
 
-pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
+pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32, Download)>) {
     let ui_toggle_handle = ui.as_weak();
     let ui_load_handle = ui.as_weak();
+    let ui_progress_handle = ui.as_weak();
     let toggle_diva = diva_arc.clone();
     let load_diva = diva_arc.clone();
     let diva_state = diva_arc.lock().await;
     let mods_dir = format!("{}/{}", &diva_state.diva_directory.as_str().to_owned(),
                            &diva_state.dml.mods.as_str());
+
+    let (dl_ui_tx, dl_ui_rx) =  tokio::sync::mpsc::channel::<(i32, f32)>(2048);
+    // setup thread for downloading, this will listen for Download objects sent on a tokio channel
+
 
     ui.on_load_mods(move || {
         let app = ui_load_handle.upgrade().unwrap();
@@ -330,6 +348,10 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
             });
         }
     });
+
+    let _ = spawn_download_listener(dl_rx, dl_ui_tx, &diva_arc.clone());
+    let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
+    println!("Do we get here?");
 }
 
 pub fn push_mods_to_table(mods: &Vec<DivaMod>, weak: Weak<App>) {
@@ -352,4 +374,81 @@ pub fn push_mods_to_table(mods: &Vec<DivaMod>, weak: Weak<App>) {
             model_vec.push(items.into());
         }
     }
+}
+
+
+pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Sender<(i32, f32)>, diva_arc: &Arc<Mutex<DivaData>>) {
+    let diva_arc = diva_arc.clone();
+    tokio::spawn(async move {
+        println!("Listening for downloads");
+        while !dl_rx.is_closed() {
+            if let Some((index, download)) = dl_rx.recv().await {
+                println!("{}", download.url.as_str());
+                let mut dst = Vec::new();
+                let mut easy = Easy::new();
+                easy.url(download.url.as_str()).unwrap();
+                let _redirect = easy.follow_location(true);
+                let mut started = false;
+
+                {
+                    let mut transfer = easy.transfer();
+                    transfer.write_function(|data| {
+                        if !started {
+                            started = true;
+                            println!("First chunk received");
+                        }
+                        dst.extend_from_slice(data);
+                        let p = prog_tx.try_send((index.clone(), data.len() as f32));
+                        match p {
+                            Ok(_) => {}
+                            Err(e) => {
+                                eprintln!("{}", e);
+                            }
+                        }
+                        Ok(data.len())
+                    }).unwrap();
+                    transfer.perform().unwrap();
+                }
+                let mut file_res = File::create("/tmp/rust4diva/".to_owned() + &download.name);
+                // files
+                match file_res {
+                    Ok(mut f) => {
+                        match f.write_all(dst.clone().as_slice()) {
+                            Ok(_) => {
+                                new_unpack_mod(f, diva_arc.clone()).await;
+                                println!("Saved successfully, will try to extract");
+                            }
+                            Err(e) => {
+                                eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                    }
+                }
+            }
+        }
+        println!("Closed idk");
+    });
+}
+
+
+pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Weak<App>) {
+    tokio::spawn(async move {
+        while !prog_rx.is_closed() {
+            if let Ok((index, chunk_size)) = prog_rx.try_recv() {
+                ui_weak.upgrade_in_event_loop(move |ui| {
+                    let downloads = ui.get_downloads_list();
+                    if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>() {
+                        if let Some(mut download) = downloads.row_data(index as usize) {
+                            download.progress += chunk_size;
+                            downloads.set_row_data(index as usize, download);
+                        }
+                    }
+                }).unwrap();
+            }
+        }
+        println!("Progress listener Closed");
+    });
 }

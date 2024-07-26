@@ -40,7 +40,9 @@ export component App inherits Window {
     in property <string> dml-version: "";
     in-out property <string> selected-search: "";
     in-out property <string> selected-file: "";
-    in property <bool> dml-enabled: false;
+
+    in-out property <int> temp-pos;
+    in-out property <bool> dml-enabled: false;
     in property <bool> s-prog-vis: false;
     property window_width <=> self.width;
     property window_height <=> self.height;
@@ -54,10 +56,10 @@ export component App inherits Window {
     //    in-out property mods-table: mod-table;
     default-font-size: 16px;
     VerticalBox {
-        Text {
-            font-size: 24px;
-            text: "Goodmorning Mother Fuckers!~~!~~~!";
-        }
+        // Text {
+        //     font-size: 24px;
+        //     text: "Goodmorning Mother Fuckers!~~!~~~!";
+        // }
 
         HorizontalBox {
             Text {
@@ -71,6 +73,7 @@ export component App inherits Window {
             CheckBox {
                 text: dml-enabled ? "Enabled" : "Disabled";
                 toggled => {
+                    dml-enabled = !dml-enabled;
                     toggle-dml();
                 }
             }
@@ -172,7 +175,7 @@ export component App inherits Window {
                     }
 
                     files-table := FileTable {
-                        columns: [{ title: "Name" }, { title: "Size" }, { title: "progress" }];
+                        columns: [{ title: "Name" }, { title: "Size" }];
                         files: file-results;
                         current-row-changed(row) => {
                             // selected-file = row;
@@ -189,8 +192,9 @@ export component App inherits Window {
                             text: "Download and Install";
                             width: (window_width / 2) - 40px;
                             clicked => {
-                                download-file(file-results[files-table.current-row], downloads-list.length);
-                                // downloads-list.push()
+                                if file-results.length != 0 && files-table.current-row != -1 {
+                                    download-file(file-results[files-table.current-row], downloads-list.length);
+                                }
                             }
                         }
                     }
@@ -204,10 +208,9 @@ export component App inherits Window {
                         text: dl.value.name;
                     }
                     FileTable {
-                        columns: [{ title: "Name" }, { title: "Size" }, { title: "progress" }];
+                        columns: [{ title: "Name" }, { title: "Size" }, { title: "Progress" }];
                         files: downloads-list;
                     }
-                    
                 }
             }
         }

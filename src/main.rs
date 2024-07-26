@@ -39,13 +39,16 @@ struct DivaData {
     dl_mod_url: String,
     dml: DivaModLoader,
     dl_done_tx: Sender<DlFinish>,
-    mod_files: HashMap<u64, Vec<GbModDownload>>
+    dl_queue: Arc<Mutex<Vec<Download>>>,
+    mod_files: HashMap<u64, Vec<GbModDownload>>,
 }
 
 #[tokio::main]
 async fn main() {
     println!("Starting Rust4Diva Slint Edition");
     let (url_tx, rx) = tokio::sync::mpsc::channel(2048);
+    let (dl_tx, dl_rx) = tokio::sync::mpsc::channel::<(i32, Download)>(2048);
+
 
     create_tmp_if_not().expect("Failed to create temp directory, now we are panicking");
 
@@ -68,8 +71,8 @@ async fn main() {
 
     push_mods_to_table(&diva_state.mods, app_weak.clone());
     let diva_arc = Arc::new(Mutex::new(diva_state));
-    modmanagement::init(&app, Arc::clone(&diva_arc)).await;
-    gamebanana_async::init(&app, Arc::clone(&diva_arc)).await;
+    modmanagement::init(&app, Arc::clone(&diva_arc), dl_rx).await;
+    gamebanana_async::init(&app, Arc::clone(&diva_arc), dl_tx).await;
     println!("Does the app run?");
     // app.
     app.run().unwrap();
@@ -92,6 +95,7 @@ impl DivaData {
                 version: "".to_string(),
             },
             dl_done_tx: dl_tx,
+            dl_queue: Arc::new(Mutex::new(Vec::new())),
             mod_files: HashMap::new(),
         }
     }
