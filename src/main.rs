@@ -46,7 +46,7 @@ struct DivaData {
 #[tokio::main]
 async fn main() {
     println!("Starting Rust4Diva Slint Edition");
-    let (url_tx, rx) = tokio::sync::mpsc::channel(2048);
+    let (url_tx, url_rx) = tokio::sync::mpsc::channel(2048);
     let (dl_tx, dl_rx) = tokio::sync::mpsc::channel::<(i32, Download)>(2048);
 
 
@@ -59,7 +59,7 @@ async fn main() {
     }
 
 
-    let mut diva_state = DivaData::new(rx);
+    let mut diva_state = DivaData::new();
 
     diva_state.diva_directory = get_diva_folder().expect("Unable to get the diva directory");
 
@@ -80,7 +80,7 @@ async fn main() {
 
 
 impl DivaData {
-    fn new(dmm_rx: Receiver<String>) -> Self {
+    fn new() -> Self {
         let (dl_tx, dl_rx) = tokio::sync::mpsc::channel::<DlFinish>(2048);
         Self {
             mods: Vec::new(),

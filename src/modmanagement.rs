@@ -15,7 +15,6 @@ use tokio::sync::Mutex;
 use toml::de::Error;
 
 use crate::{DivaData, Download};
-use crate::gamebanana_async::GbModDownload;
 use crate::slint_generatedApp::App;
 
 cfg_if::cfg_if! {
@@ -201,12 +200,6 @@ pub fn get_diva_folder() -> Option<String> {
     }
 }
 
-
-pub fn save_mod_configs(diva_data: &mut DivaData) {
-    for diva_mod in &diva_data.mods {
-        println!("{}\n{}", &diva_mod.path, toml::to_string(&diva_mod.config).unwrap());
-    }
-}
 pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     let config_path = Path::new(path);
     if let Ok(config_str) = toml::to_string(&diva_mod_config) {
@@ -221,30 +214,21 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     }
 }
 
-pub fn unpack_mod(mod_archive: File, diva_data: &&mut DivaData) {
-    uncompress_archive(mod_archive, Path::new(format!("{}/{}", &diva_data.diva_directory, &diva_data.dml.mods).as_str()), Ownership::Preserve)
-        .expect("Welp, wtf, idk what happened, must be out of space or some shit");
-}
 
-pub async fn new_unpack_mod(mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) {
+pub async fn unpack_mod(mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
     let diva = diva_arc.lock().await;
     uncompress_archive(mod_archive, Path::new(format!("{}/{}", &diva.diva_directory, &diva.dml.mods).as_str()), Ownership::Preserve)
-        .expect("Welp, wtf, idk what happened, must be out of space or some shit");
 }
 
-
-
-
-
-
-pub fn unpack_mod_from_temp(module: &GbModDownload, diva_data: &&mut DivaData) {
-    let module_path = "/tmp/rust4diva/".to_owned() + &*module.file;
-    if let Ok(file) = File::open(&module_path) {
-        unpack_mod(file, diva_data);
-    } else {
-        eprintln!("Unable to open archive at {:#}", module_path);
-    }
-}
+//
+// pub fn unpack_mod_from_temp(module: &GbModDownload, diva_data: &&mut DivaData) {
+//     let module_path = "/tmp/rust4diva/".to_owned() + &*module.file;
+//     if let Ok(file) = File::open(&module_path) {
+//         unpack_mod(file, diva_data);
+//     } else {
+//         eprintln!("Unable to open archive at {:#}", module_path);
+//     }
+// }
 
 pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
     println!("{}{}", diva_folder, "/config.toml");
@@ -271,45 +255,26 @@ pub fn create_tmp_if_not() -> std::io::Result<()> {
 }
 
 
-pub fn one_click() {
-    println!("Test");
-}
-
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32, Download)>) {
     let ui_toggle_handle = ui.as_weak();
     let ui_load_handle = ui.as_weak();
     let ui_progress_handle = ui.as_weak();
+    let ui_download_handle = ui.as_weak();
     let toggle_diva = diva_arc.clone();
     let load_diva = diva_arc.clone();
     let diva_state = diva_arc.lock().await;
     let mods_dir = format!("{}/{}", &diva_state.diva_directory.as_str().to_owned(),
                            &diva_state.dml.mods.as_str());
 
-    let (dl_ui_tx, dl_ui_rx) =  tokio::sync::mpsc::channel::<(i32, f32)>(2048);
+    let reload_dir = mods_dir.clone();
+    let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
 
 
     ui.on_load_mods(move || {
         let app = ui_load_handle.upgrade().unwrap();
-        app.set_counter(app.get_counter() + 1);
         let mods = load_mods_from_dir(mods_dir.clone());
-        let model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
-        for item in &mods {
-            let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
-            let enable_str = if item.config.enabled { "Enabled" } else { "Disabled" };
-            let enabled = StandardListViewItem::from(enable_str);
-            let name = StandardListViewItem::from(item.config.name.as_str());
-            let authors = StandardListViewItem::from(item.config.author.as_str());
-            let version = StandardListViewItem::from(item.config.version.as_str());
-            let description = StandardListViewItem::from(item.config.description.as_str());
-            items.push(enabled);
-            items.push(name);
-            items.push(authors);
-            items.push(version);
-            items.push(description);
-            model_vec.push(items.into());
-        }
-        let model = ModelRc::new(model_vec);
+        let model = create_mods_model(&mods.clone());
         app.set_stuff(model);
         let darc = load_diva.clone();
         tokio::spawn(async move {
@@ -325,18 +290,18 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             let toggle_diva = Arc::clone(&toggle_diva);
             let ui_toggle_handle = ui_toggle_handle.clone();
             tokio::spawn(async move {
-                let mut darc = &mut toggle_diva.lock().await;
+                let darc = &mut toggle_diva.lock().await;
                 if darc.mods.len() < row_num {
                     return;
                 }
                 let mods_dir = darc.mods_directory.clone();
-                let mut module = &mut darc.mods[row_num];
-                let mod_path = format!("{}{}", mods_dir, &module.path.clone());
+                let module = &mut darc.mods[row_num];
+                let mod_path = format!("{}{}", mods_dir.clone(), &module.path.clone());
                 module.config.enabled = !module.config.enabled;
                 let mut module = module.clone();
                 ui_toggle_handle.upgrade_in_event_loop(move |ui| {
                     let stuff_bind = ui.get_stuff();
-                    if let Some(mut model_vec) = stuff_bind.as_any().downcast_ref::<VecModel<ModelRc<StandardListViewItem>>>() {
+                    if let Some(model_vec) = stuff_bind.as_any().downcast_ref::<VecModel<ModelRc<StandardListViewItem>>>() {
                         if let Some(item) = model_vec.row_data(row_num) {
                             let enable_str = if module.config.enabled { "Enabled" } else { "Disabled" };
                             let enabled = StandardListViewItem::from(enable_str);
@@ -349,7 +314,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
         }
     });
 
-    let _ = spawn_download_listener(dl_rx, dl_ui_tx, &diva_arc.clone());
+    let _ = spawn_download_listener(dl_rx, dl_ui_tx, &diva_arc.clone(), reload_dir, ui_download_handle);
     let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
     println!("Do we get here?");
 }
@@ -377,8 +342,9 @@ pub fn push_mods_to_table(mods: &Vec<DivaMod>, weak: Weak<App>) {
 }
 
 
-pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Sender<(i32, f32)>, diva_arc: &Arc<Mutex<DivaData>>) {
+pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Sender<(i32, f32)>, diva_arc: &Arc<Mutex<DivaData>>, mods_dir: String, ui_download_handle: Weak<App>) {
     let diva_arc = diva_arc.clone();
+    let ui_download_handle = ui_download_handle.clone();
     tokio::spawn(async move {
         println!("Listening for downloads");
         while !dl_rx.is_closed() {
@@ -409,14 +375,27 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                     }).unwrap();
                     transfer.perform().unwrap();
                 }
-                let mut file_res = File::create("/tmp/rust4diva/".to_owned() + &download.name);
+                let file_res = File::create("/tmp/rust4diva/".to_owned() + &download.name);
                 // files
                 match file_res {
                     Ok(mut f) => {
                         match f.write_all(dst.clone().as_slice()) {
                             Ok(_) => {
-                                new_unpack_mod(f, diva_arc.clone()).await;
                                 println!("Saved successfully, will try to extract");
+                                match unpack_mod(f, diva_arc.clone()).await {
+                                    Ok(_) => {
+                                        let mods = load_mods_from_dir(mods_dir.clone());
+                                        let mut diva = diva_arc.lock().await;
+                                        diva.mods = mods.clone();
+                                        ui_download_handle.upgrade_in_event_loop(move |ui| {
+                                            let model = create_mods_model(&mods.clone());
+                                            ui.set_stuff(model);
+                                        }).expect("failed to update the mods list after unpacking mod");
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to extract the mod file:\n{}", e);
+                                    }
+                                }
                             }
                             Err(e) => {
                                 eprintln!("Something went wrong while saving the file to disk \n{}", e);
@@ -438,7 +417,7 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
     tokio::spawn(async move {
         while !prog_rx.is_closed() {
             if let Ok((index, chunk_size)) = prog_rx.try_recv() {
-                ui_weak.upgrade_in_event_loop(move |ui| {
+                match ui_weak.upgrade_in_event_loop(move |ui| {
                     let downloads = ui.get_downloads_list();
                     if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>() {
                         if let Some(mut download) = downloads.row_data(index as usize) {
@@ -446,9 +425,35 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
                             downloads.set_row_data(index as usize, download);
                         }
                     }
-                }).unwrap();
+                }) {
+                    Err(e) => {
+                        eprintln!("{}", e);
+                    }
+                    _ => {}
+                };
             }
         }
         println!("Progress listener Closed");
     });
+}
+
+
+pub fn create_mods_model(mods: &Vec<DivaMod>) -> ModelRc<ModelRc<StandardListViewItem>> {
+    let model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
+    for item in mods.iter() {
+        let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
+        let enable_str = if item.config.enabled { "Enabled" } else { "Disabled" };
+        let enabled = StandardListViewItem::from(enable_str);
+        let name = StandardListViewItem::from(item.config.name.as_str());
+        let authors = StandardListViewItem::from(item.config.author.as_str());
+        let version = StandardListViewItem::from(item.config.version.as_str());
+        let description = StandardListViewItem::from(item.config.description.as_str());
+        items.push(enabled);
+        items.push(name);
+        items.push(authors);
+        items.push(version);
+        items.push(description);
+        model_vec.push(items.into());
+    }
+    ModelRc::new(model_vec)
 }

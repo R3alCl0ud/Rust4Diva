@@ -10,18 +10,18 @@ build = "build.rs"
 regex = "1.10.5"
 curl = "0.4.46"
 json = "0.12.4"
-sonic-rs = "0.3.8"
-serde = { version = "1.0.203", features = ["derive"] }
-env_logger = "0.11.3"
-toml = "0.8.14"
+sonic-rs = "0.3.9 "
+serde = { version = "1.0.204", features = ["derive"] }
+env_logger = "0.11.5"
+toml = "0.8.16"
 dirs = "5.0.1"
 keyvalues-parser = "0.2.0"
-compress-tools = "0.15.0"
+compress-tools = "0.15.1"
 reqwest = { version = "0.12.5", features = ["stream"] }
 reqwest-streams = "0.7.0"
-tokio = { version = "1.38.0", features = ["full"] }
-interprocess = { version = "2.2.0", features = ["tokio"] }
-tokio-macros = { version = "0.2.0-alpha.6" }
+tokio = { version = "1.39.2", features = ["full"] }
+interprocess = { version = "2.2.1", features = ["tokio"] }
+tokio-macros = { version = "2.4.0" }
 slint = "1.7.1"
 slint-interpreter = "1.7.1"
 futures-util = "0.3.30"
@@ -33,4 +33,4 @@ winreg = "0.52.0"
 
 
 [build-dependencies]
-slint-build = "1.6"
+slint-build = "1.7.1"
