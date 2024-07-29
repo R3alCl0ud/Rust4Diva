@@ -7,9 +7,11 @@ use futures_util::SinkExt;
 use interprocess::local_socket::{GenericFilePath, GenericNamespaced, NameType, ToFsName, ToNsName};
 use interprocess::local_socket::ListenerOptions;
 use interprocess::local_socket::tokio::{prelude::*, Stream};
+use slint::Weak;
 use slint_interpreter::ComponentHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::error::SendError;
 use tokio::sync::Mutex;
 use tokio::try_join;
 
@@ -46,14 +48,18 @@ struct DivaData {
 #[tokio::main]
 async fn main() {
     println!("Starting Rust4Diva Slint Edition");
+    create_tmp_if_not().expect("Failed to create temp directory, now we are panicking");
+
+    let app = App::new().unwrap();
+    let app_weak = app.as_weak();
+
+
     let (url_tx, url_rx) = tokio::sync::mpsc::channel(2048);
     let (dl_tx, dl_rx) = tokio::sync::mpsc::channel::<(i32, Download)>(2048);
 
 
-    create_tmp_if_not().expect("Failed to create temp directory, now we are panicking");
-
     // rx.try_recv();
-    match spawn_listener(url_tx).await {
+    match spawn_listener(url_tx, app_weak.clone()).await {
         Ok(_) => {}
         Err(_) => {}
     }
@@ -66,13 +72,17 @@ async fn main() {
     diva_state.dml = load_diva_ml_config(&diva_state.diva_directory.as_str()).unwrap();
     diva_state.mods = load_mods(&diva_state);
 
-    let app = App::new().unwrap();
-    let app_weak = app.as_weak();
 
     push_mods_to_table(&diva_state.mods, app_weak.clone());
+
+
+    app.set_dml_version((&diva_state.dml.version).into());
+    app.set_dml_enabled(diva_state.dml.enabled);
+
+
     let diva_arc = Arc::new(Mutex::new(diva_state));
     modmanagement::init(&app, Arc::clone(&diva_arc), dl_rx).await;
-    gamebanana_async::init(&app, Arc::clone(&diva_arc), dl_tx).await;
+    gamebanana_async::init(&app, Arc::clone(&diva_arc), dl_tx, url_rx).await;
     println!("Does the app run?");
     // app.
     app.run().unwrap();
@@ -104,7 +114,7 @@ impl DivaData {
 
 /// This is the function for the url handling, should this return Result(True) we know that we are
 /// the listening server and should run the display window
-async fn spawn_listener(dmm_url_tx: Sender<String>) -> Result<bool, Box<dyn Error>> {
+async fn spawn_listener(dmm_url_tx: Sender<String>, weak: Weak<App>) -> Result<bool, Box<dyn Error>> {
     println!("Starting dmm url listener");
 
 
@@ -141,7 +151,12 @@ async fn spawn_listener(dmm_url_tx: Sender<String>) -> Result<bool, Box<dyn Erro
         // let dmm_str = buffer.trim().clone().to_owned();
         let dmm_url = buffer.trim();
         // dmm_url_tx
-        send_url.send(dmm_url.to_string()).await.expect("unable to transmit the received url to main thread");
+        match send_url.send(dmm_url.to_string()).await {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("main @ 157: {}", e);
+            }
+        }
 
         Ok(())
     }
@@ -186,7 +201,6 @@ is in use by another process and try again."
             if let Err(e) = handle_conn(conn, url_tx).await {
                 eprintln!("Error while handling connection: {e}");
             }
-            // });
         }
     });
     Ok(true)

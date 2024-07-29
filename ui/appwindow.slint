@@ -1,6 +1,7 @@
 import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator } from "std-widgets.slint";
 import { FileTable, Download } from "filetable.slint";
 import { CosmicPalette } from "cosmic-styling.slint";
+import { ErrorDialog } from "errordialog.slint";
 
 
 export struct SlintModConfig {
@@ -37,13 +38,21 @@ export component App inherits Window {
     in property <[{key: int, value: Download}]> downloads-map;
     in-out property <[Download]> downloads-list: [];
     in property <[[StandardListViewItem]]> stuff: [];
+
+
     in property <string> dml-version: "";
+    in-out property <bool> dml-enabled: false;
+    
+    
     in-out property <string> selected-search: "";
     in-out property <string> selected-file: "";
 
     in-out property <int> temp-pos;
-    in-out property <bool> dml-enabled: false;
     in property <bool> s-prog-vis: false;
+
+    in-out property <bool> show-error: true;
+    in-out property <string> error-msg;
+
     property window_width <=> self.width;
     property window_height <=> self.height;
     callback load-mods <=> load-mods-btn.clicked;
@@ -55,11 +64,33 @@ export component App inherits Window {
 
     //    in-out property mods-table: mod-table;
     default-font-size: 16px;
-    VerticalBox {
-        // Text {
-        //     font-size: 24px;
-        //     text: "Goodmorning Mother Fuckers!~~!~~~!";
-        // }
+    errordialog := ErrorDialog {
+        x: (window_width / 2)-100px;
+        y: (window_height / 2)-100px;
+
+        msg: error-msg;
+        ok-cb => {
+            errordialog.close();
+        }
+    }
+
+    VerticalLayout {
+        HorizontalBox {
+            Button {
+                text: "(F)ile";
+            }
+
+            Button {
+                text: "(H)elp";
+            }
+
+            Button {
+                text: "Test Error";
+                clicked => {
+                    errordialog.show();
+                }
+            }
+        }
 
         HorizontalBox {
             Text {
@@ -71,6 +102,7 @@ export component App inherits Window {
             }
 
             CheckBox {
+                checked: dml-enabled;
                 text: dml-enabled ? "Enabled" : "Disabled";
                 toggled => {
                     dml-enabled = !dml-enabled;

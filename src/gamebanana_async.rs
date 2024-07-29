@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, StandardListViewItem, VecModel, Weak};
 use sonic_rs::{Error, JsonContainerTrait, Value};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::Mutex;
 
 use crate::{App, DivaData, DlFinish, Download};
@@ -19,7 +20,6 @@ const GB_DIVA_ID: i32 = 16522;
 
 const GB_MOD_INFO: &str = "/Core/Item/Data";
 const GB_MOD_SEARCH: &str = "apiv9/Util/Game/Submissions";
-
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -133,6 +133,12 @@ pub struct GbPreviewImage {
     file: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct GbDmmItem {
+    pub(crate) item_id: String,
+    pub(crate) itemtype: String,
+    pub(crate) file_id: String,
+}
 
 pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     // let stream = InMemoryStream::default();
@@ -180,12 +186,6 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     return the_mod;
 }
 
-pub struct GbDmmItem {
-    pub(crate) item_id: String,
-    pub(crate) itemtype: String,
-    pub(crate) file_id: String,
-}
-
 
 pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     // check if this is a proper dmm 1 click url
@@ -198,10 +198,11 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
         println!("Sorry, no fucks in here");
         return None;
     };
+    println!("{:#?}", m_info);
     return Some(GbDmmItem {
-        item_id: m_info.get(0).unwrap().as_str().to_string(),
-        itemtype: m_info.get(1).unwrap().as_str().to_string(),
-        file_id: m_info.get(2).unwrap().as_str().to_string(),
+        file_id: m_info.get(1).unwrap().as_str().to_string(),
+        itemtype: m_info.get(2).unwrap().as_str().to_string(),
+        item_id: m_info.get(3).unwrap().as_str().to_string(),
     });
 }
 
@@ -246,11 +247,8 @@ pub fn _download_mod_file(gb_file: &GbModDownload, sender: Sender<DlFinish>) -> 
     });
     return rx;
 }
-pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, Download)>) {
+pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, Download)>, url_rx: Receiver<String>) {
     let file_arc: Arc<Mutex<Vec<GbModDownload>>> = Arc::new(Mutex::new(Vec::new()));
-
-    // setup thread for downloading, this will listen for Download objects
-
 
     let search_diva = Arc::clone(&diva_arc);
     let ui_search_handle = ui.as_weak();
@@ -269,6 +267,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, 
     let download_diva = Arc::clone(&diva_arc);
     let download_files = Arc::clone(&file_arc);
     let ui_download_handle = ui.as_weak();
+    let oneclick_tx = dl_tx.clone();
     ui.on_download_file(move |file, file_row| {
         println!("Download: {}, {}", file.name, file_row);
         let ui_file = file.clone();
@@ -288,6 +287,10 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, 
         });
         let _ = dl_tx.clone().try_send((file_row, file));
     });
+
+    let oneclick_diva = Arc::clone(&diva_arc);
+    let ui_oneclick_handle = ui.as_weak();
+    let _ = handle_dmm_oneclick(url_rx, oneclick_diva, ui_oneclick_handle, oneclick_tx.clone());
 }
 pub fn search_mods(search: String, search_diva: &Arc<Mutex<DivaData>>, ui_search_handle: Weak<App>) {
     let search_diva = Arc::clone(search_diva);
@@ -446,4 +449,63 @@ pub fn _download_mod_file_from_id(gb_file_id: String) -> std::io::Result<File> {
 
 
     return Ok(file);
+}
+
+
+pub fn handle_dmm_oneclick(mut url_rx: Receiver<String>, diva_arc: Arc<Mutex<DivaData>>, ui_handle: Weak<App>, sender: Sender<(i32, Download)>) -> tokio::task::JoinHandle<()> {
+    return tokio::spawn(async move {
+        while !url_rx.is_closed() {
+            match url_rx.recv().await {
+                Some(url) => {
+                    println!("GB @ 458: {}", url);
+                    if let Some(oneclick) = parse_dmm_url(url) {
+                        println!("Parsed successfully, fetching info now {:#?}", oneclick);
+
+                        if let Some(mod_info) = fetch_mod_data(oneclick.item_id.as_str()) {
+                            // let mut file_iter = ;
+                            println!("Mod: {}", mod_info.name);
+                            let files = mod_info.files.clone();
+                            let files = files.iter().cloned().find(|file| file.id.to_string() == oneclick.file_id);
+
+                            if let Some(file) = files {
+                                println!("Found the right file: {}", file.file);
+                                let ui_sender = sender.clone();
+                                let _ = ui_handle.upgrade_in_event_loop(move |ui| {
+                                    let mut downloads = ui.get_downloads_list();
+                                    let dc = downloads.as_any().downcast_ref::<VecModel<Download>>();
+                                    match dc {
+                                        Some(downloads) => {
+                                            println!("Pushing");
+                                            let cur_len = downloads.iter().len();
+                                            let download = Download {
+                                                id: file.id as i32,
+                                                name: SharedString::from(&file.file),
+                                                progress: 0.0,
+                                                size: file.filesize as i32,
+                                                url: SharedString::from(&file.download_url),
+                                            };
+                                            downloads.push(download.clone());
+                                            match ui_sender.try_send((cur_len as i32, download)) {
+                                                Ok(_) => {}
+                                                Err(e) => {
+                                                    println!("{}", e);
+                                                }
+                                            }
+                                        }
+                                        None => {
+                                            println!("wasn't able to downcast wtf");
+                                        }
+                                    }
+                                });
+                            }
+                        } else {
+                            println!("Unable to get the info for some reason");
+                        }
+                    }
+                }
+                None => {}
+            }
+        }
+        println!("Oneclick receiver closed");
+    });
 }

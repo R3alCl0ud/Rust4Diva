@@ -214,21 +214,12 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     }
 }
 
-
 pub async fn unpack_mod(mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
     let diva = diva_arc.lock().await;
-    uncompress_archive(mod_archive, Path::new(format!("{}/{}", &diva.diva_directory, &diva.dml.mods).as_str()), Ownership::Preserve)
+    let path = format!("{}/{}", &diva.diva_directory, &diva.dml.mods);
+    println!("{}", path.as_str());
+    uncompress_archive(mod_archive, Path::new(path.as_str()), Ownership::Ignore)
 }
-
-//
-// pub fn unpack_mod_from_temp(module: &GbModDownload, diva_data: &&mut DivaData) {
-//     let module_path = "/tmp/rust4diva/".to_owned() + &*module.file;
-//     if let Ok(file) = File::open(&module_path) {
-//         unpack_mod(file, diva_data);
-//     } else {
-//         eprintln!("Unable to open archive at {:#}", module_path);
-//     }
-// }
 
 pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
     println!("{}{}", diva_folder, "/config.toml");
@@ -382,7 +373,7 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                         match f.write_all(dst.clone().as_slice()) {
                             Ok(_) => {
                                 println!("Saved successfully, will try to extract");
-                                match unpack_mod(f, diva_arc.clone()).await {
+                                match unpack_mod(File::from(f), diva_arc.clone()).await {
                                     Ok(_) => {
                                         let mods = load_mods_from_dir(mods_dir.clone());
                                         let mut diva = diva_arc.lock().await;
