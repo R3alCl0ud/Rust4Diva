@@ -1,14 +1,16 @@
 # Rust4Diva
 
-A Fast mod manager written in rust for the steam version of  Hatsune Miku Project Diva Mega Mix +
+A Fast mod manager written in rust for the steam version of Hatsune Miku Project Diva Mega Mix +
+Currently only compatible with Linux (window support is planned)
 
-# Planned Features
-
-- [ ] Implement dmm url handling for one click installs
-  - [ ] Send oneclicks to already running instance 
-  - [x] Receive oneclicks
-  - [x] Parse and downlaod
-- [x] In app searching of gamebanana for mods
-  - [x] Download
-  - [x] Automatic Install
-- [ ]  mod pack presets for easy switching between incompatible mods
+# Planned Features / To-Do List
+- [ ] Mod pack presets for easy switching between incompatible mods
+  - Need to decide on a format for the modpacks
+    - Probably a json file
+- [ ] Windows support
+  - [ ] Finding the Diva Folder
+  - [ ] Oneclick URL Handling
+- [ ] Mac Os Support
+  - [ ] Literally just finding someone with a mac to test this 
+  - [ ] Url handling
+- [ ] Commission a proper logo/icon
