@@ -1,25 +1,26 @@
 pkgname=Rust4Diva-git
-pkgver=r34.8c109db
+pkgver=r35.abc3f3d
 pkgrel=1
 pkgdesc="Project Diva Mod Manager written in rust"
 arch=('x86_64' 'aarch64')
 license=(GPL-3.0)
 url="https://github.com/R3alCl0ud/Rust4Diva"
 makedepends=(
-  cargo
-  git
+    cargo
+    git
 )
 
 source=('git+https://github.com/R3alCl0ud/Rust4Diva.git')
 sha256sums=('SKIP')
 
 pkgver() {
-  cd "${pkgname%-git}"
-  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+    cd "${pkgname%-git}"
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
 }
 
 
 build() {
+    cd "${pkgname%-git}"
     export RUSTUP_TOOLCHAIN=stable
     export CARGO_TARGET_DIR=target
     cargo build --frozen --release --all-features
@@ -27,5 +28,9 @@ build() {
 
 
 package() {
-    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/$pkgname"
+    cd "${pkgname%-git}"
+    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/rust4diva"
+    mkdir -p "$pkgdir/opt/rust4diva"
+    install -Dm0755 -t "$pkgdir/opt/rust4diva/logo.png" "assets/logo.png"
+    install -Dm0755 -t "$pkgdir/usr/share/applications/" "aur/Rust4Diva.desktop"
 }
