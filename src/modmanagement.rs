@@ -26,6 +26,7 @@ cfg_if::cfg_if! {
 }
 
 const STEAM_FOLDER: &str = ".local/share/Steam";
+const STEAM_FOLDER_MAC: &str = "Library/Application Support/Steam";
 const STEAM_LIBRARIES_CONFIG: &str = "config/libraryfolders.vdf";
 const MEGA_MIX_APP_ID: &str = "1761390";
 const DIVA_MOD_FOLDER_SUFFIX: &str = "/steamapps/common/Hatsune Miku Project DIVA Mega Mix Plus";
@@ -139,7 +140,7 @@ pub fn get_steam_folder() -> Option<String> {
     let mut steam_str = None;
     println!("Attempting to find the Steam folder");
     match env::consts::OS {
-        "linux" | "mac" => {
+        "linux" => {
             let mut binding = dirs::home_dir().unwrap();
             binding.push(STEAM_FOLDER);
             if !binding.exists() {
@@ -147,6 +148,14 @@ pub fn get_steam_folder() -> Option<String> {
             }
             steam_str = Some(binding.display().to_string());
         }
+	"mac" => {
+	   let mut binding = dirs::home_dir().unwrap();
+	   binding.push(STEAM_FOLDER_MAC);
+	   if !binding.exists() {
+		println!("Steam folder not found");
+	   } 
+	   steam_str = Some(binding.display().to_string());
+	}
         "windows" => {
             // only compiles on windows
             cfg_if::cfg_if! {
