@@ -1,6 +1,6 @@
 use std::{env, fs};
 use std::fs::File;
-use std::io::Write;
+use std::io::{Seek, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -219,10 +219,11 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
     }
 }
 
-pub async fn unpack_mod(mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
+pub async fn unpack_mod(mut mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
     let diva = diva_arc.lock().await;
     let path = format!("{}/{}", &diva.diva_directory, diva.clone().dml.unwrap().mods);
     println!("{}", path.as_str());
+    mod_archive.rewind()?;
     uncompress_archive(mod_archive, Path::new(path.as_str()), Ownership::Ignore)
 }
 
@@ -409,18 +410,22 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                         match f.write_all(dst.clone().as_slice()) {
                             Ok(_) => {
                                 println!("Saved successfully, will try to extract");
-                                match unpack_mod(File::from(f), diva_arc.clone()).await {
-                                    Ok(_) => {
-                                        let mods = load_mods_from_dir(mods_dir.clone());
-                                        let mut diva = diva_arc.lock().await;
-                                        diva.mods = mods.clone();
-                                        ui_download_handle.upgrade_in_event_loop(move |ui| {
-                                            let model = create_mods_model(&mods.clone());
-                                            ui.set_stuff(model);
-                                        }).expect("failed to update the mods list after unpacking mod");
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Failed to extract the mod file:\n{}", e);
+                                let file = File::open("/tmp/rust4diva/".to_owned() + &download.name);
+                                if let Ok(f) = file {
+                                    match unpack_mod(f, diva_arc.clone()).await {
+                                        Ok(_) => {
+                                            println!("Successfully unpacked mod");
+                                            let mods = load_mods_from_dir(mods_dir.clone());
+                                            let mut diva = diva_arc.lock().await;
+                                            diva.mods = mods.clone();
+                                            ui_download_handle.upgrade_in_event_loop(move |ui| {
+                                                let model = create_mods_model(&mods.clone());
+                                                ui.set_stuff(model);
+                                            }).expect("failed to update the mods list after unpacking mod");
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Failed to extract the mod file:\n{}", e);
+                                        }
                                     }
                                 }
                             }

@@ -30,7 +30,6 @@ build() {
 package() {
     cd "${pkgname%-git}"
     install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/rust4diva"
-    mkdir -p "$pkgdir/opt/rust4diva"
-    install -Dm0755 -t "$pkgdir/opt/rust4diva/logo.png" "assets/logo.png"
+    install -Dm0755 -t "$pkgdir/usr/share/icons/rust4diva.png" "assets/logo.png"
     install -Dm0755 -t "$pkgdir/usr/share/applications/" "aur/Rust4Diva.desktop"
 }

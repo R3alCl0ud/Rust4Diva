@@ -198,7 +198,6 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
         println!("Sorry, no fucks in here");
         return None;
     };
-    println!("{:#?}", m_info);
     return Some(GbDmmItem {
         file_id: m_info.get(1).unwrap().as_str().to_string(),
         itemtype: m_info.get(2).unwrap().as_str().to_string(),
