@@ -107,21 +107,29 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
     for path in paths {
         let mod_path = path.unwrap().path().clone();
         if mod_path.is_file() || !mod_path.clone().is_dir() {
+            println!("Not a mod folder: {}", mod_path.clone().display().to_string());
             continue;
         }
-        let mod_config_res: Result<DivaModConfig, _> = toml::from_str(
-            fs::read_to_string(mod_path.clone().display().to_string() + "/config.toml")
-                .unwrap().as_str());
-        if mod_config_res.is_err() {
-            continue;
+
+        match fs::read_to_string(mod_path.clone().display().to_string() + "/config.toml") {
+            Ok(s) => {
+                let mod_config_res: Result<DivaModConfig, _> = toml::from_str(s.as_str());
+                if mod_config_res.is_err() {
+                    println!("Failed to read mod config for: {}", mod_path.clone().display().to_string());
+                    continue;
+                }
+                let mut mod_config = mod_config_res.unwrap();
+                mod_config.description = mod_config.description.escape_default().to_string();
+                mods.push(DivaMod {
+                    config: mod_config,
+                    path: (mod_path.clone().display().to_string() + "/config.toml").to_string(),
+                });
+            }
+            Err(_) => {
+                println!("Not a mod folder: {}", mod_path.clone().display().to_string());
+                continue;
+            }
         }
-        let mut mod_config = mod_config_res.unwrap();
-        // println!("Mod: {}, {}", mod_config.clone().name, mod_config.description.escape_default().to_string());
-        mod_config.description = mod_config.description.escape_default().to_string();
-        mods.push(DivaMod {
-            config: mod_config,
-            path: (mod_path.clone().display().to_string() + "/config.toml").to_string(),
-        });
     }
     mods
 }
