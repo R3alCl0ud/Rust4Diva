@@ -39,7 +39,7 @@ struct DivaData {
     mods_directory: String,
     diva_directory: String,
     dl_mod_url: String,
-    dml: DivaModLoader,
+    dml: Option<DivaModLoader>,
     dl_done_tx: Sender<DlFinish>,
     dl_queue: Arc<Mutex<Vec<Download>>>,
     mod_files: HashMap<u64, Vec<GbModDownload>>,
@@ -69,15 +69,16 @@ async fn main() {
 
     diva_state.diva_directory = get_diva_folder().expect("Unable to get the diva directory");
 
-    diva_state.dml = load_diva_ml_config(&diva_state.diva_directory.as_str()).unwrap();
+    diva_state.dml = load_diva_ml_config(&diva_state.diva_directory.as_str());
     diva_state.mods = load_mods(&diva_state);
 
 
     push_mods_to_table(&diva_state.mods, app_weak.clone());
 
-
-    app.set_dml_version((&diva_state.dml.version).into());
-    app.set_dml_enabled(diva_state.dml.enabled);
+    if let Some(dml) = &diva_state.dml {
+        app.set_dml_version(dml.version.clone().into());
+        app.set_dml_enabled(dml.enabled);
+    }
 
 
     let diva_arc = Arc::new(Mutex::new(diva_state));
@@ -98,12 +99,7 @@ impl DivaData {
             mods_directory: "".to_string(),
             dl_mod_url: "524621".to_string(),
             diva_directory: "".to_string(),
-            dml: DivaModLoader {
-                enabled: false,
-                console: false,
-                mods: "".to_string(),
-                version: "".to_string(),
-            },
+            dml: None,
             dl_done_tx: dl_tx,
             dl_queue: Arc::new(Mutex::new(Vec::new())),
             mod_files: HashMap::new(),

@@ -39,11 +39,8 @@ export component App inherits Window {
     in-out property <[Download]> downloads-list: [];
     in property <[[StandardListViewItem]]> stuff: [];
 
-
     in property <string> dml-version: "";
     in-out property <bool> dml-enabled: false;
-    
-    
     in-out property <string> selected-search: "";
     in-out property <string> selected-file: "";
 
@@ -61,12 +58,13 @@ export component App inherits Window {
     callback search-gb(string);
     callback list-files(int);
     callback download-file(Download, int);
+    callback open-file-picker;
 
     //    in-out property mods-table: mod-table;
     default-font-size: 16px;
     errordialog := ErrorDialog {
-        x: (window_width / 2)-100px;
-        y: (window_height / 2)-100px;
+        x: (window_width / 2) - 100px;
+        y: (window_height / 2) - 100px;
 
         msg: error-msg;
         ok-cb => {
@@ -78,6 +76,9 @@ export component App inherits Window {
         HorizontalBox {
             Button {
                 text: "(F)ile";
+                clicked => {
+                    open-file-picker();
+                }
             }
 
             Button {

@@ -8,6 +8,7 @@ use std::sync::Arc;
 use compress_tools::{Ownership, uncompress_archive};
 use curl::easy::Easy;
 use keyvalues_parser::Vdf;
+use rfd::{AsyncFileDialog, FileDialog};
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, Model, ModelRc, StandardListViewItem, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -84,8 +85,12 @@ impl DivaMod {
 }
 
 pub fn load_mods(diva_data: &DivaData) -> Vec<DivaMod> {
+    if diva_data.dml.is_none() {
+        return vec![];
+    }
+
     load_mods_from_dir(format!("{}/{}", diva_data.diva_directory.as_str().to_owned(),
-                               diva_data.dml.mods.as_str()))
+                               diva_data.clone().dml.unwrap().mods.as_str()))
 }
 
 pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
@@ -126,7 +131,7 @@ pub fn get_steam_folder() -> Option<String> {
     let mut steam_str = None;
     println!("Attempting to find the Steam folder");
     match env::consts::OS {
-        "linux" => {
+        "linux" | "mac" => {
             let mut binding = dirs::home_dir().unwrap();
             binding.push(STEAM_FOLDER);
             if !binding.exists() {
@@ -216,7 +221,7 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
 
 pub async fn unpack_mod(mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
     let diva = diva_arc.lock().await;
-    let path = format!("{}/{}", &diva.diva_directory, &diva.dml.mods);
+    let path = format!("{}/{}", &diva.diva_directory, diva.clone().dml.unwrap().mods);
     println!("{}", path.as_str());
     uncompress_archive(mod_archive, Path::new(path.as_str()), Ownership::Ignore)
 }
@@ -253,9 +258,10 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let ui_download_handle = ui.as_weak();
     let toggle_diva = diva_arc.clone();
     let load_diva = diva_arc.clone();
+    let picker_diva = diva_arc.clone();
     let diva_state = diva_arc.lock().await;
     let mods_dir = format!("{}/{}", &diva_state.diva_directory.as_str().to_owned(),
-                           &diva_state.dml.mods.as_str());
+                           diva_state.clone().dml.unwrap().mods.as_str());
 
     let reload_dir = mods_dir.clone();
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
@@ -304,6 +310,25 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             });
         }
     });
+
+    ui.on_open_file_picker(move || {
+        let picker = AsyncFileDialog::new()
+            .add_filter("Archives", &["zip", "rar", "7z", "tar.gz"])
+            .set_directory(dirs::home_dir().unwrap());
+        let picker_diva = picker_diva.clone();
+        tokio::spawn(async {
+            let res = picker.pick_file().await;
+            if let Some(file) = res {
+                if let Ok(file) = File::open(file.path()) {
+                    match unpack_mod(file, picker_diva).await {
+                        Ok(_) => {}
+                        Err(e) => {}
+                    }
+                }
+            }
+        });
+    });
+
 
     let _ = spawn_download_listener(dl_rx, dl_ui_tx, &diva_arc.clone(), reload_dir, ui_download_handle);
     let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
@@ -364,7 +389,18 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                         }
                         Ok(data.len())
                     }).unwrap();
-                    transfer.perform().unwrap();
+
+                    // handle the error here instead of unwrapping so that this
+                    // receiver thread doesn't panic and downloads can continue to happen
+                    match transfer.perform() {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("{}", e);
+
+                            // skip the file shit, wait for next download
+                            continue;
+                        }
+                    }
                 }
                 let file_res = File::create("/tmp/rust4diva/".to_owned() + &download.name);
                 // files
