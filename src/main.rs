@@ -4,12 +4,9 @@ use std::error::Error;
 use std::sync::Arc;
 
 use futures_util::SinkExt;
-use interprocess::local_socket::{NameType, ToFsName, ToNsName};
-use interprocess::local_socket::tokio::prelude::*;
 use slint_interpreter::ComponentHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::mpsc::error::SendError;
 use tokio::sync::Mutex;
 
 use crate::gamebanana_async::{GbModDownload, GBSearch, parse_dmm_url};

@@ -1,6 +1,7 @@
 use std::{env, fs};
+use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{Seek, Write};
+use std::io::{ErrorKind, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -8,9 +9,10 @@ use std::sync::Arc;
 use compress_tools::{Ownership, uncompress_archive};
 use curl::easy::Easy;
 use keyvalues_parser::Vdf;
-use rfd::{AsyncFileDialog, FileDialog};
+use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, Model, ModelRc, StandardListViewItem, VecModel, Weak};
+use sonic_rs::JsonInput;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use toml::de::Error;
@@ -29,7 +31,7 @@ const STEAM_FOLDER: &str = ".local/share/Steam";
 const STEAM_FOLDER_MAC: &str = "Library/Application Support/Steam";
 const STEAM_LIBRARIES_CONFIG: &str = "config/libraryfolders.vdf";
 const MEGA_MIX_APP_ID: &str = "1761390";
-const DIVA_MOD_FOLDER_SUFFIX: &str = "/steamapps/common/Hatsune Miku Project DIVA Mega Mix Plus";
+const DIVA_MOD_FOLDER_SUFFIX: &str = "steamapps/common/Hatsune Miku Project DIVA Mega Mix Plus";
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
@@ -67,31 +69,18 @@ pub struct DivaModLoader {
     #[serde(default)]
     pub(crate) version: String,
 }
-
-
-impl DivaModConfig {
-    pub fn set_enabled(&mut self, enabled: bool) -> Self {
-        // let change = self.enabled;
-        self.enabled = enabled;
-        self.to_owned()
-    }
-}
-
-impl DivaMod {
-    pub fn set_enabled(&mut self, enabled: bool) -> Self {
-        let config = self.config.set_enabled(enabled);
-        self.config = config;
-        self.to_owned()
-    }
-}
-
 pub fn load_mods(diva_data: &DivaData) -> Vec<DivaMod> {
     if diva_data.dml.is_none() {
         return vec![];
     }
-
-    load_mods_from_dir(format!("{}/{}", diva_data.diva_directory.as_str().to_owned(),
-                               diva_data.clone().dml.unwrap().mods.as_str()))
+    let mut path_buf = PathBuf::new();
+    path_buf.push(diva_data.diva_directory.as_str());
+    path_buf.push(diva_data.clone().dml.unwrap().mods.as_str());
+    let os_str = path_buf.as_os_str().to_str();
+    if os_str.is_none() {
+        return vec![];
+    }
+    load_mods_from_dir(os_str.unwrap().to_string())
 }
 
 pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
@@ -106,13 +95,16 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
 
     let paths = fs::read_dir(mods_folder).unwrap();
     for path in paths {
-        let mod_path = path.unwrap().path().clone();
+        let mut mod_path = path.unwrap().path().clone();
         if mod_path.is_file() || !mod_path.clone().is_dir() {
             println!("Not a mod folder: {}", mod_path.clone().display().to_string());
             continue;
         }
 
-        match fs::read_to_string(mod_path.clone().display().to_string() + "/config.toml") {
+        // let mod_buf = PathBuf::from()
+        mod_path.push("config.toml");
+        let mod_p_str = mod_path.clone().display().to_string();
+        match fs::read_to_string(mod_path.clone()) {
             Ok(s) => {
                 let mod_config_res: Result<DivaModConfig, _> = toml::from_str(s.as_str());
                 if mod_config_res.is_err() {
@@ -123,7 +115,7 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
                 mod_config.description = mod_config.description.escape_default().to_string();
                 mods.push(DivaMod {
                     config: mod_config,
-                    path: (mod_path.clone().display().to_string() + "/config.toml").to_string(),
+                    path: mod_p_str,
                 });
             }
             Err(_) => {
@@ -148,27 +140,35 @@ pub fn get_steam_folder() -> Option<String> {
             }
             steam_str = Some(binding.display().to_string());
         }
-	"mac" => {
-	   let mut binding = dirs::home_dir().unwrap();
-	   binding.push(STEAM_FOLDER_MAC);
-	   if !binding.exists() {
-		println!("Steam folder not found");
-	   } 
-	   steam_str = Some(binding.display().to_string());
-	}
+        "macos" => {
+            let mut binding = dirs::home_dir().unwrap();
+            binding.push(STEAM_FOLDER_MAC);
+            if !binding.exists() {
+                println!("Steam folder not found");
+            }
+            steam_str = Some(binding.display().to_string());
+        }
         "windows" => {
             // only compiles on windows
             cfg_if::cfg_if! {
                 if #[cfg(windows)] {/**/
                     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
                     let steam_key = hklm.open_subkey(r#"SOFTWARE\WOW6432Node\Valve\Steam"#);
+                    if steam_key.is_err() {
+                        return None;
+                    }
+                    let steam_key = steam_key.unwrap();
+                    let res: std::io::Result<String> = steam_key.get_value("InstallPath");
+                    if let Ok(path) = res {
+                        println!("{}", path);
+                        steam_str = Some(path);
+                    }
                     let install_path = "";
                 }
             }
         }
         _ => { println!("Unsupported Operating system: {}", env::consts::OS) }
     }
-
     steam_str
 }
 
@@ -203,7 +203,15 @@ pub fn get_diva_folder() -> Option<String> {
                             path_chars.next();
                             path_chars.next_back();
                             // concat the strings together properly
-                            path = format!("{}{}", path_chars.as_str(), DIVA_MOD_FOLDER_SUFFIX).to_string();
+                            let mut buf = PathBuf::new();
+                            println!("{}", path_chars.as_str().to_string());
+                            buf.push(path_chars.as_str());
+                            let diva = PathBuf::from(DIVA_MOD_FOLDER_SUFFIX);
+
+                            buf.push(diva.as_os_str());
+                            path = buf.canonicalize().unwrap().as_os_str().to_str().unwrap().to_string();
+                            // path = format!("{}{}", path_chars.as_str(), DIVA_MOD_FOLDER_SUFFIX).to_string();
+
                             println!("Fuck yes, we found it, {:?}", path);
                             break;
                         }
@@ -238,15 +246,20 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
 
 pub async fn unpack_mod(mut mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
     let diva = diva_arc.lock().await;
-    let path = format!("{}/{}", &diva.diva_directory, diva.clone().dml.unwrap().mods);
+    let mut buf = PathBuf::from(&diva.diva_directory);
+    buf.push(diva.clone().dml.unwrap().mods);
+    let path = buf.display().to_string();
     println!("{}", path.as_str());
     mod_archive.rewind()?;
     uncompress_archive(mod_archive, Path::new(path.as_str()), Ownership::Ignore)
 }
 
 pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
-    println!("{}{}", diva_folder, "/config.toml");
-    let res: Result<DivaModLoader, Error> = toml::from_str(fs::read_to_string(diva_folder.to_string() + "/config.toml").unwrap().as_str());
+    // println!("{}{}", diva_folder, "/config.toml");
+    let mut buf = PathBuf::from(diva_folder);
+    buf.push("config.toml");
+    println!("{}", buf.display());
+    let res: Result<DivaModLoader, Error> = toml::from_str(fs::read_to_string(buf).unwrap().as_str());
     let mut loader: Option<DivaModLoader> = None;
     match res {
         Ok(diva_ml) => {
@@ -260,12 +273,19 @@ pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
 }
 
 pub fn create_tmp_if_not() -> std::io::Result<()> {
-    let path = Path::new("/tmp/rust4diva");
-    if !path.exists() {
-        let dir = fs::create_dir(path);
-        return dir;
+    match get_temp_folder() {
+        Some(p) => {
+            let path = Path::new(&p);
+            if !path.exists() {
+                let dir = fs::create_dir(path);
+                return dir;
+            }
+            Ok(())
+        }
+        None => {
+            Err(std::io::Error::new(ErrorKind::InvalidInput, "Unknown temp dir path"))
+        }
     }
-    Ok(())
 }
 
 
@@ -278,8 +298,9 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let load_diva = diva_arc.clone();
     let picker_diva = diva_arc.clone();
     let diva_state = diva_arc.lock().await;
-    let mods_dir = format!("{}/{}", &diva_state.diva_directory.as_str().to_owned(),
-                           diva_state.clone().dml.unwrap().mods.as_str());
+    let mut mod_buf = PathBuf::from(&diva_state.diva_directory);
+    mod_buf.push(diva_state.clone().dml.unwrap().mods.as_str());
+    let mods_dir = mod_buf.display().to_string();
 
     let reload_dir = mods_dir.clone();
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
@@ -311,7 +332,9 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                 }
                 let mods_dir = darc.mods_directory.clone();
                 let module = &mut darc.mods[row_num];
-                let mod_path = format!("{}{}", mods_dir.clone(), &module.path.clone());
+                let mut buf = PathBuf::from(mods_dir.clone());
+                buf.push(&module.path.clone());
+                let mod_path = buf.display().to_string();
                 module.config.enabled = !module.config.enabled;
                 let mut module = module.clone();
                 ui_toggle_handle.upgrade_in_event_loop(move |ui| {
@@ -420,14 +443,16 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                         }
                     }
                 }
-                let file_res = File::create("/tmp/rust4diva/".to_owned() + &download.name);
+                let mut dl_path = PathBuf::from(get_temp_folder().unwrap());
+                dl_path.push(&download.name.as_str());
+                let file_res = File::create(dl_path.clone());
                 // files
                 match file_res {
                     Ok(mut f) => {
                         match f.write_all(dst.clone().as_slice()) {
                             Ok(_) => {
                                 println!("Saved successfully, will try to extract");
-                                let file = File::open("/tmp/rust4diva/".to_owned() + &download.name);
+                                let file = File::open(dl_path.clone());
                                 if let Ok(f) = file {
                                     match unpack_mod(f, diva_arc.clone()).await {
                                         Ok(_) => {
@@ -505,4 +530,31 @@ pub fn create_mods_model(mods: &Vec<DivaMod>) -> ModelRc<ModelRc<StandardListVie
         model_vec.push(items.into());
     }
     ModelRc::new(model_vec)
+}
+
+
+pub fn get_temp_folder() -> Option<String> {
+    match env::consts::OS {
+        "linux" | "macos" => {
+            Some("/tmp/rust4diva".to_string())
+        }
+        "windows" => {
+            let mut tmp = dirs::data_local_dir().unwrap();
+            tmp.push("Temp");
+            let temp = tmp.as_os_str();
+            match temp.to_str() {
+                Some(s) => {
+                    let t = s.to_owned();
+                    Some(t)
+                }
+                None => {
+                    None
+                }
+            }
+        }
+        os => {
+            println!("Unknown OS: {}", os);
+            None
+        }
+    }
 }
