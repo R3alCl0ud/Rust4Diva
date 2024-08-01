@@ -29,6 +29,10 @@ export component FileTable {
 
     private property <length> e: self.width / root.columns.length;
 
+    public pure function get-size-next-unit(size: int) -> int {
+        return (size / 1024);
+    }
+
     public function set-current-row(index: int) {
         if (index < 0 || index >= files.length) {
             return;
@@ -166,7 +170,7 @@ export component FileTable {
                             height: 100%;
                             overflow: elide;
                             vertical-alignment: center;
-                            text: file.size + "Bytes";
+                            text: root.get-size-next-unit(root.get-size-next-unit(file.size)) + "MBs";
                             font-weight: CosmicFontSettings.body.font-weight;
                             font-size: CosmicFontSettings.body.font-size;
                             color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;

@@ -69,6 +69,18 @@ pub struct DivaModLoader {
     #[serde(default)]
     pub(crate) version: String,
 }
+
+impl DivaModLoader {
+    pub(crate) fn new() -> Self {
+        Self {
+            enabled: false,
+            console: false,
+            mods: "mods".to_string(),
+            version: "".to_string(),
+        }
+    }
+}
+
 pub fn load_mods(diva_data: &DivaData) -> Vec<DivaMod> {
     if diva_data.dml.is_none() {
         return vec![];
@@ -89,7 +101,13 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
     let mut mods: Vec<DivaMod> = Vec::new();
 
     if !Path::new(mods_folder.as_str()).exists() {
-        println!("unable to load mods from nonexistent mods folder");
+        println!("unable to load mods from nonexistent mods folder, creating default folder");
+        match fs::create_dir(mods_folder) {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Unable to create default mods folder: {}", e);
+            }
+        }
         return mods;
     }
 
@@ -204,14 +222,10 @@ pub fn get_diva_folder() -> Option<String> {
                             path_chars.next_back();
                             // concat the strings together properly
                             let mut buf = PathBuf::new();
-                            println!("{}", path_chars.as_str().to_string());
                             buf.push(path_chars.as_str());
                             let diva = PathBuf::from(DIVA_MOD_FOLDER_SUFFIX);
-
                             buf.push(diva.as_os_str());
                             path = buf.canonicalize().unwrap().as_os_str().to_str().unwrap().to_string();
-                            // path = format!("{}{}", path_chars.as_str(), DIVA_MOD_FOLDER_SUFFIX).to_string();
-
                             println!("Fuck yes, we found it, {:?}", path);
                             break;
                         }
@@ -230,18 +244,20 @@ pub fn get_diva_folder() -> Option<String> {
     }
 }
 
-pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) {
+pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) -> std::io::Result<()> {
     let config_path = Path::new(path);
     if let Ok(config_str) = toml::to_string(&diva_mod_config) {
-        match fs::write(config_path, config_str) {
+        return match fs::write(config_path, config_str) {
             Ok(..) => {
                 println!("Successfully updated config for {}", diva_mod_config.name);
+                Ok(())
             }
             Err(e) => {
-                eprintln!("Something went wrong: {:#?}", e);
+                Err(e.into())
             }
-        }
+        };
     }
+    return Err(std::io::Error::new(ErrorKind::Other, "IDK"));
 }
 
 pub async fn unpack_mod(mut mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
@@ -249,16 +265,16 @@ pub async fn unpack_mod(mut mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) -
     let mut buf = PathBuf::from(&diva.diva_directory);
     buf.push(diva.clone().dml.unwrap().mods);
     let path = buf.display().to_string();
-    println!("{}", path.as_str());
     mod_archive.rewind()?;
     uncompress_archive(mod_archive, Path::new(path.as_str()), Ownership::Ignore)
 }
 
 pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
-    // println!("{}{}", diva_folder, "/config.toml");
     let mut buf = PathBuf::from(diva_folder);
     buf.push("config.toml");
-    println!("{}", buf.display());
+    if !buf.exists() {
+        return None;
+    }
     let res: Result<DivaModLoader, Error> = toml::from_str(fs::read_to_string(buf).unwrap().as_str());
     let mut loader: Option<DivaModLoader> = None;
     match res {
@@ -344,7 +360,10 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                             let enable_str = if module.config.enabled { "Enabled" } else { "Disabled" };
                             let enabled = StandardListViewItem::from(enable_str);
                             item.set_row_data(0, enabled);
-                            save_mod_config(mod_path.as_str(), &mut module.config);
+                            match save_mod_config(mod_path.as_str(), &mut module.config) {
+                                Ok(_) => {}
+                                Err(_e) => {}
+                            }
                         }
                     }
                 }).unwrap();

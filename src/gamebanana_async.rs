@@ -205,47 +205,6 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     });
 }
 
-pub fn _download_mod_file(gb_file: &GbModDownload, sender: Sender<DlFinish>) -> Receiver<u64> {
-    println!("{}", gb_file.file);
-    let (tx, rx) = channel::<u64>(2048);
-    let gb_file = gb_file.clone();
-    tokio::spawn(async move {
-        let mut dst = Vec::new();
-        let mut easy = Easy::new();
-        easy.url(gb_file.download_url.as_str()).unwrap();
-        let _redirect = easy.follow_location(true);
-        let mut downloaded_size: u64 = 0;
-        {
-            let mut transfer = easy.transfer();
-            transfer.write_function(|data| {
-                dst.extend_from_slice(data);
-                downloaded_size = downloaded_size + data.len() as u64;
-                let _ = tx.try_send(downloaded_size);
-                Ok(data.len())
-            }).unwrap();
-            println!("fetching file");
-            transfer.perform().unwrap();
-        }
-        let file_res = File::create("/tmp/rust4diva/".to_owned() + &gb_file.file);
-        match file_res {
-            Ok(mut file) => {
-                println!("Writing file");
-                file.write_all(dst.as_slice()).expect("Failed to write to file");
-                sender.send(DlFinish {
-                    file: gb_file,
-                    success: true,
-                }).await.unwrap();
-            }
-            Err(_e) => {
-                sender.send(DlFinish {
-                    file: gb_file,
-                    success: false,
-                }).await.expect("uh oh");
-            }
-        }
-    });
-    return rx;
-}
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, Download)>, url_rx: Receiver<String>) {
     let file_arc: Arc<Mutex<Vec<GbModDownload>>> = Arc::new(Mutex::new(Vec::new()));
 
@@ -424,32 +383,6 @@ pub fn set_files_list(ui_handle: Weak<App>, files: &Vec<GbModDownload>) {
 }
 
 
-pub fn _download_mod_file_from_id(gb_file_id: String) -> std::io::Result<File> {
-    println!("{}", gb_file_id);
-    let mut dst = Vec::new();
-    let mut easy = Easy::new();
-    easy.url(gb_file_id.as_str()).unwrap();
-    let _redirect = easy.follow_location(true);
-
-    {
-        let mut transfer = easy.transfer();
-        transfer.write_function(|data| {
-            dst.extend_from_slice(data);
-            Ok(data.len())
-        }).unwrap();
-        println!("fetching file");
-        transfer.perform().unwrap();
-    }
-
-    let mut file = File::create("/tmp/rust4diva/".to_owned() + &gb_file_id)?;
-    println!("Writing file");
-    file.write_all(dst.as_slice())?;
-    println!("Done writing file to tmp directory");
-
-
-    return Ok(file);
-}
-
 
 pub fn handle_dmm_oneclick(mut url_rx: Receiver<String>, diva_arc: Arc<Mutex<DivaData>>, ui_handle: Weak<App>, sender: Sender<(i32, Download)>) -> tokio::task::JoinHandle<()> {
     return tokio::spawn(async move {
@@ -458,7 +391,7 @@ pub fn handle_dmm_oneclick(mut url_rx: Receiver<String>, diva_arc: Arc<Mutex<Div
                 Some(url) => {
                     println!("GB @ 458: {}", url);
                     if let Some(oneclick) = parse_dmm_url(url) {
-                        println!("Parsed successfully, fetching info now {:#?}", oneclick);
+                        println!("Parsed successfully, fetching info now");
 
                         if let Some(mod_info) = fetch_mod_data(oneclick.item_id.as_str()) {
                             // let mut file_iter = ;

@@ -88,6 +88,11 @@ async fn main() {
     diva_state.diva_directory = get_diva_folder().expect("Unable to get the diva directory");
 
     diva_state.dml = load_diva_ml_config(&diva_state.diva_directory.as_str());
+
+    if diva_state.dml.is_none() {
+        diva_state.dml = Some(DivaModLoader::new());
+    }
+
     diva_state.mods = load_mods(&diva_state);
 
 
