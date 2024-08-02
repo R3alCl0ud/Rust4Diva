@@ -1,12 +1,9 @@
 use std::collections::HashMap;
 use std::env;
-use std::error::Error;
 use std::sync::Arc;
 
-use futures_util::SinkExt;
 use slint_interpreter::ComponentHandle;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Receiver;
 use tokio::sync::Mutex;
 
 use crate::gamebanana_async::{GbModDownload, GBSearch, parse_dmm_url};
@@ -34,10 +31,7 @@ struct DivaData {
     search_results: Vec<GBSearch>,
     mods_directory: String,
     diva_directory: String,
-    dl_mod_url: String,
     dml: Option<DivaModLoader>,
-    dl_done_tx: Sender<DlFinish>,
-    dl_queue: Arc<Mutex<Vec<Download>>>,
     mod_files: HashMap<u64, Vec<GbModDownload>>,
 }
 
@@ -128,16 +122,12 @@ async fn main() {
 
 impl DivaData {
     fn new() -> Self {
-        let (dl_tx, dl_rx) = tokio::sync::mpsc::channel::<DlFinish>(2048);
         Self {
             mods: Vec::new(),
             search_results: Vec::new(),
             mods_directory: "".to_string(),
-            dl_mod_url: "524621".to_string(),
             diva_directory: "".to_string(),
             dml: None,
-            dl_done_tx: dl_tx,
-            dl_queue: Arc::new(Mutex::new(Vec::new())),
             mod_files: HashMap::new(),
         }
     }

@@ -1,5 +1,4 @@
 use std::{env, fs};
-use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{ErrorKind, Seek, Write};
 use std::path::{Path, PathBuf};
@@ -12,7 +11,6 @@ use keyvalues_parser::Vdf;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, Model, ModelRc, StandardListViewItem, VecModel, Weak};
-use sonic_rs::JsonInput;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use toml::de::Error;
@@ -181,7 +179,6 @@ pub fn get_steam_folder() -> Option<String> {
                         println!("{}", path);
                         steam_str = Some(path);
                     }
-                    let install_path = "";
                 }
             }
         }
@@ -382,7 +379,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                 if let Ok(file) = File::open(file.path()) {
                     match unpack_mod(file, picker_diva).await {
                         Ok(_) => {}
-                        Err(e) => {}
+                        Err(_ee) => {}
                     }
                 }
             }
@@ -456,7 +453,15 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("{}", e);
-
+                            let _ = ui_download_handle.upgrade_in_event_loop(move |ui| {
+                                let downloads = ui.get_downloads_list();
+                                if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>() {
+                                    if let Some(mut download) = downloads.row_data(index as usize) {
+                                        download.failed = true;
+                                        downloads.set_row_data(index as usize, download);
+                                    }
+                                }
+                            });
                             // skip the file shit, wait for next download
                             continue;
                         }
@@ -465,7 +470,6 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                 let mut dl_path = PathBuf::from(get_temp_folder().unwrap());
                 dl_path.push(&download.name.as_str());
                 let file_res = File::create(dl_path.clone());
-                // files
                 match file_res {
                     Ok(mut f) => {
                         match f.write_all(dst.clone().as_slice()) {

@@ -1,5 +1,4 @@
-use std::fs::File;
-use std::io::{BufRead, Write};
+use std::io::BufRead;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -8,11 +7,10 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, StandardListViewItem, VecModel, Weak};
 use sonic_rs::{Error, JsonContainerTrait, Value};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 
-use crate::{App, DivaData, DlFinish, Download};
+use crate::{App, DivaData, Download};
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
 const GB_DOMAIN: &str = "https://gamebanana.com";
@@ -161,12 +159,11 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
             // println!("{:#}", data_json);
             let res: Result<sonic_rs::Value, Error> = sonic_rs::from_str(data_json.as_str());
             let mut dl_files: Vec<GbModDownload> = Vec::new();
-            if res.is_ok() {
-                let mod_data = res.unwrap();
+            if let Ok(mod_data) = res {
                 let info_mods = mod_data[1].clone().into_object();
                 // make sure we've actually got a proper response data
-                if info_mods.is_some() {
-                    for (_key, value) in info_mods.unwrap().iter() {
+                if let Some(info_mods) = info_mods {
+                    for (_key, value) in info_mods.iter() {
                         let dl_file: GbModDownload = sonic_rs::from_value(value).unwrap();
                         dl_files.push(dl_file);
                     }
@@ -222,8 +219,8 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, 
         get_mod_files(mod_row, &file_diva, &list_files, ui_file_handle.clone());
     });
 
-    let download_diva = Arc::clone(&diva_arc);
-    let download_files = Arc::clone(&file_arc);
+    let _download_diva = Arc::clone(&diva_arc);
+    let _download_files = Arc::clone(&file_arc);
     let ui_download_handle = ui.as_weak();
     let oneclick_tx = dl_tx.clone();
     ui.on_download_file(move |file, file_row| {
@@ -375,6 +372,7 @@ pub fn set_files_list(ui_handle: Weak<App>, files: &Vec<GbModDownload>) {
                 name: SharedString::from(item.file),
                 size: item.filesize as i32,
                 progress: 0.0,
+                failed: false
             });
         }
         let model = ModelRc::new(model_vec);
@@ -383,8 +381,7 @@ pub fn set_files_list(ui_handle: Weak<App>, files: &Vec<GbModDownload>) {
 }
 
 
-
-pub fn handle_dmm_oneclick(mut url_rx: Receiver<String>, diva_arc: Arc<Mutex<DivaData>>, ui_handle: Weak<App>, sender: Sender<(i32, Download)>) -> tokio::task::JoinHandle<()> {
+pub fn handle_dmm_oneclick(mut url_rx: Receiver<String>, _diva_arc: Arc<Mutex<DivaData>>, ui_handle: Weak<App>, sender: Sender<(i32, Download)>) -> tokio::task::JoinHandle<()> {
     return tokio::spawn(async move {
         while !url_rx.is_closed() {
             match url_rx.recv().await {
@@ -403,7 +400,7 @@ pub fn handle_dmm_oneclick(mut url_rx: Receiver<String>, diva_arc: Arc<Mutex<Div
                                 println!("Found the right file: {}", file.file);
                                 let ui_sender = sender.clone();
                                 let _ = ui_handle.upgrade_in_event_loop(move |ui| {
-                                    let mut downloads = ui.get_downloads_list();
+                                    let downloads = ui.get_downloads_list();
                                     let dc = downloads.as_any().downcast_ref::<VecModel<Download>>();
                                     match dc {
                                         Some(downloads) => {
@@ -415,6 +412,7 @@ pub fn handle_dmm_oneclick(mut url_rx: Receiver<String>, diva_arc: Arc<Mutex<Div
                                                 progress: 0.0,
                                                 size: file.filesize as i32,
                                                 url: SharedString::from(&file.download_url),
+                                                failed: false
                                             };
                                             downloads.push(download.clone());
                                             match ui_sender.try_send((cur_len as i32, download)) {

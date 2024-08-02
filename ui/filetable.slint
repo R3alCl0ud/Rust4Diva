@@ -9,7 +9,9 @@ export struct Download {
     url: string,
     name: string,
     size: int,
-    progress: float}
+    progress: float,
+    failed: bool    
+}
 
 
 
@@ -191,10 +193,14 @@ export component FileTable {
                     preferred-width: self.min-width;
                     max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
                     // width: root.column_sizes[2];
-                    ProgressIndicator {
+                    if file.failed == false: ProgressIndicator {
                         indeterminate: false;
                         progress: file.progress / file.size;
+                    } 
+                    if file.failed == true: Text {
+                        text: "Download FAILED";
                     }
+                
                 }
             }
         }
