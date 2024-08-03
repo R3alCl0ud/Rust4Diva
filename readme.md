@@ -3,6 +3,9 @@
 A Fast mod manager written in rust for the steam version of Hatsune Miku Project Diva Mega Mix +
 Currently only compatible with Linux (window support is planned)
 
+![Main Screen of R4D](assets/main.png)
+![Online Search and DL Screen](assets/search.png)
+
 # Planned Features / To-Do List
 - [ ] Mod pack presets for easy switching between incompatible mods
   - Need to decide on a format for the modpacks

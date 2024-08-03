@@ -1,5 +1,7 @@
+# Maintainer: NeptuneNepgear ultra.neppers@gmail.com
+
 pkgname=Rust4Diva-git
-pkgver=r35.abc3f3d
+pkgver=r49.a7a239f
 pkgrel=1
 pkgdesc="Project Diva Mod Manager written in rust"
 arch=('x86_64' 'aarch64')
@@ -30,6 +32,6 @@ build() {
 package() {
     cd "${pkgname%-git}"
     install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/rust4diva"
-    install -Dm0755 -t "$pkgdir/usr/share/icons/rust4diva.png" "assets/logo.png"
-    install -Dm0755 -t "$pkgdir/usr/share/applications/" "aur/Rust4Diva.desktop"
+    install -Dm0755 -t "$pkgdir/usr/share/icons/" "assets/rust4diva.png"
+    install -Dm0755 -t "$pkgdir/usr/share/applications/" "assets/Rust4Diva.desktop"
 }
