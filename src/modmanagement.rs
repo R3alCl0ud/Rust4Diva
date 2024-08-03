@@ -251,9 +251,8 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
 
 
 pub fn get_steam_folder() -> Option<String> {
-    let mut steam_str = None;
     println!("Attempting to find the Steam folder");
-    match env::consts::OS {
+    return match env::consts::OS {
         "linux" => {
             let mut binding = dirs::home_dir().unwrap();
             binding.push(STEAM_FOLDER);
@@ -266,7 +265,7 @@ pub fn get_steam_folder() -> Option<String> {
                     return None;
                 }
             }
-            steam_str = Some(binding.display().to_string());
+            Some(binding.display().to_string())
         }
         "macos" => {
             let mut binding = dirs::home_dir().unwrap();
@@ -274,7 +273,7 @@ pub fn get_steam_folder() -> Option<String> {
             if !binding.exists() {
                 println!("Steam folder not found");
             }
-            steam_str = Some(binding.display().to_string());
+            Some(binding.display().to_string())
         }
         "windows" => {
             // only compiles on windows
@@ -289,16 +288,19 @@ pub fn get_steam_folder() -> Option<String> {
                     let res: std::io::Result<String> = steam_key.get_value("InstallPath");
                     if let Ok(path) = res {
                         println!("{}", path);
-                        steam_str = Some(path);
+                        Some(path);
                     }
+                } else {
+                   None
                 }
             }
         }
-        _ => { println!("Unsupported Operating system: {}", env::consts::OS) }
-    }
-    steam_str
+        os => {
+            println!("Unsupported Operating system: {}", os);
+            None
+        }
+    };
 }
-
 
 pub fn get_diva_folder() -> Option<String> {
     println!("Looking for the mods folder");
@@ -373,15 +375,6 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) -> std::
     return Err(std::io::Error::new(ErrorKind::Other, "IDK"));
 }
 
-pub async fn unpack_mod(mut mod_archive: File, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
-    let diva = diva_arc.lock().await;
-    let mut buf = PathBuf::from(&diva.diva_directory);
-    buf.push(diva.clone().dml.unwrap().mods);
-    // let path = buf.display().to_string();
-    mod_archive.rewind()?;
-    uncompress_archive(mod_archive, buf.as_path(), Ownership::Ignore)
-}
-
 pub async fn unpack_mod_path(archive: PathBuf, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
     let diva = diva_arc.lock().await;
     let mut buf = PathBuf::from(&diva.diva_directory);
@@ -397,7 +390,6 @@ pub async fn unpack_mod_path(archive: PathBuf, diva_arc: Arc<Mutex<DivaData>>) -
     let mod_archive = File::open(archive.clone()).unwrap();
     uncompress_archive(mod_archive, buf.as_path(), Ownership::Ignore)
 }
-
 
 pub fn check_archive_valid_structure(archive: File) -> bool {
     return match list_archive_files(archive) {
@@ -417,7 +409,6 @@ pub fn check_archive_valid_structure(archive: File) -> bool {
         }
     };
 }
-
 
 pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
     let mut buf = PathBuf::from(diva_folder);
@@ -453,7 +444,6 @@ pub fn create_tmp_if_not() -> std::io::Result<()> {
         }
     }
 }
-
 
 pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Sender<(i32, f32)>, diva_arc: &Arc<Mutex<DivaData>>, mods_dir: String, ui_download_handle: Weak<App>) {
     let diva_arc = diva_arc.clone();
@@ -546,7 +536,6 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
     });
 }
 
-
 pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Weak<App>) {
     tokio::spawn(async move {
         while !prog_rx.is_closed() {
@@ -571,7 +560,6 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
     });
 }
 
-
 pub fn create_mods_model(mods: &Vec<DivaMod>) -> ModelRc<ModelRc<StandardListViewItem>> {
     let model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
     for item in mods.iter() {
@@ -591,7 +579,6 @@ pub fn create_mods_model(mods: &Vec<DivaMod>) -> ModelRc<ModelRc<StandardListVie
     }
     ModelRc::new(model_vec)
 }
-
 
 pub fn get_temp_folder() -> Option<String> {
     match env::consts::OS {
@@ -619,15 +606,14 @@ pub fn get_temp_folder() -> Option<String> {
     }
 }
 
-
 pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) {
     let mods = mods.clone();
     ui_handle.upgrade_in_event_loop(move |ui| {
-        let vecmod: VecModel<DivaModElement> = VecModel::default();
-        for module in mods.clone() {
-            vecmod.push(module.to_element());
+        let mods_model: VecModel<DivaModElement> = VecModel::default();
+        for diva_mod in mods.clone() {
+            mods_model.push(diva_mod.to_element());
         }
-        let model = ModelRc::new(vecmod);
+        let model = ModelRc::new(mods_model);
         ui.set_mods(model);
     }).unwrap();
 }

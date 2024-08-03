@@ -224,7 +224,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, 
     let ui_download_handle = ui.as_weak();
     let oneclick_tx = dl_tx.clone();
     ui.on_download_file(move |file, file_row| {
-        println!("Download: {}, {}", file.name, file_row);
         let ui_file = file.clone();
         let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
             let file = ui_file.clone();
@@ -232,7 +231,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, 
             let dc = downloads.as_any().downcast_ref::<VecModel<Download>>();
             match dc {
                 Some(downloads) => {
-                    println!("Pushing");
                     downloads.push(file);
                 }
                 None => {
@@ -261,13 +259,11 @@ pub fn search_mods(search: String, search_diva: &Arc<Mutex<DivaData>>, ui_search
             Ok(res) => {
                 match res.text().await {
                     Ok(res_as_text) => {
-                        println!("Text received");
                         let results: Result<Value, Error> = sonic_rs::from_str(res_as_text.as_str());
                         match results {
                             Ok(val) => {
                                 // println!("THIS IS THE VALUE PRINT\n{:?}", val);
                                 if let Some(vals) = val.as_array() {
-                                    println!("Array time");
                                     let mut search_results = Vec::new();
                                     for item in vals.iter() {
                                         match sonic_rs::from_value::<GBSearch>(item) {
@@ -284,10 +280,8 @@ pub fn search_mods(search: String, search_diva: &Arc<Mutex<DivaData>>, ui_search
                                     let mut diva = search_diva.lock().await;
                                     diva.search_results = search_results.clone();
                                     ui_search_handle.upgrade_in_event_loop(move |ui| {
-                                        println!("setting stuff");
                                         let model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
                                         for item in search_results {
-                                            println!("{}", item.name);
                                             let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
                                             let name = StandardListViewItem::from(item.name.as_str());
                                             let category = StandardListViewItem::from(item.model_name.as_str());
@@ -315,9 +309,8 @@ pub fn search_mods(search: String, search_diva: &Arc<Mutex<DivaData>>, ui_search
             }
         }
         ui_search_handle.upgrade_in_event_loop(move |ui| {
-            println!("Search done");
             ui.set_s_prog_vis(false);
-        }).expect("Something got borked @ gba 377");
+        }).expect("Something got borked @ gba 313");
     });
 }
 
@@ -327,7 +320,7 @@ pub fn get_mod_files(mod_row: i32, file_diva: &Arc<Mutex<DivaData>>, files: &Arc
     let files = files.clone();
     ui_file_handle.upgrade_in_event_loop(move |ui| {
         ui.set_s_prog_vis(true);
-    }).expect("TODO: panic message");
+    }).expect("gba 323");
     tokio::spawn(async move {
         let mut diva = file_diva.lock().await;
         if mod_row < (diva.search_results.len() as i32) && diva.search_results.len() != 0 {
@@ -341,7 +334,7 @@ pub fn get_mod_files(mod_row: i32, file_diva: &Arc<Mutex<DivaData>>, files: &Arc
                 }
                 ui_file_handle.upgrade_in_event_loop(move |ui| {
                     ui.set_s_prog_vis(false);
-                }).expect("TODO: panic message");
+                }).expect("Failed to update progress");
                 // return early, we don't need to fetch from gb since we already have them loaded
                 return;
             }
