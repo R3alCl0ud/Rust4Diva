@@ -5,3 +5,5 @@
 src/sampledata.json
 
 windows/Rust4Diva installer.exe
+
+.flatpak-builder/

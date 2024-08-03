@@ -1,0 +1,47 @@
+{
+    "app-id": "xyz.rust4diva.Rust4Diva",
+    "runtime": "org.freedesktop.Platform",
+    "runtime-version": "23.08",
+    "sdk": "org.freedesktop.Sdk",
+    "sdk-extensions": [
+        "org.freedesktop.Sdk.Extension.rust-stable"
+    ],
+    "command": "rust4diva",
+    "finish-args": [
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--socket=wayland",
+        "--device=dri",
+        "--filesystem=host"
+    ],
+    "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin",
+        "build-args": [
+            "--share=network"
+        ],
+        "env": {
+            "DEPLOY": "1",
+            "CARGO_HOME": "/run/build/rust4diva/cargo"
+        }
+    },
+    "modules": [
+        {
+            "name": "Rust4Diva",
+            "buildsystem": "simple",
+            "build-commands": [
+                "cargo fetch --manifest-path Cargo.toml --verbose",
+                "cargo build --release --verbose",
+                "install -Dm755 ./target/release/rust4diva -t /app/bin/",
+                "install -Dm644 ./aur/Rust4Diva.desktop -t /app/share/applications/",
+                "install -Dm644 ./assets/rust4diva.png -t /app/share/icons/"
+            ],
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": "./"
+                },
+                "rust4diva-sources.json"
+            ]
+        }
+    ]
+}

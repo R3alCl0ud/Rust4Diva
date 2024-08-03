@@ -152,7 +152,13 @@ pub fn get_steam_folder() -> Option<String> {
             let mut binding = dirs::home_dir().unwrap();
             binding.push(STEAM_FOLDER);
             if !binding.exists() {
-                println!("Steam folder not found");
+                println!("Regular Steam folder not found, searching for flatpak isntead");
+                binding = dirs::home_dir().unwrap();
+                binding.push(".var/app/com.valvesoftware.Steam/data/Steam");
+                if !binding.exists() {
+                    println!("Can't find flatpak steam.");
+                    return None;
+                }
             }
             steam_str = Some(binding.display().to_string());
         }
@@ -167,7 +173,7 @@ pub fn get_steam_folder() -> Option<String> {
         "windows" => {
             // only compiles on windows
             cfg_if::cfg_if! {
-                if #[cfg(windows)] {/**/
+                if #[cfg(windows)] {
                     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
                     let steam_key = hklm.open_subkey(r#"SOFTWARE\WOW6432Node\Valve\Steam"#);
                     if steam_key.is_err() {
@@ -196,6 +202,10 @@ pub fn get_diva_folder() -> Option<String> {
             let mut lib_path = PathBuf::new();
             lib_path.push(steam_folder);
             lib_path.push(STEAM_LIBRARIES_CONFIG);
+            if !lib_path.exists() {
+                return None;
+            }
+
             let binding = fs::read_to_string(lib_path).unwrap();
             let lf_res = Vdf::parse(binding.as_str());
             match lf_res {
