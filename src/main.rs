@@ -7,7 +7,7 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::Mutex;
 
 use crate::gamebanana_async::{GbModDownload, GBSearch, parse_dmm_url};
-use crate::modmanagement::{create_tmp_if_not, DivaMod, DivaModLoader, get_diva_folder, load_diva_ml_config, load_mods, push_mods_to_table};
+use crate::modmanagement::{create_tmp_if_not, DivaMod, DivaModLoader, get_diva_folder, load_diva_ml_config, load_mods, set_mods_table};
 use crate::oneclick::{spawn_listener, try_send_mmdl};
 
 mod gamebanana_async;
@@ -78,8 +78,12 @@ async fn main() {
 
 
     let mut diva_state = DivaData::new();
+    let diva_dir = get_diva_folder();
 
-    diva_state.diva_directory = get_diva_folder().expect("Unable to get the diva directory");
+    if diva_dir.is_some() {
+        diva_state.diva_directory = diva_dir.unwrap();
+    }
+
 
     diva_state.dml = load_diva_ml_config(&diva_state.diva_directory.as_str());
 
@@ -90,7 +94,7 @@ async fn main() {
     diva_state.mods = load_mods(&diva_state);
 
 
-    push_mods_to_table(&diva_state.mods, app_weak.clone());
+    set_mods_table(&diva_state.mods, app_weak.clone());
 
     if let Some(dml) = &diva_state.dml {
         app.set_dml_version(dml.version.clone().into());

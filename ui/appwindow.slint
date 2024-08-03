@@ -2,6 +2,7 @@ import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEd
 import { FileTable, Download } from "filetable.slint";
 import { CosmicPalette } from "cosmic-styling.slint";
 import { ErrorDialog } from "errordialog.slint";
+import { ModTable, DivaModElement } from "mod-table.slint";
 
 
 export struct SlintModConfig {
@@ -31,7 +32,7 @@ export component App inherits Window {
     title: "Rust4Diva: Project Diva MM+ Mod Manager";
     in property <int> counter: 4;
     in property <[int]> fs: [1, 2, 3];
-    in property <[SlintModConfig]> mods: [];
+    in property <[DivaModElement]> mods: [];
     in property <[[StandardListViewItem]]> search-results: [];
 
     in property <[Download]> file-results: [];
@@ -59,6 +60,7 @@ export component App inherits Window {
     callback list-files(int);
     callback download-file(Download, int);
     callback open-file-picker;
+    // callback new-toggle-mod(int, DivaModElement);
 
     //    in-out property mods-table: mod-table;
     default-font-size: 16px;
@@ -116,7 +118,8 @@ export component App inherits Window {
             manager := Tab {
                 title: "Mods";
                 VerticalBox {
-                    mod-table := StandardTableView {
+
+                    test-table := ModTable {
                         min-width: window_width - 12px;
                         height: window_height - 260px;
                         columns: [
@@ -126,8 +129,23 @@ export component App inherits Window {
                             { title: "Version", width: 100px },
                             { title: "Description" }
                         ];
-                        rows: stuff;
+                        mods: mods;
+                        mod-toggled(index, module) => {
+                            toggle-mod(index);
+                        }
                     }
+                    // mod-table := StandardTableView {
+                    //     min-width: window_width - 12px;
+                    //     height: window_height - 260px;
+                    //     columns: [
+                    //         { title: "Enabled", width: 100px },
+                    //         { title: "Name" },
+                    //         { title: "Authors" },
+                    //         { title: "Version", width: 100px },
+                    //         { title: "Description" }
+                    //     ];
+                    //     rows: stuff;
+                    // }
 
                     HorizontalBox {
                         load-mods-btn := Button {
@@ -137,7 +155,7 @@ export component App inherits Window {
                         toggle-mod-btn := Button {
                             text: "Toggle selected";
                             clicked => {
-                                toggle-mod(mod-table.current-row)
+                                toggle-mod(test-table.current-row)
                             }
                         }
                     }

@@ -1,10 +1,10 @@
-import { ListView, VerticalBox, ProgressIndicator } from "std-widgets.slint";
+import { ListView, VerticalBox, ProgressIndicator,CheckBox  } from "std-widgets.slint";
 import { StateLayerBase } from "./state-layer-base.slint";
 import {CosmicPalette, CosmicFontSettings} from "./cosmic-styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
 // import {Icons} from ""
 
-export struct DivaMod {
+export struct DivaModElement {
     name: string,
     author: string,
     version: string,
@@ -14,7 +14,7 @@ export struct DivaMod {
 
 
 export component ModTable {
-    in-out property <[DivaMod]> files;
+    in-out property <[DivaModElement]> mods;
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
     out property <int> current-sort-column: -1;
@@ -22,16 +22,16 @@ export component ModTable {
     callback current-row-changed(int/* current-row */);
     callback sort-ascending(/* column-index */ int);
     callback sort-descending(/* column-index */ int);
+    callback mod-toggled(int, DivaModElement);
 
     private property <length> min-header-height: 32px;
-    private property <length> item-height: scroll-view.viewport-height / files.length;
+    private property <length> item-height: scroll-view.viewport-height / mods.length;
     private property <length> current-item-y: scroll-view.viewport-y + current-row * item-height;
 
     private property <length> e: self.width / root.columns.length;
 
-
     public function set-current-row(index: int) {
-        if (index < 0 || index >= files.length) {
+        if (index < 0 || index >= mods.length) {
             return;
         }
         current-row = index;
@@ -49,8 +49,7 @@ export component ModTable {
         if (root.current-sort-column != index) {
             root.columns[root.current-sort-column].sort-order = SortOrder.unsorted;
         }
-
-        if(root.columns[index].sort-order == SortOrder.ascending) {
+        if (root.columns[index].sort-order == SortOrder.ascending) {
             root.columns[index].sort-order = SortOrder.descending;
             root.sort-descending(index);
         } else {
@@ -112,7 +111,7 @@ export component ModTable {
         }
 
         scroll-view := ListView {
-            for file[idx] in root.files: TableViewRow {
+            for module[idx] in root.mods: TableViewRow {
 
                 selected: idx == root.current-row;
                 even: mod(idx, 2) == 0;
@@ -129,12 +128,30 @@ export component ModTable {
                     root.set-current-row(idx);
                 }
 
-                // HorizontalLayout {
                 TableViewCell {
                     horizontal-stretch: columns[0].horizontal-stretch;
                     min-width: max(columns[0].min-width, columns[0].width);
                     preferred-width: self.min-width;
-                    max-width: (2 < columns.length && columns[0].width >= 1px) ? max(columns[0].min-width, columns[0].width) : 100000px;
+                    max-width: (1 < columns.length && columns[0].width >= 1px) ? max(columns[0].min-width, columns[0].width) : 100000px;
+                    // width: root.column_sizes[1];
+                    Rectangle {
+                        mod-toggle := CheckBox {
+                            checked: module.enabled;
+                            text: module.enabled ? "Yah" : "Nah";
+                            toggled => {
+                                debug("this is a test");
+                                mod-toggled(idx, module);
+                            }
+                        }
+                    }
+                }
+
+                // HorizontalLayout {
+                TableViewCell {
+                    horizontal-stretch: columns[1].horizontal-stretch;
+                    min-width: max(columns[1].min-width, columns[1].width);
+                    preferred-width: self.min-width;
+                    max-width: (2 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
                     // width: root.column_sizes[0];
                     Rectangle {
                         name-text := Text {
@@ -142,40 +159,14 @@ export component ModTable {
                             height: 100%;
                             overflow: elide;
                             vertical-alignment: center;
-                            text: file.name;
+                            text: module.name;
                             font-weight: CosmicFontSettings.body.font-weight;
                             font-size: CosmicFontSettings.body.font-size;
                             color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
 
                             states [
-                                selected when idx == root.current-row : {
+                                selected when idx == root.current-row: {
                                     name-text.color: CosmicPalette.accent-background;
-                                }
-                            ]
-                        }
-                    }
-                }
-
-                TableViewCell {
-                    horizontal-stretch: columns[1].horizontal-stretch;
-                    min-width: max(columns[1].min-width, columns[1].width);
-                    preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
-                    // width: root.column_sizes[1];
-                    Rectangle {
-                        bytes-text := Text {
-                            width: 100%;
-                            height: 100%;
-                            overflow: elide;
-                            vertical-alignment: center;
-                            text: mod.name + "Bytes";
-                            font-weight: CosmicFontSettings.body.font-weight;
-                            font-size: CosmicFontSettings.body.font-size;
-                            color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
-
-                            states [
-                                selected when idx == root.current-row : {
-                                    bytes-text.color: CosmicPalette.accent-background;
                                 }
                             ]
                         }
@@ -186,19 +177,87 @@ export component ModTable {
                     horizontal-stretch: columns[2].horizontal-stretch;
                     min-width: max(columns[2].min-width, columns[2].width);
                     preferred-width: self.min-width;
-                    max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
-                    // width: root.column_sizes[2];
-                    // ProgressIndicator {
-                    //     indeterminate: false;
-                    //     progress: file.progress;
-                    // }
+                    max-width: (1 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
+                    // width: root.column_sizes[1];
+                    Rectangle {
+                        bytes-text := Text {
+                            width: 100%;
+                            height: 100%;
+                            overflow: elide;
+                            vertical-alignment: center;
+                            text: module.author;
+                            font-weight: CosmicFontSettings.body.font-weight;
+                            font-size: CosmicFontSettings.body.font-size;
+                            color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
+
+                            states [
+                                selected when idx == root.current-row: {
+                                    bytes-text.color: CosmicPalette.accent-background;
+                                }
+                            ]
+                        }
+                    }
+                }
+
+                TableViewCell {
+                    horizontal-stretch: columns[3].horizontal-stretch;
+                    min-width: max(columns[3].min-width, columns[3].width);
+                    preferred-width: self.min-width;
+                    max-width: (1 < columns.length && columns[3].width >= 1px) ? max(columns[3].min-width, columns[3].width) : 100000px;
+                    // width: root.column_sizes[1];
+                    Rectangle {
+                        mod-ver := Text {
+                            width: 100%;
+                            height: 100%;
+                            overflow: elide;
+                            vertical-alignment: center;
+                            text: module.version;
+                            font-weight: CosmicFontSettings.body.font-weight;
+                            font-size: CosmicFontSettings.body.font-size;
+                            color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
+
+                            states [
+                                selected when idx == root.current-row: {
+                                    mod-ver.color: CosmicPalette.accent-background;
+                                }
+                            ]
+                        }
+                    }
+                }
+
+                TableViewCell {
+                    horizontal-stretch: columns[4].horizontal-stretch;
+                    min-width: max(columns[4].min-width, columns[4].width);
+                    preferred-width: self.min-width;
+                    max-width: (1 < columns.length && columns[4].width >= 1px) ? max(columns[4].min-width, columns[4].width) : 100000px;
+
+                    Rectangle {
+                        mod-desc := Text {
+                            width: 100%;
+                            height: 100%;
+                            overflow: elide;
+                            vertical-alignment: center;
+                            text: module.description;
+                            font-weight: CosmicFontSettings.body.font-weight;
+                            font-size: CosmicFontSettings.body.font-size;
+                            color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
+
+                            states [
+                                selected when idx == root.current-row: {
+                                    mod-desc.color: CosmicPalette.accent-background;
+                                }
+                            ]
+                        }
+                    }
                 }
             }
         }
     }
+
     focus-scope := FocusScope {
         x: 0;
-        width: 0; // Do not react on clicks
+        width: 0;
+        // Do not react on clicks
 
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
