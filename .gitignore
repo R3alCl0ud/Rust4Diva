@@ -7,3 +7,9 @@ src/sampledata.json
 windows/Rust4Diva installer.exe
 
 .flatpak-builder/
+
+flatpak/flatpak-cargo-generator.py
+
+flatpak/pyproject.toml
+
+flatpak/poetry.lock

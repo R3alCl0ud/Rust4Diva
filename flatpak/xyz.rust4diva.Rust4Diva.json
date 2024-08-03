@@ -38,7 +38,7 @@
             "sources": [
                 {
                     "type": "dir",
-                    "path": "./"
+                    "path": "../"
                 },
                 "rust4diva-sources.json"
             ]
