@@ -1,14 +1,12 @@
-use crate::DivaModElement;
-use std::{env, fs};
+use std::fs;
 use std::fs::File;
-use std::io::{ErrorKind, Seek, Write};
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
 use compress_tools::{list_archive_files, Ownership, uncompress_archive};
 use curl::easy::Easy;
-use keyvalues_parser::Vdf;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, Model, ModelRc, StandardListViewItem, VecModel, Weak};
@@ -18,6 +16,8 @@ use tokio::sync::Mutex;
 use toml::de::Error;
 
 use crate::{DivaData, Download};
+use crate::diva::get_temp_folder;
+use crate::DivaModElement;
 use crate::slint_generatedApp::App;
 
 cfg_if::cfg_if! {
@@ -27,11 +27,7 @@ cfg_if::cfg_if! {
     }
 }
 
-const STEAM_FOLDER: &str = ".local/share/Steam";
-const STEAM_FOLDER_MAC: &str = "Library/Application Support/Steam";
-const STEAM_LIBRARIES_CONFIG: &str = "config/libraryfolders.vdf";
-const MEGA_MIX_APP_ID: &str = "1761390";
-const DIVA_MOD_FOLDER_SUFFIX: &str = "steamapps/common/Hatsune Miku Project DIVA Mega Mix Plus";
+
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
@@ -250,114 +246,6 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
 }
 
 
-pub fn get_steam_folder() -> Option<String> {
-    println!("Attempting to find the Steam folder");
-    return match env::consts::OS {
-        "linux" => {
-            let mut binding = dirs::home_dir().unwrap();
-            binding.push(STEAM_FOLDER);
-            if !binding.exists() {
-                println!("Regular Steam folder not found, searching for flatpak isntead");
-                binding = dirs::home_dir().unwrap();
-                binding.push(".var/app/com.valvesoftware.Steam/data/Steam");
-                if !binding.exists() {
-                    println!("Can't find flatpak steam.");
-                    return None;
-                }
-            }
-            Some(binding.display().to_string())
-        }
-        "macos" => {
-            let mut binding = dirs::home_dir().unwrap();
-            binding.push(STEAM_FOLDER_MAC);
-            if !binding.exists() {
-                println!("Steam folder not found");
-            }
-            Some(binding.display().to_string())
-        }
-        "windows" => {
-            // only compiles on windows
-            cfg_if::cfg_if! {
-                if #[cfg(windows)] {
-                    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-                    let steam_key = hklm.open_subkey(r#"SOFTWARE\WOW6432Node\Valve\Steam"#);
-                    if steam_key.is_err() {
-                        return None;
-                    }
-                    let steam_key = steam_key.unwrap();
-                    let res: std::io::Result<String> = steam_key.get_value("InstallPath");
-                    if let Ok(path) = res {
-                        println!("{}", path);
-                        Some(path);
-                    }
-                } else {
-                   None
-                }
-            }
-        }
-        os => {
-            println!("Unsupported Operating system: {}", os);
-            None
-        }
-    };
-}
-
-pub fn get_diva_folder() -> Option<String> {
-    println!("Looking for the mods folder");
-    match get_steam_folder() {
-        Some(steam_folder) => {
-            let mut path = "".to_owned();
-            let mut lib_path = PathBuf::new();
-            lib_path.push(steam_folder);
-            lib_path.push(STEAM_LIBRARIES_CONFIG);
-            if !lib_path.exists() {
-                return None;
-            }
-
-            let binding = fs::read_to_string(lib_path).unwrap();
-            let lf_res = Vdf::parse(binding.as_str());
-            match lf_res {
-                Ok(libraryfolders) => {
-                    let libraries = libraryfolders.value.unwrap_obj();
-                    for library_id in libraries.clone().keys() {
-                        // get the library obj
-                        let library = libraries.get(library_id).unwrap().first().unwrap().clone().unwrap_obj();
-                        // prevent a crash in case of malformed libraryfolders.vdf
-                        if !library.contains_key("apps") || !library.contains_key("path") { continue; }
-                        // get the list of apps installed to this library
-                        let apps = library.get("apps").unwrap().first().unwrap().clone().unwrap_obj();
-                        // self-explanatory
-                        if apps.contains_key(MEGA_MIX_APP_ID) {
-                            // get the path of the library
-                            let path_str = library.get("path").unwrap().first().unwrap().to_string();
-                            // this is set up for removing the quotes
-                            let mut path_chars = path_str.chars();
-                            // remove the quotes from the value
-                            path_chars.next();
-                            path_chars.next_back();
-                            // concat the strings together properly
-                            let mut buf = PathBuf::new();
-                            buf.push(path_chars.as_str());
-                            let diva = PathBuf::from(DIVA_MOD_FOLDER_SUFFIX);
-                            buf.push(diva.as_os_str());
-                            path = buf.canonicalize().unwrap().as_os_str().to_str().unwrap().to_string();
-                            println!("Fuck yes, we found it, {:?}", path);
-                            break;
-                        }
-                    }
-                    Some(path)
-                }
-                Err(e) => {
-                    eprintln!("{}", e);
-                    None
-                }
-            }
-        }
-        None => {
-            return None;
-        }
-    }
-}
 
 pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) -> std::io::Result<()> {
     let config_path = Path::new(path);
@@ -429,21 +317,7 @@ pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
     return loader;
 }
 
-pub fn create_tmp_if_not() -> std::io::Result<()> {
-    match get_temp_folder() {
-        Some(p) => {
-            let path = Path::new(&p);
-            if !path.exists() {
-                let dir = fs::create_dir(path);
-                return dir;
-            }
-            Ok(())
-        }
-        None => {
-            Err(std::io::Error::new(ErrorKind::InvalidInput, "Unknown temp dir path"))
-        }
-    }
-}
+
 
 pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Sender<(i32, f32)>, diva_arc: &Arc<Mutex<DivaData>>, mods_dir: String, ui_download_handle: Weak<App>) {
     let diva_arc = diva_arc.clone();
@@ -580,31 +454,7 @@ pub fn create_mods_model(mods: &Vec<DivaMod>) -> ModelRc<ModelRc<StandardListVie
     ModelRc::new(model_vec)
 }
 
-pub fn get_temp_folder() -> Option<String> {
-    match env::consts::OS {
-        "linux" | "macos" => {
-            Some("/tmp/rust4diva".to_string())
-        }
-        "windows" => {
-            let mut tmp = dirs::data_local_dir().unwrap();
-            tmp.push("Temp");
-            let temp = tmp.as_os_str();
-            match temp.to_str() {
-                Some(s) => {
-                    let t = s.to_owned();
-                    Some(t)
-                }
-                None => {
-                    None
-                }
-            }
-        }
-        os => {
-            println!("Unknown OS: {}", os);
-            None
-        }
-    }
-}
+
 
 pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) {
     let mods = mods.clone();

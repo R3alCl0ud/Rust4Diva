@@ -6,13 +6,16 @@ use slint_interpreter::ComponentHandle;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::Mutex;
 
+use crate::diva::{create_tmp_if_not, get_diva_folder};
 use crate::gamebanana_async::{GbModDownload, GBSearch, parse_dmm_url};
-use crate::modmanagement::{create_tmp_if_not, DivaMod, DivaModLoader, get_diva_folder, load_diva_ml_config, load_mods, set_mods_table};
+use crate::modmanagement::{DivaMod, DivaModLoader, load_diva_ml_config, load_mods, set_mods_table};
 use crate::oneclick::{spawn_listener, try_send_mmdl};
 
 mod gamebanana_async;
 mod modmanagement;
 mod oneclick;
+mod modpacks;
+mod diva;
 
 slint::include_modules!();
 
