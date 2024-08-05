@@ -3,10 +3,11 @@ import { FileTable, Download } from "widgets/filetable.slint";
 import { Palette as CosmicPalette } from "styling.slint";
 import { ErrorDialog } from "widgets/errordialog.slint";
 import { ModTable } from "widgets/mod-table.slint";
-import { DivaModElement } from "diva-types.slint";
+import { DivaModElement, ModPackElement } from "diva-types.slint";
 import { ModPickTable } from "widgets/modpack-tables.slint";
 import { ContextMenu } from "widgets/context-menu.slint";
 
+export { ModPackElement }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -52,8 +53,8 @@ export component App inherits Window {
     property window_height <=> self.height;
 
     in property <[DivaModElement]> mods: [];
-    in-out property <[DivaModElement]> pack-mods;
-    in-out property <[string]> modpacks;
+    in-out property <[DivaModElement]> pack-mods: [];
+    in-out property <[string]> modpacks: [];
 
     callback load-mods <=> load-mods-btn.clicked;
     callback toggle-mod(int);
@@ -64,9 +65,8 @@ export component App inherits Window {
     callback open-file-picker;
     callback add-mod-to-pack(DivaModElement);
     callback remove-mod-from-pack(DivaModElement);
-    // callback new-toggle-mod(int, DivaModElement);
+    callback modpack-changed(string);
 
-    //    in-out property mods-table: mod-table;
     default-font-size: 16px;
     errordialog := ErrorDialog {
         x: (window_width / 2) - 100px;
@@ -155,7 +155,7 @@ export component App inherits Window {
                         model: ["test", "fuck", "eden"];
                     }
 
-                    Button {
+                    packbtn := Button {
                         text: packsctx-menu.model[packsctx-menu.current_item];
                         clicked => {
                             if (packsctx-menu.model.length == 0) {
@@ -190,6 +190,7 @@ export component App inherits Window {
                             }
 
                             Button {
+                                enabled: pack-mods.length > 0;
                                 icon: @image-url("assets/left-long-solid.svg");
                                 clicked => {
                                     if in-pack.current-row != -1 {

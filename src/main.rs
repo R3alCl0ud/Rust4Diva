@@ -37,7 +37,7 @@ struct DivaData {
     diva_directory: String,
     dml: Option<DivaModLoader>,
     mod_files: HashMap<u64, Vec<GbModDownload>>,
-    mod_packs: HashMap<String,ModPack>
+    mod_packs: HashMap<String, ModPack>,
 }
 
 #[tokio::main]
