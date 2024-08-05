@@ -1,8 +1,11 @@
-import { Palette } from "std-widgets.slint";
+
+import { CosmicPalette as Palette, CosmicFontSettings as FontSettings } from "styling/cosmic-styling.slint";
+export { Palette, FontSettings }
 
 export global Icons {
-    out property <image> add: @image-url("../assets/add.svg");
-    out property <image> drop-down: @image-url("../assets/drop-down.svg");
+    out property <image> left-arrow: @image-url("assets/left-long-solid.svg");
+    out property <image> right-arrow: @image-url("assets/right-long-solid.svg");
+    out property <image> repeat-arrows: @image-url("assets/repeat-solid.svg");
 }
 
 export struct TextStyle {
@@ -48,10 +51,17 @@ export global EditorPalette {
     out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.3) : #000000.with-alpha(0.3);
     out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
     
-    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    property <bool> dark-color-scheme: false;
 }
 
 export global EditorAnimationSettings {
     out property <duration> color-duration: 200ms;
     out property <duration> roation-duration: 200ms;
 }
+
+export global Radius {
+    out property <length> small;
+    out property <length> medium;
+    out property <length> large;
+}
+

@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 use crate::diva::{create_tmp_if_not, get_diva_folder};
 use crate::gamebanana_async::{GbModDownload, GBSearch, parse_dmm_url};
 use crate::modmanagement::{DivaMod, DivaModLoader, load_diva_ml_config, load_mods, set_mods_table};
+use crate::modpacks::ModPack;
 use crate::oneclick::{spawn_listener, try_send_mmdl};
 
 mod gamebanana_async;
@@ -36,6 +37,7 @@ struct DivaData {
     diva_directory: String,
     dml: Option<DivaModLoader>,
     mod_files: HashMap<u64, Vec<GbModDownload>>,
+    mod_packs: HashMap<String,ModPack>
 }
 
 #[tokio::main]
@@ -108,6 +110,7 @@ async fn main() {
     let diva_arc = Arc::new(Mutex::new(diva_state));
     modmanagement::init(&app, Arc::clone(&diva_arc), dl_rx).await;
     gamebanana_async::init(&app, Arc::clone(&diva_arc), dl_tx, url_rx).await;
+    modpacks::init(&app, Arc::clone(&diva_arc)).await;
 
 
     println!("Does the app run?");
@@ -123,7 +126,7 @@ async fn main() {
     }
 
     app.run().unwrap();
-    println!("goog buy - Migu");
+    println!("OMG Migu says \"goodbye\"");
 }
 
 
@@ -136,6 +139,7 @@ impl DivaData {
             diva_directory: "".to_string(),
             dml: None,
             mod_files: HashMap::new(),
+            mod_packs: Default::default(),
         }
     }
 }

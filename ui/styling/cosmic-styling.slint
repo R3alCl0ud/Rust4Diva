@@ -3,6 +3,8 @@
 
 // import { ColorSchemeSelector } from "color-scheme.slint";
 
+import { Palette } from "std-widgets.slint";
+
 export struct TextStyle {
     font-size: relative-font-size,
     font-weight: int,
@@ -28,10 +30,7 @@ export global CosmicFontSettings {
 
 export global CosmicPalette {
     // in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
-    property <bool> dark-color-scheme: {
-
-        return false;
-    }
+    out property <bool> dark-color-scheme: false;
 
     // base palette
     out property <brush> background: dark-color-scheme ? #1B1B1B : #D7D7D7;

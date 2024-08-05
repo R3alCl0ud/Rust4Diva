@@ -1,8 +1,11 @@
 import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator } from "std-widgets.slint";
-import { FileTable, Download } from "filetable.slint";
-import { CosmicPalette } from "cosmic-styling.slint";
-import { ErrorDialog } from "errordialog.slint";
-import { ModTable, DivaModElement } from "mod-table.slint";
+import { FileTable, Download } from "widgets/filetable.slint";
+import { Palette as CosmicPalette } from "styling.slint";
+import { ErrorDialog } from "widgets/errordialog.slint";
+import { ModTable } from "widgets/mod-table.slint";
+import { DivaModElement } from "diva-types.slint";
+import { ModPickTable } from "widgets/modpack-tables.slint";
+import { ContextMenu } from "widgets/context-menu.slint";
 
 
 export struct SlintModConfig {
@@ -16,12 +19,6 @@ export struct SlintModConfig {
     dll: [string]
 }
 
-//export component downloads inherits Window {
-//    min-width: 1280px;
-//    min-height: 720px;
-//    title: "Rust4Diva: Project Diva MM+ Mod Manager Mod Search";
-//}
-
 
 
 export component App inherits Window {
@@ -32,7 +29,7 @@ export component App inherits Window {
     title: "Rust4Diva: Project Diva MM+ Mod Manager";
     in property <int> counter: 4;
     in property <[int]> fs: [1, 2, 3];
-    in property <[DivaModElement]> mods: [];
+
     in property <[[StandardListViewItem]]> search-results: [];
 
     in property <[Download]> file-results: [];
@@ -53,6 +50,11 @@ export component App inherits Window {
 
     property window_width <=> self.width;
     property window_height <=> self.height;
+
+    in property <[DivaModElement]> mods: [];
+    in-out property <[DivaModElement]> pack-mods;
+    in-out property <[string]> modpacks;
+
     callback load-mods <=> load-mods-btn.clicked;
     callback toggle-mod(int);
     callback toggle-dml();
@@ -60,6 +62,8 @@ export component App inherits Window {
     callback list-files(int);
     callback download-file(Download, int);
     callback open-file-picker;
+    callback add-mod-to-pack(DivaModElement);
+    callback remove-mod-from-pack(DivaModElement);
     // callback new-toggle-mod(int, DivaModElement);
 
     //    in-out property mods-table: mod-table;
@@ -121,7 +125,7 @@ export component App inherits Window {
 
                     test-table := ModTable {
                         min-width: window_width - 12px;
-                        height: window_height - 260px;
+                        height: window_height - 210px;
                         columns: [
                             { title: "Enabled", width: 100px },
                             { title: "Name" },
@@ -134,28 +138,77 @@ export component App inherits Window {
                             toggle-mod(index);
                         }
                     }
-                    // mod-table := StandardTableView {
-                    //     min-width: window_width - 12px;
-                    //     height: window_height - 260px;
-                    //     columns: [
-                    //         { title: "Enabled", width: 100px },
-                    //         { title: "Name" },
-                    //         { title: "Authors" },
-                    //         { title: "Version", width: 100px },
-                    //         { title: "Description" }
-                    //     ];
-                    //     rows: stuff;
-                    // }
 
                     HorizontalBox {
                         load-mods-btn := Button {
                             text: "Reload Mods";
+                            icon: @image-url("assets/repeat-solid.svg");
+                        }
+                    }
+                }
+            }
+
+            packs-tab := Tab {
+                title: "Modpacks";
+                VerticalBox {
+                    packsctx-menu := ContextMenu {
+                        model: ["test", "fuck", "eden"];
+                    }
+
+                    Button {
+                        text: packsctx-menu.model[packsctx-menu.current_item];
+                        clicked => {
+                            if (packsctx-menu.model.length == 0) {
+                                return;
+                            }
+                            packsctx-menu.show_and_focus();
+                        }
+                    }
+
+                    HorizontalBox {
+                        VerticalBox {
+                            Text {
+                                text: "Installed";
+                            }
+
+                            mod-picker := ModPickTable {
+                                width: (window_width / 2) - 100px;
+                                height: window_height - 260px;
+                                columns: [{ title :"Name" }];
+                                mods: mods;
+                            }
                         }
 
-                        toggle-mod-btn := Button {
-                            text: "Toggle selected";
-                            clicked => {
-                                toggle-mod(test-table.current-row)
+                        VerticalBox {
+                            Button {
+                                icon: @image-url("assets/right-long-solid.svg");
+                                clicked => {
+                                    if mod-picker.current-row != -1 {
+                                        add-mod-to-pack(mods[mod-picker.current-row]);
+                                    }
+                                }
+                            }
+
+                            Button {
+                                icon: @image-url("assets/left-long-solid.svg");
+                                clicked => {
+                                    if in-pack.current-row != -1 {
+                                        remove-mod-from-pack(pack-mods[in-pack.current-row]);
+                                    }
+                                }
+                            }
+                        }
+
+                        VerticalBox {
+                            Text {
+                                text: "In Modpack";
+                            }
+
+                            in-pack := ModPickTable {
+                                width: (window_width / 2) - 100px;
+                                height: window_height - 260px;
+                                columns: [{ title :"Name" }];
+                                mods: pack-mods;
                             }
                         }
                     }
