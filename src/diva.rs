@@ -1,5 +1,5 @@
 use std::{env, fs};
-use std::io::ErrorKind;
+use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use keyvalues_parser::Vdf;
 
@@ -164,5 +164,13 @@ pub fn get_diva_folder() -> Option<String> {
 
 
 pub async fn get_config_dir() -> std::io::Result<PathBuf> {
-    Ok(PathBuf::new())
+    match dirs::config_dir() {
+        Some(mut buf) => {
+            buf.push("rust4diva");
+            Ok(buf.clone())
+        }
+        None => {
+            Err(Error::new(ErrorKind::NotFound, "Unable to get config directory"))
+        }
+    }
 }

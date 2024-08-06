@@ -1,13 +1,12 @@
-export struct ModPackElement {
-    name: string,
-    mods: [string]
-}
-
-
 export struct DivaModElement {
     name: string,
     author: string,
     version: string,
     description: string,
     enabled: bool
+}
+
+export struct ModPackElement {
+    name: string,
+    mods: [DivaModElement]
 }

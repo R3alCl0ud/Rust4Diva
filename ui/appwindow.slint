@@ -63,8 +63,8 @@ export component App inherits Window {
     callback list-files(int);
     callback download-file(Download, int);
     callback open-file-picker;
-    callback add-mod-to-pack(DivaModElement);
-    callback remove-mod-from-pack(DivaModElement);
+    callback add-mod-to-pack(DivaModElement, string);
+    callback remove-mod-from-pack(DivaModElement, string);
     callback modpack-changed(string);
 
     default-font-size: 16px;
@@ -152,7 +152,11 @@ export component App inherits Window {
                 title: "Modpacks";
                 VerticalBox {
                     packsctx-menu := ContextMenu {
+                        width: 300px;
                         model: ["test", "fuck", "eden"];
+                        item-clicked(idx) => {
+                            modpack-changed(modpacks[idx]);
+                        }
                     }
 
                     packbtn := Button {
@@ -184,7 +188,7 @@ export component App inherits Window {
                                 icon: @image-url("assets/right-long-solid.svg");
                                 clicked => {
                                     if mod-picker.current-row != -1 {
-                                        add-mod-to-pack(mods[mod-picker.current-row]);
+                                        add-mod-to-pack(mods[mod-picker.current-row], modpacks[packsctx-menu.current_item]);
                                     }
                                 }
                             }
@@ -194,7 +198,7 @@ export component App inherits Window {
                                 icon: @image-url("assets/left-long-solid.svg");
                                 clicked => {
                                     if in-pack.current-row != -1 {
-                                        remove-mod-from-pack(pack-mods[in-pack.current-row]);
+                                        remove-mod-from-pack(pack-mods[in-pack.current-row], modpacks[packsctx-menu.current_item]);
                                     }
                                 }
                             }

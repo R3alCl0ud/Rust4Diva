@@ -6,7 +6,8 @@ export component ContextMenu {
     in property <length> offset_x;
     in property <length> offset_y;
     out property <bool> has_focus: focus_scope.has_focus;
-
+    // in property <> openbtn;
+    in-out property <DialogButtonRole> btn;
     callback item-clicked(/* row */ int);
     callback closed();
     in-out property <int> current_item: -1;
@@ -47,15 +48,14 @@ export component ContextMenu {
     }
 
     popup_window := PopupWindow {
-        x: root.offset_x;
-        y: root.offset_y;
+        x: parent.offset_x;
+        y: parent.offset_y;
 
         PopupBorder {
             min_width: root.min_menu_width;
 
             VerticalLayout {
                 for item[index] in model: CtxMenuItem {
-                    width: parent.width;
                     Text {
                         text: item;
                     }

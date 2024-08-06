@@ -366,7 +366,7 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                                     }
                                 }
                             });
-                            // skip the file shit, wait for next download
+                            // skip the file, wait for next download
                             continue;
                         }
                     }

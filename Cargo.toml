@@ -1,11 +1,10 @@
 [package]
 name = "rust4diva"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 regex = "1.10.5"
 curl = "0.4.46"
@@ -28,10 +27,8 @@ futures-util = "0.3.30"
 cfg-if = "1.0.0"
 rfd = "0.14.1"
 
-
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52.0"
-
 
 [build-dependencies]
 slint-build = "1.7.1"
