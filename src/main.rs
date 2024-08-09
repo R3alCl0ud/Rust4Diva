@@ -20,15 +20,7 @@ mod diva;
 
 slint::include_modules!();
 
-struct DlProgress {
-    rx: Receiver<u64>,
-    progress: f32,
-}
 
-struct DlFinish {
-    success: bool,
-    file: GbModDownload,
-}
 #[derive(Clone)]
 struct DivaData {
     mods: Vec<DivaMod>,

@@ -1,14 +1,15 @@
-use std::collections::HashMap;
-use std::io::{Error, ErrorKind};
-use std::sync::Arc;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use sonic_rs::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Mutex;
 
+use crate::diva::get_config_dir;
 use crate::slint_generatedApp::App;
 use crate::{DivaData, DivaModElement, ModPackElement};
-use crate::diva::get_config_dir;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModPack {
@@ -40,7 +41,11 @@ impl ModPack {
 
         let vec_mod: VecModel<DivaModElement> = VecModel::from(vec![]);
         for module in self.mods.clone() {
-            if let Some(module) = diva.mods.iter().find(|&diva_mod| diva_mod.config.name == module.name) {
+            if let Some(module) = diva
+                .mods
+                .iter()
+                .find(|&diva_mod| diva_mod.config.name == module.name)
+            {
                 vec_mod.push(module.to_element());
             }
         }
@@ -52,7 +57,6 @@ impl ModPack {
     }
 }
 
-
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     let init_diva = diva_arc.clone();
     let ui_add_mod_handle = ui.as_weak();
@@ -61,7 +65,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     let ui_reload_handle = ui.as_weak();
     let change_diva = diva_arc.clone();
     let reload_diva = diva_arc.clone();
-
 
     let mut diva = init_diva.lock().await;
 
@@ -87,7 +90,10 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
         let ui = ui_add_mod_handle.upgrade().unwrap();
         let mut pack_mods = ui.get_pack_mods();
         // ui.
-        if let Some(pack_mods) = pack_mods.as_any().downcast_ref::<VecModel<DivaModElement>>() {
+        if let Some(pack_mods) = pack_mods
+            .as_any()
+            .downcast_ref::<VecModel<DivaModElement>>()
+        {
             for element in pack_mods.iter() {
                 if element.name == diva_mod_element.name {
                     return;
@@ -101,9 +107,14 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     ui.on_remove_mod_from_pack(move |diva_mod_element: DivaModElement, mod_pack| {
         let ui = ui_remove_mod_handle.upgrade().unwrap();
         let mut pack_mods = ui.get_pack_mods();
-        if let Some(pack_mods) = pack_mods.as_any().downcast_ref::<VecModel<DivaModElement>>() {
-            let filtered = pack_mods.iter().filter(|item| item.name != diva_mod_element.name);
-            let new_vec : Vec<DivaModElement> = filtered.collect();
+        if let Some(pack_mods) = pack_mods
+            .as_any()
+            .downcast_ref::<VecModel<DivaModElement>>()
+        {
+            let filtered = pack_mods
+                .iter()
+                .filter(|item| item.name != diva_mod_element.name);
+            let new_vec: Vec<DivaModElement> = filtered.collect();
             let vec_mod = VecModel::from(new_vec);
             ui.set_pack_mods(ModelRc::new(vec_mod));
         }
@@ -122,37 +133,47 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
             }
             let pack = pack.unwrap();
             println!("{}", pack.name.clone());
+            ui_change_handle.upgrade_in_event_loop(|ui| {
+                let pack_mods = ui.get_pack_mods();
+                match pack_mods.as_any().downcast_ref::<VecModel<DivaModElement>>() {
+                    Some(e) =>{}
+                    None => {}
+                }
+            });
         });
     });
 }
 
 pub async fn load_mod_packs() -> std::io::Result<HashMap<String, ModPack>> {
     let packs_dir = get_modpacks_folder().await;
-    if packs_dir.is_none() {
-        return Err(Error::new(ErrorKind::NotFound, "Could not find modpacks folder"));
+    if packs_dir.is_err() {
+        return Err(packs_dir.unwrap_err().into());
     }
     let mut packs: HashMap<String, ModPack> = HashMap::new();
     let packs_dir = packs_dir.unwrap();
-    while let Ok(entry) = fs::read_dir(packs_dir.clone()).await {
-        println!("{:?}", entry);
+    for entry in std::fs::read_dir(packs_dir.clone())? {
+        let entry = entry?;
+        if entry.path().is_dir() {
+            continue;
+        }
+        let fuck = fs::read_to_string(entry.path()).await?;
+        // println!("{}", fuck);
+        let pack: ModPack = sonic_rs::from_str(fuck.as_str())?;
+        packs.insert(pack.name.clone(), pack);
     }
-
 
     Ok(packs)
 }
 
-pub async fn get_modpacks_folder() -> Option<String> {
+pub async fn get_modpacks_folder() -> std::io::Result<PathBuf> {
     match get_config_dir().await {
         Ok(mut config_dir) => {
             config_dir.push("modpacks");
-            Some(config_dir.to_str().unwrap().to_string())
+            if !config_dir.exists() {
+                fs::create_dir(config_dir.clone()).await?
+            }
+            Ok(config_dir)
         }
-        Err(e) => {
-            None
-        }
+        Err(e) => Err(e.into()),
     }
 }
-
-
-
-

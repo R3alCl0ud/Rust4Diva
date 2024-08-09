@@ -10,7 +10,6 @@ use curl::easy::Easy;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, Model, ModelRc, StandardListViewItem, VecModel, Weak};
-use sonic_rs::JsonValueTrait;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use toml::de::Error;

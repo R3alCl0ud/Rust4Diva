@@ -13,3 +13,9 @@ flatpak/flatpak-cargo-generator.py
 flatpak/pyproject.toml
 
 flatpak/poetry.lock
+
+aur/Rust4Diva/
+
+aur/src/
+
+.vscode/

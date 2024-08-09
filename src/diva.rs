@@ -167,6 +167,10 @@ pub async fn get_config_dir() -> std::io::Result<PathBuf> {
     match dirs::config_dir() {
         Some(mut buf) => {
             buf.push("rust4diva");
+            if !buf.exists() {
+                fs::create_dir(buf.clone())?;
+            }
+            println!("{:?}", buf.display());
             Ok(buf.clone())
         }
         None => {

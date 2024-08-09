@@ -1,7 +1,7 @@
 # Maintainer: NeptuneNepgear ultra.neppers@gmail.com
 
 pkgname=Rust4Diva-git
-pkgver=r49.a7a239f
+pkgver=r53.b44a58b
 pkgrel=1
 pkgdesc="Project Diva Mod Manager written in rust"
 arch=('x86_64' 'aarch64')
