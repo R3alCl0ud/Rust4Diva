@@ -8,6 +8,7 @@ use tokio::fs;
 use tokio::sync::Mutex;
 
 use crate::diva::get_config_dir;
+use crate::modmanagement::DivaMod;
 use crate::slint_generatedApp::App;
 use crate::{DivaData, DivaModElement, ModPackElement};
 
@@ -19,8 +20,26 @@ pub struct ModPack {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModPackMod {
-    name: String,
-    enabled: bool,
+    pub name: String,
+    pub enabled: bool,
+}
+
+impl PartialEq for ModPackMod {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl PartialEq<DivaMod> for ModPackMod {
+    fn eq(&self, other: &DivaMod) -> bool {
+        self.name == other.config.name
+    }
+}
+
+impl PartialEq<ModPackMod> for DivaMod {
+    fn eq(&self, other: &ModPackMod) -> bool {
+        self.config.name == other.name
+    }
 }
 
 impl ModPackMod {
@@ -57,14 +76,16 @@ impl ModPack {
     }
 }
 
+
+
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     let init_diva = diva_arc.clone();
     let ui_add_mod_handle = ui.as_weak();
     let ui_remove_mod_handle = ui.as_weak();
     let ui_change_handle = ui.as_weak();
-    let ui_reload_handle = ui.as_weak();
+    let ui_save_handle = ui.as_weak();
     let change_diva = diva_arc.clone();
-    let reload_diva = diva_arc.clone();
+    let save_diva = diva_arc.clone();
 
     let mut diva = init_diva.lock().await;
 
@@ -127,20 +148,70 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
         tokio::spawn(async move {
             let diva = change_diva.lock().await;
             let packs = diva.mod_packs.clone();
-            let pack = packs.get(&mod_pack.to_string());
+            let pack = packs.get(&mod_pack.clone().to_string()).clone();
             if pack.is_none() {
                 return;
             }
             let pack = pack.unwrap();
             println!("{}", pack.name.clone());
-            ui_change_handle.upgrade_in_event_loop(|ui| {
-                let pack_mods = ui.get_pack_mods();
-                match pack_mods.as_any().downcast_ref::<VecModel<DivaModElement>>() {
-                    Some(e) =>{}
-                    None => {}
-                }
-            });
+            let pack = pack.clone();
+            ui_change_handle
+                .upgrade_in_event_loop(move |ui| {
+                    let pack_mods: VecModel<DivaModElement> = VecModel::default();
+                    for module in pack.mods.clone() {
+                        pack_mods.push(module.to_element());
+                    }
+                    ui.set_pack_mods(ModelRc::new(pack_mods));
+                })
+                .expect("test");
         });
+    });
+
+    ui.on_save_modpack(move |modpack, mods| {
+        let modpack = modpack.to_string();
+        let modpack = modpack.clone();
+        let save_diva = save_diva.clone();
+        match mods.as_any().downcast_ref::<VecModel<DivaModElement>>() {
+            Some(mods) => {
+                let mut vec_mods: Vec<DivaModElement> = Vec::new();
+                for m in mods.iter() {
+                    vec_mods.push(m.clone());
+                }
+                tokio::spawn(async move {
+                    let mods = vec_mods.clone();
+                    let mut diva = save_diva.lock().await;
+                    if let Some(mut pack) = diva.mod_packs.get(&modpack) {
+                        let mut pack = pack.clone();
+                        let mut new_mods = vec![];
+                        for m in mods.iter() {
+                            new_mods.push(m.to_packmod());
+                        }
+                        pack.mods = new_mods;
+                        diva.mod_packs.insert(modpack.clone(), pack.clone());
+                        match sonic_rs::to_string_pretty(&pack) {
+                            Ok(pack_str) => {
+                                println!("{}", pack_str);
+                                if let Ok(mut buf) = get_modpacks_folder().await {
+                                    buf.push(format!("{modpack}.json"));
+                                    match fs::write(buf, pack_str).await {
+                                        Ok(..) => {}
+                                        Err(e) => {
+                                            eprintln!("{e}");
+                                        }
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("{}", e);
+                            }
+                        }
+                    }
+                });
+            }
+            None => {
+                return;
+            }
+        }
     });
 }
 

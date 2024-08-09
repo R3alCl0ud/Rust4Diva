@@ -14,6 +14,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use toml::de::Error;
 
+use crate::modpacks::ModPackMod;
 use crate::{DivaData, Download};
 use crate::diva::get_temp_folder;
 use crate::DivaModElement;
@@ -87,7 +88,23 @@ impl DivaMod {
             enabled: this.config.enabled,
         }
     }
+    pub fn to_packmod(self: &Self) -> ModPackMod {
+        ModPackMod {
+            name: self.config.name.clone(),
+            enabled: true
+        }
+    }
 }
+
+impl DivaModElement {
+    pub fn to_packmod(self: &Self) -> ModPackMod {
+        ModPackMod {
+            name: self.name.to_string(),
+            enabled: self.enabled,
+        }
+    }
+}
+
 
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32, Download)>) {
     let ui_toggle_handle = ui.as_weak();

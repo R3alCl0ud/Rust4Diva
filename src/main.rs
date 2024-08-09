@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 
-use slint_interpreter::ComponentHandle;
+use slint_interpreter::{ComponentHandle, PlatformError};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::Mutex;
 
@@ -117,8 +117,9 @@ async fn main() {
         }
     }
 
-    app.run().unwrap();
+    app.run().expect("Welp, gui thread paniced");
     println!("OMG Migu says \"goodbye\"");
+    // Ok(())
 }
 
 

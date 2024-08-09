@@ -66,6 +66,7 @@ export component App inherits Window {
     callback add-mod-to-pack(DivaModElement, string);
     callback remove-mod-from-pack(DivaModElement, string);
     callback modpack-changed(string);
+    callback save-modpack(string, [DivaModElement]);
 
     default-font-size: 16px;
     errordialog := ErrorDialog {
@@ -150,12 +151,14 @@ export component App inherits Window {
 
             packs-tab := Tab {
                 title: "Modpacks";
+
                 VerticalBox {
                     packsctx-menu := ContextMenu {
                         width: 300px;
                         model: modpacks;
                         item-clicked(idx) => {
                             modpack-changed(modpacks[idx]);
+                            // debug(parent.height);
                         }
                     }
 
@@ -177,9 +180,16 @@ export component App inherits Window {
 
                             mod-picker := ModPickTable {
                                 width: (window_width / 2) - 100px;
-                                height: window_height - 260px;
+                                // height: 100%;
+                                height: window_height - 310px;
                                 columns: [{ title :"Name" }];
                                 mods: mods;
+                            }
+                            Button {
+                                text: "Reload";
+                                clicked => {
+                                    load-mods();
+                                }
                             }
                         }
 
@@ -217,9 +227,18 @@ export component App inherits Window {
 
                             in-pack := ModPickTable {
                                 width: (window_width / 2) - 100px;
-                                height: window_height - 260px;
+                                height: window_height - 310px;
                                 columns: [{ title :"Name" }];
                                 mods: pack-mods;
+                            }
+                            Button {
+                                text: "Save";
+                                clicked => {
+                                    debug("Saving");
+                                    if packsctx-menu.current_item > -1 {
+                                        save-modpack(modpacks[packsctx-menu.current_item], pack-mods);
+                                    }
+                                }
                             }
                         }
                     }
