@@ -1,6 +1,6 @@
-
+import {TextStyle} from "structs/TextStyle.slint";
 import { CosmicPalette as Palette, CosmicFontSettings as FontSettings } from "styling/cosmic-styling.slint";
-export { Palette, FontSettings }
+export { Palette, FontSettings, TextStyle }
 
 export global Icons {
     out property <image> left-arrow: @image-url("assets/left-long-solid.svg");
@@ -8,31 +8,15 @@ export global Icons {
     out property <image> repeat-arrows: @image-url("assets/repeat-solid.svg");
 }
 
-export struct TextStyle {
-    font-size: relative-font-size,
-    font-weight: int,
-}
-
 export global EditorFontSettings {
     out property <int> light-font-weight: 300;
     out property <int> regular-font-weight: 400;
     out property <int> semibold-font-weight: 600;
     out property <int> bold-font-weight: 900;
-    
-    out property <TextStyle> header: {
-        font-size: 18 * 0.0769rem,
-        font-weight: root.semibold-font-weight
-    };
+    out property <TextStyle> header: { font-size: 18 * 0.0769rem, font-weight: root.semibold-font-weight };
 
-    out property <TextStyle> body: {
-        font-size: 14 * 0.0769rem,
-        font-weight: root.regular-font-weight
-    };
-    
-    out property <TextStyle> body-strong: {
-        font-size: 16 * 0.0769rem,
-        font-weight: root.bold-font-weight
-    };
+    out property <TextStyle> body: { font-size: 14 * 0.0769rem, font-weight: root.regular-font-weight };
+    out property <TextStyle> body-strong: { font-size: 16 * 0.0769rem, font-weight: root.bold-font-weight };
 }
 
 export global EditorSpaceSettings {
@@ -50,7 +34,6 @@ export global EditorSizeSettings {
 export global EditorPalette {
     out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.3) : #000000.with-alpha(0.3);
     out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
-    
     property <bool> dark-color-scheme: true;
 }
 
@@ -65,3 +48,35 @@ export global Radius {
     out property <length> large;
 }
 
+export global Space {
+    out property <length> extra_small: 2px;
+    out property <length> small: 4px;
+    out property <length> medium: 8px;
+    out property <length> large: 16px;
+}
+
+export global Size {
+    out property <length> extra_extra_small: 4px;
+    out property <length> extra_small: 20px;
+    out property <length> small: 26px;
+    out property <length> medium: 32px;
+    out property <length> large: 44px;
+}
+
+export global Duration {
+    out property <duration> fast: 300ms;
+}
+
+export global State {
+    out property <float> hover: 0.2;
+    out property <float> pressed: 0.4;
+    out property <float> selected: 0.5;
+    out property <float> container_disabled: 0.38;
+    out property <float> content_disabled: 0.38;
+}
+
+export global IconSettings {
+    out property <length> small: 16px;
+    out property <length> medium: 18px;
+    out property <length> large: 20px;
+}

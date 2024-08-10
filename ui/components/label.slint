@@ -1,0 +1,51 @@
+// SPDX-FileCopyrightText: 2022 flovansl <co-sl@tutanota.com>
+// SPDX-License-Identifier: MIT
+
+import { Palette, FontSettings } from "../styling.slint";
+
+export component SmallLabel inherits Text {
+    color: Palette.foreground;
+    font-size: FontSettings.small-label.font-size;
+    font-weight: FontSettings.small-label.font-weight;
+}
+
+export component MediumLabel inherits Text {
+    color: Palette.foreground;
+    font-size: FontSettings.small-label.font-size;
+    font-weight: FontSettings.small-label.font-weight;
+}
+
+export component LargeLabel inherits Text {
+    color: Palette.foreground;
+    font-size: FontSettings.large-label.font-size;
+    font-weight: FontSettings.small-label.font-weight;
+}
+
+export component ErrorLabel inherits Text {
+    font-size: FontSettings.small-label.font-size;
+    font-weight: FontSettings.small-label.font-weight;
+}
+
+export component SmallTitle inherits Text {
+    color: Palette.foreground;
+    font-size: FontSettings.small-title.font-size;
+    font-weight: FontSettings.small-title.font-weight;
+}
+
+export component MediumTitle inherits Text {
+    color: Palette.foreground;
+    font-size: FontSettings.medium-title.font-size;
+    font-weight: FontSettings.medium-title.font-weight;
+}
+
+export component LargeTitle inherits Text {
+    color: Palette.foreground;
+    font-size: FontSettings.large-title.font-size;
+    font-weight: FontSettings.large-title.font-weight;
+}
+
+export component ExtraLargeTitle inherits Text {
+    color: Palette.foreground;
+    font-size: FontSettings.extra-large-title.font-size;
+    font-weight: FontSettings.extra-large-title.font-weight;
+}

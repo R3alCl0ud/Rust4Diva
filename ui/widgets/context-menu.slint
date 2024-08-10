@@ -1,5 +1,6 @@
 import { PopupBorder } from "../components/popup.slint";
 import { CtxMenuItem } from "context-menu-item.slint";
+import { ItemDelegate } from "../delegates/ItemDelegate.slint";
 export component ContextMenu {
     in-out property <[string]> model;
     in property <length> min_menu_width: 32px;
@@ -49,16 +50,21 @@ export component ContextMenu {
 
     popup_window := PopupWindow {
         x: parent.offset_x;
-        y: parent.offset_y;
+        y: parent.offset_y + 20px;
 
+        init => {
+            debug("x: " + parent.offset_x / 1px);
+            debug("y: " + parent.offset_y / 1px);
+        }
         PopupBorder {
             min_width: root.min_menu_width;
 
             VerticalLayout {
-                for item[index] in model: CtxMenuItem {
-                    Text {
-                        text: item;
-                    }
+                for item[index] in model: ItemDelegate {
+                    width: root.min_menu_width - 30px;
+                    text: item;
+                    selected: root.has_focus && index == root.current_item;
+
                     clicked => {
                         focus_scope.enabled = false;
                         root.set-current-item(index);

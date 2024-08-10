@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use compress_tools::{list_archive_files, Ownership, uncompress_archive};
+use compress_tools::{list_archive_files, uncompress_archive, Ownership};
 use curl::easy::Easy;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
@@ -14,11 +14,11 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use toml::de::Error;
 
-use crate::modpacks::ModPackMod;
-use crate::{DivaData, Download};
 use crate::diva::get_temp_folder;
-use crate::DivaModElement;
+use crate::modpacks::ModPackMod;
 use crate::slint_generatedApp::App;
+use crate::DivaModElement;
+use crate::{DivaData, Download};
 
 cfg_if::cfg_if! {
     if #[cfg(windows)] {
@@ -27,12 +27,10 @@ cfg_if::cfg_if! {
     }
 }
 
-
-
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
     pub(crate) enabled: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) include: Vec<String>,
     #[serde(default)]
     pub(crate) dll: Vec<String>,
@@ -64,6 +62,8 @@ pub struct DivaModLoader {
     pub(crate) mods: String,
     #[serde(default)]
     pub(crate) version: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) priority: Vec<String>,
 }
 
 impl DivaModLoader {
@@ -73,6 +73,7 @@ impl DivaModLoader {
             console: false,
             mods: "mods".to_string(),
             version: "".to_string(),
+            priority: vec![],
         }
     }
 }
@@ -91,7 +92,7 @@ impl DivaMod {
     pub fn to_packmod(self: &Self) -> ModPackMod {
         ModPackMod {
             name: self.config.name.clone(),
-            enabled: true
+            enabled: true,
         }
     }
 }
@@ -104,7 +105,6 @@ impl DivaModElement {
         }
     }
 }
-
 
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32, Download)>) {
     let ui_toggle_handle = ui.as_weak();
@@ -124,7 +124,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
 
-
     ui.on_load_mods(move || {
         let mods = load_mods_from_dir(mods_dir.clone());
         set_mods_table(&mods, ui_load_handle.clone());
@@ -133,7 +132,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             darc.lock().await.mods = mods.clone();
         });
     });
-
 
     ui.on_toggle_mod(move |row_num| {
         if row_num > -1 {
@@ -187,11 +185,15 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
         });
     });
 
-
-    let _ = spawn_download_listener(dl_rx, dl_ui_tx, &diva_arc.clone(), reload_dir, ui_download_handle);
+    let _ = spawn_download_listener(
+        dl_rx,
+        dl_ui_tx,
+        &diva_arc.clone(),
+        reload_dir,
+        ui_download_handle,
+    );
     let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
 }
-
 
 pub fn load_mods(diva_data: &DivaData) -> Vec<DivaMod> {
     if diva_data.dml.is_none() {
@@ -231,7 +233,10 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
     for path in paths {
         let mut mod_path = path.unwrap().path().clone();
         if mod_path.is_file() || !mod_path.clone().is_dir() {
-            println!("Not a mod folder: {}", mod_path.clone().display().to_string());
+            println!(
+                "Not a mod folder: {}",
+                mod_path.clone().display().to_string()
+            );
             continue;
         }
 
@@ -242,7 +247,10 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
             Ok(s) => {
                 let mod_config_res: Result<DivaModConfig, _> = toml::from_str(s.as_str());
                 if mod_config_res.is_err() {
-                    println!("Failed to read mod config for: {}", mod_path.clone().display().to_string());
+                    println!(
+                        "Failed to read mod config for: {}",
+                        mod_path.clone().display().to_string()
+                    );
                     continue;
                 }
                 let mut mod_config = mod_config_res.unwrap();
@@ -253,15 +261,16 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
                 });
             }
             Err(_) => {
-                println!("Not a mod folder: {}", mod_path.clone().display().to_string());
+                println!(
+                    "Not a mod folder: {}",
+                    mod_path.clone().display().to_string()
+                );
                 continue;
             }
         }
     }
     mods
 }
-
-
 
 pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) -> std::io::Result<()> {
     let config_path = Path::new(path);
@@ -271,15 +280,16 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) -> std::
                 println!("Successfully updated config for {}", diva_mod_config.name);
                 Ok(())
             }
-            Err(e) => {
-                Err(e.into())
-            }
+            Err(e) => Err(e.into()),
         };
     }
     return Err(std::io::Error::new(ErrorKind::Other, "IDK"));
 }
 
-pub async fn unpack_mod_path(archive: PathBuf, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
+pub async fn unpack_mod_path(
+    archive: PathBuf,
+    diva_arc: Arc<Mutex<DivaData>>,
+) -> compress_tools::Result<()> {
     let diva = diva_arc.lock().await;
     let mut buf = PathBuf::from(&diva.diva_directory);
     buf.push(diva.clone().dml.unwrap().mods);
@@ -320,27 +330,33 @@ pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
     if !buf.exists() {
         return None;
     }
-    let res: Result<DivaModLoader, Error> = toml::from_str(fs::read_to_string(buf).unwrap().as_str());
+    let res: Result<DivaModLoader, Error> =
+        toml::from_str(fs::read_to_string(buf).unwrap().as_str());
     let mut loader: Option<DivaModLoader> = None;
     match res {
         Ok(diva_ml) => {
             loader = Some(diva_ml);
         }
         Err(e) => {
-            panic!("Failed to read data: {}", e)
+            eprintln!("Failed to read data: {}", e)
         }
     }
     return loader;
 }
 
-
-
-pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Sender<(i32, f32)>, diva_arc: &Arc<Mutex<DivaData>>, mods_dir: String, ui_download_handle: Weak<App>) {
+pub fn spawn_download_listener(
+    mut dl_rx: Receiver<(i32, Download)>,
+    prog_tx: Sender<(i32, f32)>,
+    diva_arc: &Arc<Mutex<DivaData>>,
+    mods_dir: String,
+    ui_download_handle: Weak<App>,
+) {
     let diva_arc = diva_arc.clone();
     let ui_download_handle = ui_download_handle.clone();
     tokio::spawn(async move {
         println!("Listening for downloads");
         while !dl_rx.is_closed() {
+            // Vec::is_empty()
             if let Some((index, download)) = dl_rx.recv().await {
                 println!("{}", download.url.as_str());
                 let mut dst = Vec::new();
@@ -351,21 +367,23 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
 
                 {
                     let mut transfer = easy.transfer();
-                    transfer.write_function(|data| {
-                        if !started {
-                            started = true;
-                            println!("First chunk received");
-                        }
-                        dst.extend_from_slice(data);
-                        let p = prog_tx.try_send((index.clone(), data.len() as f32));
-                        match p {
-                            Ok(_) => {}
-                            Err(e) => {
-                                eprintln!("{}", e);
+                    transfer
+                        .write_function(|data| {
+                            if !started {
+                                started = true;
+                                println!("First chunk received");
                             }
-                        }
-                        Ok(data.len())
-                    }).unwrap();
+                            dst.extend_from_slice(data);
+                            let p = prog_tx.try_send((index.clone(), data.len() as f32));
+                            match p {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!("{}", e);
+                                }
+                            }
+                            Ok(data.len())
+                        })
+                        .unwrap();
 
                     // handle the error here instead of unwrapping so that this
                     // receiver thread doesn't panic and downloads can continue to happen
@@ -375,7 +393,9 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                             eprintln!("{}", e);
                             let _ = ui_download_handle.upgrade_in_event_loop(move |ui| {
                                 let downloads = ui.get_downloads_list();
-                                if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>() {
+                                if let Some(downloads) =
+                                    downloads.as_any().downcast_ref::<VecModel<Download>>()
+                                {
                                     if let Some(mut download) = downloads.row_data(index as usize) {
                                         download.failed = true;
                                         downloads.set_row_data(index as usize, download);
@@ -391,31 +411,33 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                 dl_path.push(&download.name.as_str());
                 let file_res = File::create(dl_path.clone());
                 match file_res {
-                    Ok(mut f) => {
-                        match f.write_all(dst.clone().as_slice()) {
-                            Ok(_) => {
-                                println!("Saved successfully, will try to extract");
-                                match unpack_mod_path(dl_path.clone(), diva_arc.clone()).await {
-                                    Ok(_) => {
-                                        println!("Successfully unpacked mod");
-                                        let mods = load_mods_from_dir(mods_dir.clone());
-                                        let mut diva = diva_arc.lock().await;
-                                        diva.mods = mods.clone();
-                                        ui_download_handle.upgrade_in_event_loop(move |ui| {
+                    Ok(mut f) => match f.write_all(dst.clone().as_slice()) {
+                        Ok(_) => {
+                            println!("Saved successfully, will try to extract");
+                            match unpack_mod_path(dl_path.clone(), diva_arc.clone()).await {
+                                Ok(_) => {
+                                    println!("Successfully unpacked mod");
+                                    let mods = load_mods_from_dir(mods_dir.clone());
+                                    let mut diva = diva_arc.lock().await;
+                                    diva.mods = mods.clone();
+                                    ui_download_handle
+                                        .upgrade_in_event_loop(move |ui| {
                                             let model = create_mods_model(&mods.clone());
                                             ui.set_stuff(model);
-                                        }).expect("failed to update the mods list after unpacking mod");
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Failed to extract the mod file:\n{}", e);
-                                    }
+                                        })
+                                        .expect(
+                                            "failed to update the mods list after unpacking mod",
+                                        );
+                                }
+                                Err(e) => {
+                                    eprintln!("Failed to extract the mod file:\n{}", e);
                                 }
                             }
-                            Err(e) => {
-                                eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                            }
                         }
-                    }
+                        Err(e) => {
+                            eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                        }
+                    },
                     Err(e) => {
                         eprintln!("Something went wrong while saving the file to disk \n{}", e);
                     }
@@ -432,7 +454,8 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
             if let Ok((index, chunk_size)) = prog_rx.try_recv() {
                 match ui_weak.upgrade_in_event_loop(move |ui| {
                     let downloads = ui.get_downloads_list();
-                    if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>() {
+                    if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>()
+                    {
                         if let Some(mut download) = downloads.row_data(index as usize) {
                             download.progress += chunk_size;
                             downloads.set_row_data(index as usize, download);
@@ -454,7 +477,11 @@ pub fn create_mods_model(mods: &Vec<DivaMod>) -> ModelRc<ModelRc<StandardListVie
     let model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
     for item in mods.iter() {
         let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
-        let enable_str = if item.config.enabled { "Enabled" } else { "Disabled" };
+        let enable_str = if item.config.enabled {
+            "Enabled"
+        } else {
+            "Disabled"
+        };
         let enabled = StandardListViewItem::from(enable_str);
         let name = StandardListViewItem::from(item.config.name.as_str());
         let authors = StandardListViewItem::from(item.config.author.as_str());
@@ -470,16 +497,16 @@ pub fn create_mods_model(mods: &Vec<DivaMod>) -> ModelRc<ModelRc<StandardListVie
     ModelRc::new(model_vec)
 }
 
-
-
 pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) {
     let mods = mods.clone();
-    ui_handle.upgrade_in_event_loop(move |ui| {
-        let mods_model: VecModel<DivaModElement> = VecModel::default();
-        for diva_mod in mods.clone() {
-            mods_model.push(diva_mod.to_element());
-        }
-        let model = ModelRc::new(mods_model);
-        ui.set_mods(model);
-    }).unwrap();
+    ui_handle
+        .upgrade_in_event_loop(move |ui| {
+            let mods_model: VecModel<DivaModElement> = VecModel::default();
+            for diva_mod in mods.clone() {
+                mods_model.push(diva_mod.to_element());
+            }
+            let model = ModelRc::new(mods_model);
+            ui.set_mods(model);
+        })
+        .unwrap();
 }

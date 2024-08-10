@@ -118,7 +118,7 @@ pub struct GbSubmitter {
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GbPreview {
-    #[serde(rename(serialize = "_aImages", deserialize = "_aImages"))]
+    #[serde(rename(serialize = "_aImages", deserialize = "_aImages"), default)]
     images: Vec<GbPreviewImage>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -208,7 +208,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, 
     let search_diva = Arc::clone(&diva_arc);
     let ui_search_handle = ui.as_weak();
     ui.on_search_gb(move |search| {
-        println!("Searching for {}", search);
+        // println!("Searching for {}", search);
         search_mods(search.parse().unwrap(), &search_diva, ui_search_handle.clone());
     });
 

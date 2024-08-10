@@ -170,7 +170,6 @@ pub async fn get_config_dir() -> std::io::Result<PathBuf> {
             if !buf.exists() {
                 fs::create_dir(buf.clone())?;
             }
-            println!("{:?}", buf.display());
             Ok(buf.clone())
         }
         None => {

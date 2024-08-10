@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Mutex;
 
-use crate::diva::get_config_dir;
+use crate::diva::{get_config_dir, get_diva_folder};
 use crate::modmanagement::DivaMod;
 use crate::slint_generatedApp::App;
 use crate::{DivaData, DivaModElement, ModPackElement};
@@ -76,15 +76,14 @@ impl ModPack {
     }
 }
 
-
-
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     let init_diva = diva_arc.clone();
     let ui_add_mod_handle = ui.as_weak();
     let ui_remove_mod_handle = ui.as_weak();
     let ui_change_handle = ui.as_weak();
-    let ui_save_handle = ui.as_weak();
+    // let ui_save_handle = ui.as_weak();
     let change_diva = diva_arc.clone();
+    let apply_diva = diva_arc.clone();
     let save_diva = diva_arc.clone();
 
     let mut diva = init_diva.lock().await;
@@ -190,7 +189,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                         diva.mod_packs.insert(modpack.clone(), pack.clone());
                         match sonic_rs::to_string_pretty(&pack) {
                             Ok(pack_str) => {
-                                println!("{}", pack_str);
                                 if let Ok(mut buf) = get_modpacks_folder().await {
                                     buf.push(format!("{modpack}.json"));
                                     match fs::write(buf, pack_str).await {
@@ -211,6 +209,43 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
             None => {
                 return;
             }
+        }
+    });
+
+    ui.on_apply_modpack(move |mods| {
+        let apply_diva = apply_diva.clone();
+        match mods.as_any().downcast_ref::<VecModel<DivaModElement>>() {
+            Some(mods) => {
+                let mut vec_mods: Vec<String> = Vec::new();
+                for m in mods.iter() {
+                    println!("{}", m.name);
+                    if m.enabled {
+                        vec_mods.push(m.name.to_string());
+                    }
+                }
+                println!("{:?}", vec_mods);
+                tokio::spawn(async move {
+                    let mut diva = apply_diva.lock().await;
+                    if diva.dml.is_some() {
+                        let mut dml = diva.dml.as_mut().unwrap();
+                        dml.priority = vec_mods;
+                        if let Ok(dmlcfg) = toml::to_string(&dml) {
+                            println!("{}", dmlcfg);
+                            if let Some(dir) = get_diva_folder() {
+                                let mut buf = PathBuf::from(dir);
+                                buf.push("config.toml");
+                                if buf.exists() {
+                                    match fs::write(buf, dmlcfg).await {
+                                        Ok(_) => {},
+                                        Err(_) => {},
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            None => {}
         }
     });
 }

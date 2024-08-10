@@ -4,7 +4,7 @@ import { Palette as CosmicPalette } from "styling.slint";
 import { ErrorDialog } from "widgets/errordialog.slint";
 import { ModTable } from "widgets/mod-table.slint";
 import { DivaModElement, ModPackElement } from "diva-types.slint";
-import { ModPickTable } from "widgets/modpack-tables.slint";
+import { ModPickTable, PackTable } from "widgets/modpack-tables.slint";
 import { ContextMenu } from "widgets/context-menu.slint";
 
 export { ModPackElement }
@@ -47,6 +47,7 @@ export component App inherits Window {
     in property <bool> s-prog-vis: false;
 
     in-out property <bool> show-error: true;
+    in-out property <bool> pack-modified: false;
     in-out property <string> error-msg;
 
     property window_width <=> self.width;
@@ -67,6 +68,9 @@ export component App inherits Window {
     callback remove-mod-from-pack(DivaModElement, string);
     callback modpack-changed(string);
     callback save-modpack(string, [DivaModElement]);
+    callback apply-modpack([DivaModElement]);
+
+
 
     default-font-size: 16px;
     errordialog := ErrorDialog {
@@ -154,11 +158,14 @@ export component App inherits Window {
 
                 VerticalBox {
                     packsctx-menu := ContextMenu {
+                        min_menu_width: window_width - 40px;
+                        offset_x: -((self.x + self.min_menu_width) - (packbtn.x + packbtn.width));
+                        offset_y: packbtn.height;
                         width: 300px;
                         model: modpacks;
                         item-clicked(idx) => {
                             modpack-changed(modpacks[idx]);
-                            // debug(parent.height);
+                            pack-modified = false;
                         }
                     }
 
@@ -181,10 +188,11 @@ export component App inherits Window {
                             mod-picker := ModPickTable {
                                 width: (window_width / 2) - 100px;
                                 // height: 100%;
-                                height: window_height - 310px;
+                                height: window_height - 360px;
                                 columns: [{ title :"Name" }];
                                 mods: mods;
                             }
+
                             Button {
                                 text: "Reload";
                                 clicked => {
@@ -201,6 +209,7 @@ export component App inherits Window {
                                         if mod-picker.current-row != -1 {
                                             add-mod-to-pack(mods[mod-picker.current-row], modpacks[packsctx-menu.current_item]);
                                             packsctx-menu.set-current-item(-1);
+                                            pack-modified = true;
                                         }
                                     }
                                 }
@@ -214,6 +223,7 @@ export component App inherits Window {
                                         if in-pack.current-row != -1 {
                                             remove-mod-from-pack(pack-mods[in-pack.current-row], modpacks[packsctx-menu.current_item]);
                                             packsctx-menu.set-current-item(-1);
+                                            pack-modified = true;
                                         }
                                     }
                                 }
@@ -225,20 +235,40 @@ export component App inherits Window {
                                 text: "In Modpack";
                             }
 
-                            in-pack := ModPickTable {
+                            in-pack := PackTable {
                                 width: (window_width / 2) - 100px;
-                                height: window_height - 310px;
-                                columns: [{ title :"Name" }];
+                                height: window_height - 360px;
+                                columns: [{ title :"Enabled", width: 150px, horizontal-stretch: 0 }, { title :"Name" }, ];
                                 mods: pack-mods;
                             }
+
                             Button {
                                 text: "Save";
                                 clicked => {
                                     debug("Saving");
                                     if packsctx-menu.current_item > -1 {
                                         save-modpack(modpacks[packsctx-menu.current_item], pack-mods);
+                                        pack-modified = false;
                                     }
                                 }
+                            }
+                        }
+                    }
+
+                    HorizontalBox {
+                        Button {
+                            enabled: packsctx-menu.current_item != -1 && !pack-modified;
+                            text: "Apply";
+                            clicked => {
+                                apply-modpack(pack-mods);
+                            }
+                        }
+
+                        Button {
+                            // enabled: packsctx-menu.current_item != -1;
+                        text: "Unapply Modpacks";
+                            clicked => {
+                                apply-modpack([]);
                             }
                         }
                     }

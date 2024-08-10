@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 
-use slint_interpreter::{ComponentHandle, PlatformError};
-use tokio::sync::mpsc::Receiver;
+use slint_interpreter::{ComponentHandle};
 use tokio::sync::Mutex;
 
 use crate::diva::{create_tmp_if_not, get_diva_folder};
