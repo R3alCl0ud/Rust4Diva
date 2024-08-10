@@ -26,7 +26,6 @@ export component ModTableRow inherits Rectangle {
     }
 }
 
-
 export component ModTable {
     in-out property <[DivaModElement]> mods;
     in-out property <[TableColumn]> columns;
@@ -146,16 +145,14 @@ export component ModTable {
                     Rectangle {
                         mod-toggle := CheckBox {
                             checked: module.enabled;
-                            text: module.enabled ? "Yah" : "Nah";
+                            // text: module.enabled ? "Yah" : "Nah";
                             toggled => {
-                                debug("this is a test");
                                 mod-toggled(idx, module);
                             }
                         }
                     }
                 }
 
-                // HorizontalLayout {
                 TableViewCell {
                     horizontal-stretch: columns[1].horizontal-stretch;
                     min-width: max(columns[1].min-width, columns[1].width);
@@ -280,7 +277,3 @@ export component ModTable {
         }
     }
 }
-
-
-
-

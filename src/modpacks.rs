@@ -45,11 +45,11 @@ impl PartialEq<ModPackMod> for DivaMod {
 impl ModPackMod {
     pub fn to_element(self: &Self) -> DivaModElement {
         DivaModElement {
-            author: Default::default(),
+            author: SharedString::from(""),
             name: self.name.clone().into(),
             enabled: self.enabled,
-            description: Default::default(),
-            version: Default::default(),
+            description:SharedString::from(""),
+            version: SharedString::from(""),
         }
     }
 }
@@ -218,7 +218,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
             Some(mods) => {
                 let mut vec_mods: Vec<String> = Vec::new();
                 for m in mods.iter() {
-                    println!("{}", m.name);
+                    
                     if m.enabled {
                         vec_mods.push(m.name.to_string());
                     }
@@ -230,13 +230,14 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                         let mut dml = diva.dml.as_mut().unwrap();
                         dml.priority = vec_mods;
                         if let Ok(dmlcfg) = toml::to_string(&dml) {
-                            println!("{}", dmlcfg);
                             if let Some(dir) = get_diva_folder() {
                                 let mut buf = PathBuf::from(dir);
                                 buf.push("config.toml");
                                 if buf.exists() {
                                     match fs::write(buf, dmlcfg).await {
-                                        Ok(_) => {},
+                                        Ok(_) => {
+                                            println!("Mod pack successfully applied");
+                                        },
                                         Err(_) => {},
                                     }
                                 }
@@ -263,7 +264,6 @@ pub async fn load_mod_packs() -> std::io::Result<HashMap<String, ModPack>> {
             continue;
         }
         let fuck = fs::read_to_string(entry.path()).await?;
-        // println!("{}", fuck);
         let pack: ModPack = sonic_rs::from_str(fuck.as_str())?;
         packs.insert(pack.name.clone(), pack);
     }

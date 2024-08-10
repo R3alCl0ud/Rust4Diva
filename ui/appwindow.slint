@@ -70,8 +70,6 @@ export component App inherits Window {
     callback save-modpack(string, [DivaModElement]);
     callback apply-modpack([DivaModElement]);
 
-
-
     default-font-size: 16px;
     errordialog := ErrorDialog {
         x: (window_width / 2) - 100px;
@@ -235,10 +233,10 @@ export component App inherits Window {
                                 text: "In Modpack";
                             }
 
-                            in-pack := PackTable {
+                            in-pack := ModPickTable {
                                 width: (window_width / 2) - 100px;
                                 height: window_height - 360px;
-                                columns: [{ title :"Enabled", width: 150px, horizontal-stretch: 0 }, { title :"Name" }, ];
+                                columns: [{ title :"Name" }];
                                 mods: pack-mods;
                             }
 

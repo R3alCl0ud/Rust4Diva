@@ -1,9 +1,12 @@
+use core::arch;
+use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Duration;
 
 use compress_tools::{list_archive_files, uncompress_archive, Ownership};
 use curl::easy::Easy;
@@ -62,6 +65,10 @@ pub struct DivaModLoader {
     pub(crate) mods: String,
     #[serde(default)]
     pub(crate) version: String,
+    ///
+    /// This field tells dml what order to load mods in
+    /// it also happens that it will also only load mods in the array
+    ///
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) priority: Vec<String>,
 }
@@ -83,8 +90,8 @@ impl DivaMod {
         let this = self.clone();
         DivaModElement {
             name: this.config.name.clone().into(),
-            author: this.config.name.clone().into(),
-            description: this.config.name.clone().into(),
+            author: this.config.author.clone().into(),
+            description: this.config.description.clone().into(),
             version: this.config.version.clone().into(),
             enabled: this.config.enabled,
         }
@@ -171,6 +178,8 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             if let Some(file_handle) = res {
                 match unpack_mod_path(file_handle.path().to_path_buf(), unpack_diva).await {
                     Ok(_) => {
+                        // waiting for this because idk, sometimes something goes wrong and the table fails to load properly will need to debug later
+                        tokio::time::sleep(Duration::from_millis(5)).await;
                         let darc = picker_diva.clone();
                         let mut diva = darc.lock().await;
                         let mods = load_mods_from_dir(diva.mods_directory.clone());
@@ -293,7 +302,14 @@ pub async fn unpack_mod_path(
     let diva = diva_arc.lock().await;
     let mut buf = PathBuf::from(&diva.diva_directory);
     buf.push(diva.clone().dml.unwrap().mods);
-    let valid = check_archive_valid_structure(File::open(archive.clone()).unwrap());
+    let name = archive
+        .file_name()
+        .unwrap_or(OsStr::new("missing.zip"))
+        .to_str()
+        .unwrap()
+        .to_string();
+    // let name = buf.extension().unwrap_or(OsStr::new("zip")).to_str().unwrap().to_string();
+    let valid = check_archive_valid_structure(File::open(archive.clone()).unwrap(), name);
     println!("Good structure? {}", valid);
     if !valid {
         buf.push(archive.file_name().unwrap());
@@ -305,17 +321,28 @@ pub async fn unpack_mod_path(
     uncompress_archive(mod_archive, buf.as_path(), Ownership::Ignore)
 }
 
-pub fn check_archive_valid_structure(archive: File) -> bool {
+pub fn check_archive_valid_structure(archive: File, name: String) -> bool {
+    println!("name: {}", name);
+    let rar = name.ends_with(".rar");
     return match list_archive_files(archive) {
         Ok(files) => {
+            let mut count = 0;
             for file in files {
                 println!("{}", file);
                 // zip spec uses / not \ so windows will be fine - WagYourTail, 2024
                 if !file.contains("/") {
-                    return false;
+                    // this logic might work now
+                    // rar archive work around since folders are not represented with a trailing /
+                    if rar {
+                        count += 1;
+                        println!("aw dang it");
+                    } else {
+                        return false;
+                    }
                 }
             }
-            true
+            // true if archive contains a single folder and nothing else at the root
+            count <= 1
         }
         Err(e) => {
             eprintln!("{}", e);

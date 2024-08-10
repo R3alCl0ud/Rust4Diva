@@ -50,12 +50,8 @@ export component ContextMenu {
 
     popup_window := PopupWindow {
         x: parent.offset_x;
-        y: parent.offset_y + 20px;
+        y: parent.offset_y + 15px;
 
-        init => {
-            debug("x: " + parent.offset_x / 1px);
-            debug("y: " + parent.offset_y / 1px);
-        }
         PopupBorder {
             min_width: root.min_menu_width;
 
@@ -88,6 +84,6 @@ export component ContextMenu {
         focus_scope.enabled = true;
         popup_window.show();
         focus_scope.focus();
-        self.set_current_item(0);
+        // self.set_current_item(0);
     }
 }
