@@ -1,4 +1,3 @@
-use core::arch;
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
@@ -94,12 +93,14 @@ impl DivaMod {
             description: this.config.description.clone().into(),
             version: this.config.version.clone().into(),
             enabled: this.config.enabled,
+            path: this.path.into()
         }
     }
     pub fn to_packmod(self: &Self) -> ModPackMod {
         ModPackMod {
             name: self.config.name.clone(),
             enabled: true,
+            path: self.path.clone()
         }
     }
 }
@@ -109,6 +110,7 @@ impl DivaModElement {
         ModPackMod {
             name: self.name.to_string(),
             enabled: self.enabled,
+            path: self.path.to_string()
         }
     }
 }

@@ -22,6 +22,8 @@ pub struct ModPack {
 pub struct ModPackMod {
     pub name: String,
     pub enabled: bool,
+    #[serde(default)]
+    pub path: String,
 }
 
 impl PartialEq for ModPackMod {
@@ -48,8 +50,9 @@ impl ModPackMod {
             author: SharedString::from(""),
             name: self.name.clone().into(),
             enabled: self.enabled,
-            description:SharedString::from(""),
+            description: SharedString::from(""),
             version: SharedString::from(""),
+            path: self.path.clone().into(),
         }
     }
 }
@@ -72,6 +75,7 @@ impl ModPack {
         return ModPackElement {
             name: self.name.clone().into(),
             mods: ModelRc::new(vec_mod),
+            path: SharedString::from(""),
         };
     }
 }
@@ -218,9 +222,12 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
             Some(mods) => {
                 let mut vec_mods: Vec<String> = Vec::new();
                 for m in mods.iter() {
-                    
-                    if m.enabled {
-                        vec_mods.push(m.name.to_string());
+                    println!("path: {}", m.path);
+                    let ps: Vec<&str> = m.path.split("/").collect();
+                    if ps.len() > 2 {
+                        let dir = ps[ps.len() - 2];
+                        println!("dir: {}", dir);
+                        vec_mods.push(dir.to_string());
                     }
                 }
                 println!("{:?}", vec_mods);
@@ -237,8 +244,8 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                                     match fs::write(buf, dmlcfg).await {
                                         Ok(_) => {
                                             println!("Mod pack successfully applied");
-                                        },
-                                        Err(_) => {},
+                                        }
+                                        Err(_) => {}
                                     }
                                 }
                             }
