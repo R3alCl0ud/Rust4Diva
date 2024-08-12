@@ -84,7 +84,7 @@ export component App inherits Window {
     VerticalLayout {
         HorizontalBox {
             Button {
-                text: "(F)ile";
+                text: "Install Mod Archive";
                 clicked => {
                     open-file-picker();
                 }
@@ -97,7 +97,7 @@ export component App inherits Window {
             Button {
                 text: "Test Error";
                 clicked => {
-                    errordialog.show();
+                    // errordialog.show();
                 }
             }
         }
@@ -243,7 +243,6 @@ export component App inherits Window {
                             Button {
                                 text: "Save";
                                 clicked => {
-                                    debug("Saving");
                                     if packsctx-menu.current_item > -1 {
                                         save-modpack(modpacks[packsctx-menu.current_item], pack-mods);
                                         pack-modified = false;

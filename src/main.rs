@@ -10,12 +10,14 @@ use crate::gamebanana_async::{GbModDownload, GBSearch, parse_dmm_url};
 use crate::modmanagement::{DivaMod, DivaModLoader, load_diva_ml_config, load_mods, set_mods_table};
 use crate::modpacks::ModPack;
 use crate::oneclick::{spawn_listener, try_send_mmdl};
+use crate::config::DivaConfig;
 
 mod gamebanana_async;
 mod modmanagement;
 mod oneclick;
 mod modpacks;
 mod diva;
+mod config;
 
 slint::include_modules!();
 
@@ -29,6 +31,7 @@ struct DivaData {
     dml: Option<DivaModLoader>,
     mod_files: HashMap<u64, Vec<GbModDownload>>,
     mod_packs: HashMap<String, ModPack>,
+    config: DivaConfig
 }
 
 #[tokio::main]
@@ -132,6 +135,9 @@ impl DivaData {
             dml: None,
             mod_files: HashMap::new(),
             mod_packs: Default::default(),
+            config: DivaConfig {
+                priority: vec![]
+            }
         }
     }
 }
