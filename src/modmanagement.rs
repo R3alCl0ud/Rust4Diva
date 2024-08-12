@@ -19,7 +19,7 @@ use toml::de::Error;
 use crate::diva::get_temp_folder;
 use crate::modpacks::ModPackMod;
 use crate::slint_generatedApp::App;
-use crate::DivaModElement;
+use crate::{DivaModElement, DIVA_DIR, MODS_VEC};
 use crate::{DivaData, Download};
 
 cfg_if::cfg_if! {
@@ -538,4 +538,13 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) {
             ui.set_mods(model);
         })
         .unwrap();
+}
+
+
+pub fn load_mods_too() -> std::io::Result<()> {
+    let dir = DIVA_DIR.lock().unwrap().to_string();
+    let mods = load_mods_from_dir(dir);
+    let mut dmods = MODS_VEC.lock().unwrap();
+    *dmods = mods.clone();
+    Ok(())
 }
