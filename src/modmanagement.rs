@@ -543,7 +543,11 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) {
 
 pub fn load_mods_too() -> std::io::Result<()> {
     let dir = DIVA_DIR.lock().unwrap().to_string();
-    let mods = load_mods_from_dir(dir);
+    let mut buf = PathBuf::from(dir);
+    buf.push("mods");
+    let buf = buf.canonicalize()?;
+    buf.display().to_string();
+    let mods = load_mods_from_dir(buf.display().to_string());
     let mut dmods = MODS_VEC.lock().unwrap();
     *dmods = mods.clone();
     Ok(())

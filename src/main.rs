@@ -9,7 +9,7 @@ use crate::config::{load_diva_config, write_config, DivaConfig};
 use crate::diva::{create_tmp_if_not, get_diva_folder, MIKU_ART};
 use crate::gamebanana_async::{parse_dmm_url, GBSearch, GbModDownload};
 use crate::modmanagement::{
-    load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader, load_mods_too,
+    load_diva_ml_config, load_mods, load_mods_too, set_mods_table, DivaMod, DivaModLoader,
 };
 use crate::modpacks::ModPack;
 use crate::oneclick::{spawn_listener, try_send_mmdl};
@@ -36,10 +36,15 @@ struct DivaData {
 }
 
 pub static MODS_VEC: std::sync::Mutex<Vec<DivaMod>> = std::sync::Mutex::new(Vec::new());
-pub static DIVA_DIR: LazyLock<std::sync::Mutex<String>> =
-    LazyLock::new(|| std::sync::Mutex::new(String::new()));
+pub static DIVA_DIR: LazyLock<std::sync::Mutex<String>> = LazyLock::new(|| {
+    let mut str = String::new();
+    if let Some(dir_str) = get_diva_folder() {
+        str = dir_str;
+    }
+    return std::sync::Mutex::new(str);
+});
 pub static MODS_DIR: LazyLock<std::sync::Mutex<String>> =
-    LazyLock::new(|| std::sync::Mutex::new(String::new()));
+    LazyLock::new(|| std::sync::Mutex::new("mods".to_string()));
 // pub static DML_CFG: std::sync::Mutex<DivaModLoader> = std::sync::Mutex::new(DivaModLoader { enabled: false, console: false, mods: "".to_string(), version: "".to_string(), priority: vec![] });
 
 #[tokio::main]
@@ -103,9 +108,7 @@ async fn main() {
 
     diva_state.mods = load_mods(&diva_state);
 
-    let _ =  load_mods_too();
-
-
+    let _ = load_mods_too();
 
     for m in &diva_state.mods {
         let ps: Vec<&str> = m.path.split("/").collect();
@@ -158,7 +161,10 @@ impl DivaData {
             dml: None,
             mod_files: HashMap::new(),
             mod_packs: Default::default(),
-            config: DivaConfig { priority: vec![], diva_dir: "".to_string() },
+            config: DivaConfig {
+                priority: vec![],
+                diva_dir: "".to_string(),
+            },
         }
     }
 }
