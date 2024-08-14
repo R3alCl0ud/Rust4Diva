@@ -35,7 +35,8 @@ struct DivaData {
     config: DivaConfig,
 }
 
-pub static MODS_VEC: std::sync::Mutex<Vec<DivaMod>> = std::sync::Mutex::new(Vec::new());
+pub static MODS: LazyLock<std::sync::Mutex<HashMap<String, DivaMod>>> =
+    LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
 pub static DIVA_DIR: LazyLock<std::sync::Mutex<String>> = LazyLock::new(|| {
     let mut str = String::new();
     if let Some(dir_str) = get_diva_folder() {
@@ -45,7 +46,9 @@ pub static DIVA_DIR: LazyLock<std::sync::Mutex<String>> = LazyLock::new(|| {
 });
 pub static MODS_DIR: LazyLock<std::sync::Mutex<String>> =
     LazyLock::new(|| std::sync::Mutex::new("mods".to_string()));
-// pub static DML_CFG: std::sync::Mutex<DivaModLoader> = std::sync::Mutex::new(DivaModLoader { enabled: false, console: false, mods: "".to_string(), version: "".to_string(), priority: vec![] });
+
+pub static DIVA_CFG: LazyLock<std::sync::Mutex<DivaConfig>> =
+    LazyLock::new(|| std::sync::Mutex::new(DivaConfig::new()));
 
 #[tokio::main]
 async fn main() {
@@ -97,7 +100,9 @@ async fn main() {
     }
 
     if let Ok(cfg) = load_diva_config().await {
-        diva_state.config = cfg;
+        diva_state.config = cfg.clone();
+        let mut gcfg = DIVA_CFG.lock().expect("msg");
+        *gcfg = cfg.clone();
     }
 
     diva_state.dml = load_diva_ml_config(&diva_state.diva_directory.as_str());
@@ -110,19 +115,19 @@ async fn main() {
 
     let _ = load_mods_too();
 
-    for m in &diva_state.mods {
-        let ps: Vec<&str> = m.path.split("/").collect();
-        if ps.len() > 2 {
-            let dir = ps[ps.len() - 2];
-            diva_state.config.priority.push(dir.to_string());
-        }
-    }
-    match write_config(diva_state.config.clone()).await {
-        Ok(_) => {}
-        Err(_) => {}
-    }
+    // for m in &diva_state.mods {
+    //     let ps: Vec<&str> = m.path.split("/").collect();
+    //     if ps.len() > 2 {
+    //         let dir = ps[ps.len() - 2];
+    //         diva_state.config.priority.push(dir.to_string());
+    //     }
+    // }
+    // match write_config(diva_state.config.clone()).await {
+    //     Ok(_) => {}
+    //     Err(_) => {}
+    // }
 
-    set_mods_table(&diva_state.mods, app_weak.clone());
+    let _ = set_mods_table(&diva_state.mods, app_weak.clone());
 
     if let Some(dml) = &diva_state.dml {
         app.set_dml_version(dml.version.clone().into());

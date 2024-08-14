@@ -3,7 +3,7 @@ use std::io::ErrorKind;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
-use crate::diva::get_config_dir;
+use crate::{diva::get_config_dir, DIVA_CFG};
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct DivaConfig {
@@ -12,6 +12,16 @@ pub struct DivaConfig {
     pub diva_dir: String,
     // pub 
 }
+
+impl DivaConfig {
+    pub fn new() -> Self {
+        Self {
+            priority: vec![],
+            diva_dir: "".to_string()
+        }
+    }
+}
+
 
 pub async fn load_diva_config() -> std::io::Result<DivaConfig> {
     let mut cfg_dir = get_config_dir().await?;
@@ -31,6 +41,20 @@ pub async fn load_diva_config() -> std::io::Result<DivaConfig> {
             }
         };
     }
+    if let Ok(cfg_str) = fs::read_to_string(cfg_dir).await {
+        let res: Result<DivaConfig, _> = toml::from_str(cfg_str.as_str());
+        match res {
+            Ok(cfg) => {
+                return Ok(cfg);
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                return Err(std::io::Error::new(ErrorKind::Other, e.to_string()));
+            }
+        }
+    }
+
+
     Ok(DivaConfig {
         priority: Vec::new(),
         diva_dir: "".to_string()
