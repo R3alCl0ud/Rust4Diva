@@ -3,6 +3,10 @@ name = "rust4diva"
 version = "0.2.0"
 edition = "2021"
 build = "build.rs"
+readme = "readme.md"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/R3alCl0ud/Rust4Diva"
+description = "Cross-platform mod manager for Hatsune Miku Project Diva Mega Mix+"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
@@ -21,7 +25,7 @@ reqwest-streams = "0.7.0"
 tokio = { version = "1.39.2", features = ["full"] }
 interprocess = { version = "2.2.1", features = ["tokio"] }
 tokio-macros = { version = "2.4.0" }
-slint = "1.7.1"
+slint = "1.7.2"
 slint-interpreter = "1.7.1"
 futures-util = "0.3.30"
 cfg-if = "1.0.0"
@@ -31,4 +35,4 @@ rfd = "0.14.1"
 winreg = "0.52.0"
 
 [build-dependencies]
-slint-build = "1.7.1"
+slint-build = "1.7.2"

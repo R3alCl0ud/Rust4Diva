@@ -4,13 +4,14 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::vec;
 use tokio::fs;
 use tokio::sync::Mutex;
 
 use crate::diva::{get_config_dir, get_diva_folder};
 use crate::modmanagement::DivaMod;
 use crate::slint_generatedApp::App;
-use crate::{DivaData, DivaModElement, ModPackElement};
+use crate::{DivaData, DivaModElement, ModPackElement, DIVA_CFG};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModPack {
@@ -156,7 +157,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                 return;
             }
             let pack = pack.unwrap();
-            println!("{}", pack.name.clone());
             let pack = pack.clone();
             ui_change_handle
                 .upgrade_in_event_loop(move |ui| {
@@ -223,18 +223,18 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                 let mut vec_mods: Vec<String> = Vec::new();
                 for m in mods.iter() {
                     println!("path: {}", m.path);
-                    let ps: Vec<&str> = m.path.split("/").collect();
-                    if ps.len() > 2 {
-                        let dir = ps[ps.len() - 2];
-                        println!("dir: {}", dir);
-                        vec_mods.push(dir.to_string());
+                    if let Some(dir) = m.dir_name() {
+                        vec_mods.push(dir);
                     }
                 }
                 println!("{:?}", vec_mods);
+                if vec_mods.is_empty() {
+                    vec_mods = DIVA_CFG.lock().unwrap().priority.clone();
+                }
                 tokio::spawn(async move {
                     let mut diva = apply_diva.lock().await;
                     if diva.dml.is_some() {
-                        let mut dml = diva.dml.as_mut().unwrap();
+                        let dml = diva.dml.as_mut().unwrap();
                         dml.priority = vec_mods;
                         if let Ok(dmlcfg) = toml::to_string(&dml) {
                             if let Some(dir) = get_diva_folder() {

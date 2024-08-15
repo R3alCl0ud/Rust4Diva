@@ -68,8 +68,11 @@ pub struct DivaModLoader {
     #[serde(default)]
     pub(crate) version: String,
     ///
-    /// This field tells dml what order to load mods in
-    /// it also happens that it will also only load mods in the array
+    /// This field tells dml what order to load mods in.
+    ///
+    /// It also happens that it will also only load mods in the array.
+    ///
+    /// The items are the name of the folder that the mod is stored in.
     ///
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) priority: Vec<String>,
@@ -106,6 +109,18 @@ impl DivaMod {
             path: self.path.clone(),
         }
     }
+
+    pub fn dir_name(self: &Self) -> Option<String> {
+        let mut buf = PathBuf::from(self.path.clone());
+        buf.pop();
+        if buf.exists() {
+            return match buf.file_name() {
+                Some(s) => Some(s.to_str().unwrap().to_string()),
+                None => None,
+            };
+        }
+        None
+    }
 }
 
 impl DivaModElement {
@@ -116,6 +131,18 @@ impl DivaModElement {
             path: self.path.to_string(),
         }
     }
+
+    pub fn dir_name(self: &Self) -> Option<String> {
+        let mut buf = PathBuf::from(self.path.to_string().clone());
+        buf.pop();
+        if buf.exists() {
+            return match buf.file_name() {
+                Some(s) => Some(s.to_str().unwrap().to_string()),
+                None => None,
+            };
+        }
+        None
+    }
 }
 
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32, Download)>) {
@@ -125,7 +152,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let ui_download_handle = ui.as_weak();
     let ui_file_picker_handle = ui.as_weak();
     let toggle_diva = diva_arc.clone();
-    let load_diva = diva_arc.clone();
+    let _load_diva = diva_arc.clone();
     let picker_diva = diva_arc.clone();
     let diva_state = diva_arc.lock().await;
     let mut mod_buf = PathBuf::from(&diva_state.diva_directory);
@@ -136,16 +163,14 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
 
-    ui.on_load_mods(move || {
-        match load_mods_too() {
-            Ok(_) => {
-                let mods = get_mods_in_order();
-                let _ =set_mods_table(&mods, ui_load_handle.clone());
-            }
-            Err(e) => {
-                eprintln!("{e}");
-            }
-        }  
+    ui.on_load_mods(move || match load_mods_too() {
+        Ok(_) => {
+            let mods = get_mods_in_order();
+            let _ = set_mods_table(&mods, ui_load_handle.clone());
+        }
+        Err(e) => {
+            eprintln!("{e}");
+        }
     });
 
     ui.on_toggle_mod(move |row_num| {
@@ -174,6 +199,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             });
         }
     });
+
     ui.on_open_file_picker(move || {
         let picker = AsyncFileDialog::new()
             .add_filter("Archives", &["zip", "rar", "7z", "tar.gz"])
@@ -191,7 +217,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                         let darc = picker_diva.clone();
                         let mut diva = darc.lock().await;
                         let mods = load_mods_from_dir(diva.mods_directory.clone());
-                        let _ =  set_mods_table(&mods, ui_file_picker_handle);
+                        let _ = set_mods_table(&mods, ui_file_picker_handle);
                         diva.mods = mods;
                     }
                     Err(e) => {
@@ -211,7 +237,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     );
     let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
 }
-
 
 #[deprecated]
 pub fn load_mods(diva_data: &DivaData) -> Vec<DivaMod> {
@@ -504,30 +529,6 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
 }
 
 
-#[deprecated]
-pub fn create_mods_model(mods: &Vec<DivaMod>) -> ModelRc<ModelRc<StandardListViewItem>> {
-    let model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
-    for item in mods.iter() {
-        let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
-        let enable_str = if item.config.enabled {
-            "Enabled"
-        } else {
-            "Disabled"
-        };
-        let enabled = StandardListViewItem::from(enable_str);
-        let name = StandardListViewItem::from(item.config.name.as_str());
-        let authors = StandardListViewItem::from(item.config.author.as_str());
-        let version = StandardListViewItem::from(item.config.version.as_str());
-        let description = StandardListViewItem::from(item.config.description.as_str());
-        items.push(enabled);
-        items.push(name);
-        items.push(authors);
-        items.push(version);
-        items.push(description);
-        model_vec.push(items.into());
-    }
-    ModelRc::new(model_vec)
-}
 
 pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), EventLoopError> {
     let mods = mods.clone();
@@ -544,31 +545,29 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), E
 pub fn load_mods_too() -> std::io::Result<()> {
     let dir = DIVA_DIR.lock().unwrap().to_string();
     let mut buf = PathBuf::from(dir);
+    let mut gconf = DIVA_CFG.lock().unwrap();
     buf.push("mods");
     let buf = buf.canonicalize()?;
     buf.display().to_string();
     let mods = load_mods_from_dir(buf.display().to_string());
     let mut dmods = MODS.lock().unwrap();
     let mut mod_map = HashMap::new();
-    let mut gconf = DIVA_CFG.lock().unwrap();
     for m in mods {
-        mod_map.insert(m.config.name.clone(),m.clone());
-        // if !gconf.priority.contains(&m.config.name.clone()) {
-        //     gconf.priority.push(m.config.name);
-        // }
+        let n = m.dir_name().unwrap_or(m.config.name.clone());
+        mod_map.insert(n.clone(), m.clone());
+        if !gconf.priority.contains(&n) {
+            gconf.priority.push(n);
+        }
     }
     *dmods = mod_map.clone();
     Ok(())
 }
-
-
 
 pub fn get_mods_in_order() -> Vec<DivaMod> {
     let mut mods = vec![];
     let prio = DIVA_CFG.lock().unwrap().priority.clone();
     let gmods = MODS.lock().unwrap().clone();
     for p in prio {
-        println!("{p}");
         match gmods.get(&p) {
             Some(m) => {
                 mods.push(m.clone());
@@ -576,7 +575,5 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
             None => {}
         }
     }
-    println!("g: {}, l: {}", gmods.len(), mods.len());
-
     mods
 }

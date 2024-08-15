@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, LazyLock};
 
+use modmanagement::get_mods_in_order;
 use slint_interpreter::ComponentHandle;
 use tokio::sync::Mutex;
 
@@ -91,18 +92,19 @@ async fn main() {
     }
 
     let mut diva_state = DivaData::new();
-    let diva_dir = get_diva_folder();
-
-    if diva_dir.is_some() {
-        diva_state.diva_directory = diva_dir.unwrap();
-        let mut dir = DIVA_DIR.lock().expect("fuck");
-        *dir = diva_state.diva_directory.clone();
-    }
 
     if let Ok(cfg) = load_diva_config().await {
         diva_state.config = cfg.clone();
         let mut gcfg = DIVA_CFG.lock().expect("msg");
         *gcfg = cfg.clone();
+    }
+
+    // let diva_dir = get_diva_folder();
+
+    if let Some(diva_dir) = get_diva_folder() {
+        diva_state.diva_directory = diva_dir;
+        let mut dir = DIVA_DIR.lock().expect("fuck");
+        *dir = diva_state.diva_directory.clone();
     }
 
     diva_state.dml = load_diva_ml_config(&diva_state.diva_directory.as_str());
@@ -114,20 +116,8 @@ async fn main() {
     diva_state.mods = load_mods(&diva_state);
 
     let _ = load_mods_too();
+    let _ = set_mods_table(&get_mods_in_order(), app_weak.clone());
 
-    // for m in &diva_state.mods {
-    //     let ps: Vec<&str> = m.path.split("/").collect();
-    //     if ps.len() > 2 {
-    //         let dir = ps[ps.len() - 2];
-    //         diva_state.config.priority.push(dir.to_string());
-    //     }
-    // }
-    // match write_config(diva_state.config.clone()).await {
-    //     Ok(_) => {}
-    //     Err(_) => {}
-    // }
-
-    let _ = set_mods_table(&diva_state.mods, app_weak.clone());
 
     if let Some(dml) = &diva_state.dml {
         app.set_dml_version(dml.version.clone().into());

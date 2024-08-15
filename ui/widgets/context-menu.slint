@@ -6,7 +6,9 @@ export component ContextMenu {
     in property <length> min_menu_width: 32px;
     in property <length> offset_x;
     in property <length> offset_y;
+    in property <TextHorizontalAlignment> horizontal_alignment;
     out property <bool> has_focus: focus_scope.has_focus;
+
     // in property <> openbtn;
     in-out property <DialogButtonRole> btn;
     callback item-clicked(/* row */ int);
@@ -60,7 +62,7 @@ export component ContextMenu {
                     width: root.min_menu_width - 30px;
                     text: item;
                     selected: root.has_focus && index == root.current_item;
-
+                    horizontal_alignment: root.horizontal_alignment;
                     clicked => {
                         focus_scope.enabled = false;
                         root.set-current-item(index);

@@ -6,6 +6,7 @@ import { LargeLabel } from "../components.slint";
 import { ItemDelegateBase } from "ItemDelegateBase.slint";
 
 export component ItemDelegate inherits ItemDelegateBase {
+    in property <TextHorizontalAlignment> horizontal_alignment;
     in property <bool> highlighted;
     in property <image> leading_icon;
     in property <image> trailing_icon;
@@ -28,31 +29,21 @@ export component ItemDelegate inherits ItemDelegateBase {
         padding_right: root.padding_right;
         spacing: Space.medium;
 
-        if (root.leading_icon.width > 0 && root.leading_icon.height > 0) : Image {
+        if (root.leading_icon.width > 0 && root.leading_icon.height > 0): Image {
             source: root.leading_icon;
             colorize: root.icon_color;
             width: IconSettings.small;
         }
 
-        if (!root.edit) : LargeLabel {
+        if (!root.edit): LargeLabel {
             text <=> root.text;
             vertical_alignment: center;
-            horizontal_alignment: left;
+            horizontal_alignment: root.horizontal_alignment;
             color: root.foreground;
             overflow: elide;
         }
 
-        // if (root.edit) : LineEdit {
-        //     y: (parent.height - self.height) / 2;
-        //     text: root.text;
-        //     height: Size.extra_small;
-
-        //     accepted(text) => {
-        //         root.accepted(text);
-        //     }
-        // }
-
-        if (root.trailing_icon.width > 0 && root.trailing_icon.height > 0) : Image {
+        if (root.trailing_icon.width > 0 && root.trailing_icon.height > 0): Image {
             source: root.trailing_icon;
             colorize: root.foreground;
             width: IconSettings.small;

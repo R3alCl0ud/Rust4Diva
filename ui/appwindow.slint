@@ -161,6 +161,7 @@ export component App inherits Window {
                         offset_y: packbtn.height;
                         width: 300px;
                         model: modpacks;
+                        horizontal_alignment: center;
                         item-clicked(idx) => {
                             modpack-changed(modpacks[idx]);
                             pack-modified = false;
