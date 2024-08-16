@@ -1569,6 +1569,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "filenamify"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbc3ee3cc020bf3d428d14f0d9e4d4cb2c72df564d6a8e8b06b472b5c5d00671"
+dependencies = [
+ "lazy_static",
+ "regex",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4018,6 +4028,7 @@ dependencies = [
  "curl",
  "dirs",
  "env_logger",
+ "filenamify",
  "futures-util",
  "interprocess",
  "json",

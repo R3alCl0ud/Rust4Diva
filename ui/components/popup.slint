@@ -15,7 +15,12 @@ export component PopupBorder inherits Rectangle {
 }
 
 export component Popup inherits PopupWindow {
+    in property <length> min-win-height;
+    in property <length> min-win-width;
+
     PopupBorder {
+        min-height: root.min-win-height;
+        min-width: root.min-win-width;
         @children
     }
 }

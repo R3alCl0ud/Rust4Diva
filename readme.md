@@ -13,11 +13,11 @@ Get new mods online directly in the app
 # Planned Features / To-Do List
 - [ ] Mod pack presets for easy switching between incompatible mods
   - [x] [Pack format](#Modpack-JSON-Format) has been decided on
-    - Json containing packname and a list of the modfolders included in the pack used as the priority order
+    - [x] Json containing packname and a list of the modfolders included in the pack used as the priority order
 
   - [x] Modifying and applying packs
-  - [ ] In app creation of new modpacks 
-    - Currently you can manually create a new json file for one in the rust4diva config folder located in `%appdata%` (Windows) or `.confg` (Linux/MacOS)
+  - [x] In app creation of new modpacks
+  - [ ] In app deletion of existing modpacks
 - [x] Windows Support
   - [x] Finding the Diva Folder
   - [x] Oneclick URL Handling
@@ -35,13 +35,17 @@ Get new mods online directly in the app
 {
   "name": "Example Pack",
   "mods": [
-    {"name": "test", "enabled": false}
+    {
+      "name": "test",
+      "enabled": true, // this currently doesn't do anything
+      "path":"/absolute/path/to/mod"
+    }
   ]
 }
 ```
 
 
 # License
-Code: GPL-3.0
+Code: GPL-3.0 unless specified
 
 Artwork: All Rights Reserved (Use allowed in packaging the application)

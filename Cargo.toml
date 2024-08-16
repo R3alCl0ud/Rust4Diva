@@ -25,14 +25,15 @@ reqwest-streams = "0.7.0"
 tokio = { version = "1.39.2", features = ["full"] }
 interprocess = { version = "2.2.1", features = ["tokio"] }
 tokio-macros = { version = "2.4.0" }
-slint = "1.7.2"
+slint = "1.7.1"
 slint-interpreter = "1.7.1"
 futures-util = "0.3.30"
 cfg-if = "1.0.0"
 rfd = "0.14.1"
+filenamify = "0.1.2"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52.0"
 
 [build-dependencies]
-slint-build = "1.7.2"
+slint-build = "1.7.1"

@@ -1,3 +1,4 @@
+use filenamify::filenamify;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use sonic_rs::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -11,7 +12,7 @@ use tokio::sync::Mutex;
 use crate::diva::{get_config_dir, get_diva_folder};
 use crate::modmanagement::DivaMod;
 use crate::slint_generatedApp::App;
-use crate::{DivaData, DivaModElement, ModPackElement, DIVA_CFG};
+use crate::{DivaData, DivaModElement, ModPackElement, ModpackLogic, DIVA_CFG, MOD_PACKS};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModPack {
@@ -79,6 +80,13 @@ impl ModPack {
             path: SharedString::from(""),
         };
     }
+
+    pub fn new(name: String) -> Self {
+        Self {
+            name: name.clone(),
+            mods: Vec::new(),
+        }
+    }
 }
 
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
@@ -86,21 +94,26 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     let ui_add_mod_handle = ui.as_weak();
     let ui_remove_mod_handle = ui.as_weak();
     let ui_change_handle = ui.as_weak();
-    // let ui_save_handle = ui.as_weak();
+    let ui_add_pack_handle = ui.as_weak();
+    let ui_save_handle = ui.as_weak();
+
     let change_diva = diva_arc.clone();
     let apply_diva = diva_arc.clone();
     let save_diva = diva_arc.clone();
+    let create_diva = diva_arc.clone();
 
     let mut diva = init_diva.lock().await;
 
     match load_mod_packs().await {
-        Ok(mods) => {
-            diva.mod_packs = mods;
+        Ok(packs) => {
+            let mut gpacks = MOD_PACKS.lock().unwrap();
+            *gpacks = packs.clone();
+            diva.mod_packs = packs.clone();
             let binding = ui.get_modpacks();
             match binding.as_any().downcast_ref::<VecModel<SharedString>>() {
                 None => {}
                 Some(ui_packs) => {
-                    for (pack, mods) in diva.mod_packs.iter() {
+                    for (pack, mods) in gpacks.iter() {
                         ui_packs.push(pack.into());
                     }
                 }
@@ -170,45 +183,105 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
         });
     });
 
+    ui.global::<ModpackLogic>().on_create_new_pack(move |pack| {
+        println!("We even get called @ modpack.rs 185");
+
+        let pack_name = filenamify(pack.to_string());
+
+        if pack_name.len() <= 0 {
+            return;
+        }
+        let modpack = ModPack::new(pack_name.clone());
+        let mut gpacks = MOD_PACKS.lock().unwrap();
+        if !gpacks.contains_key(&pack_name) {
+            gpacks.insert(pack_name.clone(), modpack);
+            let ui = ui_add_pack_handle.upgrade().unwrap();
+            let binding = ui.get_modpacks();
+            match binding.as_any().downcast_ref::<VecModel<SharedString>>() {
+                Some(f) => f.push(pack_name.into()),
+                None => {}
+            }
+        }
+    });
+
     ui.on_save_modpack(move |modpack, mods| {
         let modpack = modpack.to_string();
         let modpack = modpack.clone();
-        let save_diva = save_diva.clone();
+        // let save_diva = save_diva.clone();
         match mods.as_any().downcast_ref::<VecModel<DivaModElement>>() {
             Some(mods) => {
-                let mut vec_mods: Vec<DivaModElement> = Vec::new();
+                let mut vec_mods: Vec<ModPackMod> = Vec::new();
                 for m in mods.iter() {
-                    vec_mods.push(m.clone());
+                    vec_mods.push(m.to_packmod());
                 }
-                tokio::spawn(async move {
-                    let mods = vec_mods.clone();
-                    let mut diva = save_diva.lock().await;
-                    if let Some(mut pack) = diva.mod_packs.get(&modpack) {
-                        let mut pack = pack.clone();
-                        let mut new_mods = vec![];
-                        for m in mods.iter() {
-                            new_mods.push(m.to_packmod());
-                        }
-                        pack.mods = new_mods;
-                        diva.mod_packs.insert(modpack.clone(), pack.clone());
-                        match sonic_rs::to_string_pretty(&pack) {
-                            Ok(pack_str) => {
-                                if let Ok(mut buf) = get_modpacks_folder().await {
-                                    buf.push(format!("{modpack}.json"));
-                                    match fs::write(buf, pack_str).await {
-                                        Ok(..) => {}
-                                        Err(e) => {
-                                            eprintln!("{e}");
+                {
+                    let mut gpacks = MOD_PACKS.lock().unwrap();
+                    match gpacks.get_mut(&modpack) {
+                        Some(pack) => {
+                            pack.mods = vec_mods.clone();
+                            match sonic_rs::to_string_pretty(&pack.clone()) {
+                                Ok(pack_str) => {
+                                    let ui_save_handle = ui_save_handle.clone();
+                                    tokio::spawn(async move {
+                                        let mut buf =
+                                            get_modpacks_folder().await.unwrap_or(PathBuf::new());
+                                        buf.push(format!("{modpack}.json"));
+                                        match fs::write(buf, pack_str).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                eprintln!("{e}");
+                                                let _ = ui_save_handle
+                                                    .clone()
+                                                    .upgrade_in_event_loop(move |ui| {
+                                                        let msg = format!(
+                                                            "Unable to save modpack: \n{}",
+                                                            e.to_string()
+                                                        );
+                                                        ui.invoke_open_error_dialog(msg.into());
+                                                    });
+                                            }
                                         }
-                                    }
+                                    });
+                                }
+                                Err(e) => {
+                                    let ui = ui_save_handle.upgrade().unwrap();
+                                    ui.invoke_open_error_dialog(e.to_string().into());
                                 }
                             }
-                            Err(e) => {
-                                eprintln!("{}", e);
-                            }
                         }
+                        None => {}
                     }
-                });
+                }
+
+                // tokio::spawn(async move {
+                //     let mods = vec_mods.clone();
+                //     let mut diva = save_diva.lock().await;
+                //     if let Some(mut pack) = diva.mod_packs.get(&modpack) {
+                //         let mut pack = pack.clone();
+                //         let mut new_mods = vec![];
+                //         for m in mods.iter() {
+                //             new_mods.push(m.to_packmod());
+                //         }
+                //         pack.mods = new_mods;
+                //         diva.mod_packs.insert(modpack.clone(), pack.clone());
+                //         match sonic_rs::to_string_pretty(&pack) {
+                //             Ok(pack_str) => {
+                //                 if let Ok(mut buf) = get_modpacks_folder().await {
+                //                     buf.push(format!("{modpack}.json"));
+                //                     match fs::write(buf, pack_str).await {
+                //                         Ok(..) => {}
+                //                         Err(e) => {
+                //                             eprintln!("{e}");
+                //                         }
+                //                     }
+                //                 }
+                //             }
+                //             Err(e) => {
+                //                 eprintln!("{}", e);
+                //             }
+                //         }
+                //     }
+                // });
             }
             None => {
                 return;

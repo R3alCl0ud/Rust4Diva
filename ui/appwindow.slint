@@ -6,8 +6,10 @@ import { ModTable } from "widgets/mod-table.slint";
 import { DivaModElement, ModPackElement } from "diva-types.slint";
 import { ModPickTable, PackTable } from "widgets/modpack-tables.slint";
 import { ContextMenu } from "widgets/context-menu.slint";
+import { TextEntryDialog } from "widgets/text-entry-dialog.slint";
+import { ModpackLogic } from "applogic.slint";
 
-export { ModPackElement }
+export { ModPackElement, ModpackLogic }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -48,7 +50,7 @@ export component App inherits Window {
 
     in-out property <bool> show-error: true;
     in-out property <bool> pack-modified: false;
-    in-out property <string> error-msg;
+    in-out property <string> error-msg: "This is a test message";
 
     property window_width <=> self.width;
     property window_height <=> self.height;
@@ -70,14 +72,24 @@ export component App inherits Window {
     callback save-modpack(string, [DivaModElement]);
     callback apply-modpack([DivaModElement]);
 
+    public function open-error-dialog(error-msg: string) {
+        root.error-msg = error-msg;
+        errordialog.show();
+    }
+
     default-font-size: 16px;
     errordialog := ErrorDialog {
         x: (window_width / 2) - 100px;
         y: (window_height / 2) - 100px;
 
         msg: error-msg;
-        ok-cb => {
-            errordialog.close();
+    }
+
+    packcreator := TextEntryDialog {
+        // height: 0px;
+        offset_x: -100px;
+        accepted(text) => {
+            ModpackLogic.create-new-pack(text);
         }
     }
 
@@ -97,7 +109,7 @@ export component App inherits Window {
             Button {
                 text: "Test Error";
                 clicked => {
-                    // errordialog.show();
+                    errordialog.show();
                 }
             }
         }
@@ -155,26 +167,39 @@ export component App inherits Window {
                 title: "Modpacks";
 
                 VerticalBox {
-                    packsctx-menu := ContextMenu {
-                        min_menu_width: window_width - 40px;
-                        offset_x: -((self.x + self.min_menu_width) - (packbtn.x + packbtn.width));
-                        offset_y: packbtn.height;
-                        width: 300px;
-                        model: modpacks;
-                        horizontal_alignment: center;
-                        item-clicked(idx) => {
-                            modpack-changed(modpacks[idx]);
-                            pack-modified = false;
+                    HorizontalLayout {
+                        packsctx-menu := ContextMenu {
+                            min_menu_width: window_width - 240px;
+                            offset_x: -((self.x + self.min_menu_width) - (packbtn.x + packbtn.width));
+                            offset_y: packbtn.height;
+                            width: 300px;
+                            model: modpacks;
+                            horizontal_alignment: center;
+                            item-clicked(idx) => {
+                                modpack-changed(modpacks[idx]);
+                                pack-modified = false;
+                            }
                         }
                     }
 
-                    packbtn := Button {
-                        text: packsctx-menu.model[packsctx-menu.current_item];
-                        clicked => {
-                            if (packsctx-menu.model.length == 0) {
-                                return;
+                    HorizontalLayout {
+                        packbtn := Button {
+                            width: window_width - 200px;
+                            text: packsctx-menu.model[packsctx-menu.current_item];
+                            clicked => {
+                                if (packsctx-menu.model.length == 0) {
+                                    return;
+                                }
+                                packsctx-menu.show_and_focus();
                             }
-                            packsctx-menu.show_and_focus();
+                        }
+
+                        Button {
+                            text: "Add New Pack";
+                            clicked => {
+                                packcreator.show();
+                            }
+                            width: 180px;
                         }
                     }
 
@@ -253,18 +278,19 @@ export component App inherits Window {
                         }
                     }
 
-                    HorizontalBox {
+                    aply-btns := HorizontalBox {
                         Button {
+                            width: (window_width - (aply-btns.spacing * 5)) / 2;
                             enabled: packsctx-menu.current_item != -1 && !pack-modified;
-                            text: "Apply";
+                            text: "Apply Modpack";
                             clicked => {
                                 apply-modpack(pack-mods);
                             }
                         }
 
                         Button {
-                            // enabled: packsctx-menu.current_item != -1;
-                        text: "Unapply Modpacks";
+                            width: (window_width - (aply-btns.spacing * 5)) / 2;
+                            text: "Repeal Modpacks";
                             clicked => {
                                 apply-modpack([]);
                             }

@@ -3,6 +3,7 @@ use std::env;
 use std::sync::{Arc, LazyLock};
 
 use modmanagement::get_mods_in_order;
+use slint::{SharedString, VecModel};
 use slint_interpreter::ComponentHandle;
 use tokio::sync::Mutex;
 
@@ -25,7 +26,7 @@ mod oneclick;
 slint::include_modules!();
 
 #[derive(Clone)]
-struct DivaData {
+pub struct DivaData {
     mods: Vec<DivaMod>,
     search_results: Vec<GBSearch>,
     mods_directory: String,
@@ -48,8 +49,13 @@ pub static DIVA_DIR: LazyLock<std::sync::Mutex<String>> = LazyLock::new(|| {
 pub static MODS_DIR: LazyLock<std::sync::Mutex<String>> =
     LazyLock::new(|| std::sync::Mutex::new("mods".to_string()));
 
+/// Global config object
 pub static DIVA_CFG: LazyLock<std::sync::Mutex<DivaConfig>> =
     LazyLock::new(|| std::sync::Mutex::new(DivaConfig::new()));
+
+/// Global HashMap of ModPacks key'd by modpack name
+pub static MOD_PACKS: LazyLock<std::sync::Mutex<HashMap<String, ModPack>>> =
+    LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
 
 #[tokio::main]
 async fn main() {
@@ -117,7 +123,6 @@ async fn main() {
 
     let _ = load_mods_too();
     let _ = set_mods_table(&get_mods_in_order(), app_weak.clone());
-
 
     if let Some(dml) = &diva_state.dml {
         app.set_dml_version(dml.version.clone().into());
