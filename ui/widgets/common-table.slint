@@ -1,5 +1,6 @@
-import { StateLayerBase } from "state-layer-base.slint";
-import {CosmicPalette, CosmicFontSettings} from "./cosmic-styling.slint";
+import { StateLayerBase } from "../components/state-layer-base.slint";
+import { Palette as  CosmicPalette, FontSettings as CosmicFontSettings  } from "../styling.slint";
+
 export component TableViewColumn inherits Rectangle {
     in property <SortOrder> sort-order: SortOrder.unsorted;
     callback clicked <=> touch-area.clicked;

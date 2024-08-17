@@ -1,9 +1,17 @@
 import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator } from "std-widgets.slint";
-import { FileTable, Download } from "filetable.slint";
-import { CosmicPalette } from "cosmic-styling.slint";
-import { ErrorDialog } from "errordialog.slint";
-import { ModTable, DivaModElement } from "mod-table.slint";
+import { FileTable, Download } from "widgets/filetable.slint";
+import { Palette as CosmicPalette } from "styling.slint";
+import { ErrorDialog } from "widgets/errordialog.slint";
+import { ModTable } from "widgets/mod-table.slint";
+import { DivaModElement, ModPackElement } from "diva-types.slint";
+import { ModPickTable, PackTable } from "widgets/modpack-tables.slint";
+import { ContextMenu } from "widgets/context-menu.slint";
+import { TextEntryDialog } from "widgets/text-entry-dialog.slint";
+import { ModpackLogic, ModLogic } from "applogic.slint";
+import { InfoDialog } from "widgets/info-dialog.slint";
+import { TextBox } from "widgets/text-box.slint";
 
+export { ModPackElement, ModpackLogic, ModLogic }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -16,12 +24,6 @@ export struct SlintModConfig {
     dll: [string]
 }
 
-//export component downloads inherits Window {
-//    min-width: 1280px;
-//    min-height: 720px;
-//    title: "Rust4Diva: Project Diva MM+ Mod Manager Mod Search";
-//}
-
 
 
 export component App inherits Window {
@@ -32,7 +34,7 @@ export component App inherits Window {
     title: "Rust4Diva: Project Diva MM+ Mod Manager";
     in property <int> counter: 4;
     in property <[int]> fs: [1, 2, 3];
-    in property <[DivaModElement]> mods: [];
+
     in property <[[StandardListViewItem]]> search-results: [];
 
     in property <[Download]> file-results: [];
@@ -49,10 +51,16 @@ export component App inherits Window {
     in property <bool> s-prog-vis: false;
 
     in-out property <bool> show-error: true;
-    in-out property <string> error-msg;
+    in-out property <bool> pack-modified: false;
+    in-out property <string> error-msg: "This is a test message";
 
     property window_width <=> self.width;
     property window_height <=> self.height;
+
+    in property <[DivaModElement]> mods: [];
+    in-out property <[DivaModElement]> pack-mods: [];
+    in-out property <[string]> modpacks: [];
+
     callback load-mods <=> load-mods-btn.clicked;
     callback toggle-mod(int);
     callback toggle-dml();
@@ -60,31 +68,50 @@ export component App inherits Window {
     callback list-files(int);
     callback download-file(Download, int);
     callback open-file-picker;
-    // callback new-toggle-mod(int, DivaModElement);
+    callback add-mod-to-pack(DivaModElement, string);
+    callback remove-mod-from-pack(DivaModElement, string);
+    callback modpack-changed(string);
+    callback save-modpack(string, [DivaModElement]);
+    callback apply-modpack([DivaModElement]);
 
-    //    in-out property mods-table: mod-table;
+    public function open-error-dialog(error-msg: string) {
+        root.error-msg = error-msg;
+        errordialog.show();
+    }
+
     default-font-size: 16px;
     errordialog := ErrorDialog {
         x: (window_width / 2) - 100px;
         y: (window_height / 2) - 100px;
 
         msg: error-msg;
-        ok-cb => {
-            errordialog.close();
+    }
+
+    packcreator := TextEntryDialog {
+        // x: (window_width / 2) - 100px;
+        // y: (window_height / 2) - 100px;
+        offset_x: -100px;
+        accepted(text) => {
+            ModpackLogic.create-new-pack(text);
         }
     }
+
+    aboutdialog := InfoDialog { }
 
     VerticalLayout {
         HorizontalBox {
             Button {
-                text: "(F)ile";
+                text: "Install Mod Archive";
                 clicked => {
                     open-file-picker();
                 }
             }
 
             Button {
-                text: "(H)elp";
+                text: "About Rust4Diva";
+                clicked => {
+                    aboutdialog.show();
+                }
             }
 
             Button {
@@ -121,9 +148,10 @@ export component App inherits Window {
 
                     test-table := ModTable {
                         min-width: window_width - 12px;
-                        height: window_height - 260px;
+                        height: window_height - 210px;
                         columns: [
                             { title: "Enabled", width: 100px },
+                            { title: "Priority", width: 100px },
                             { title: "Name" },
                             { title: "Authors" },
                             { title: "Version", width: 100px },
@@ -131,31 +159,149 @@ export component App inherits Window {
                         ];
                         mods: mods;
                         mod-toggled(index, module) => {
-                            toggle-mod(index);
+                            ModLogic.toggle-mod(module);
                         }
                     }
-                    // mod-table := StandardTableView {
-                    //     min-width: window_width - 12px;
-                    //     height: window_height - 260px;
-                    //     columns: [
-                    //         { title: "Enabled", width: 100px },
-                    //         { title: "Name" },
-                    //         { title: "Authors" },
-                    //         { title: "Version", width: 100px },
-                    //         { title: "Description" }
-                    //     ];
-                    //     rows: stuff;
-                    // }
 
                     HorizontalBox {
                         load-mods-btn := Button {
                             text: "Reload Mods";
+                            icon: @image-url("assets/repeat-solid.svg");
+                        }
+                    }
+                }
+            }
+
+            packs-tab := Tab {
+                title: "Modpacks";
+
+                VerticalBox {
+                    HorizontalLayout {
+                        packsctx-menu := ContextMenu {
+                            min_menu_width: window_width - 240px;
+                            offset_x: -((self.x + self.min_menu_width) - (packbtn.x + packbtn.width));
+                            offset_y: packbtn.height;
+                            width: 300px;
+                            model: modpacks;
+                            horizontal_alignment: center;
+                            item-clicked(idx) => {
+                                modpack-changed(modpacks[idx]);
+                                pack-modified = false;
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        packbtn := Button {
+                            width: window_width - 200px;
+                            text: packsctx-menu.current_item != -1 ? "Editing: " + packsctx-menu.model[packsctx-menu.current_item] : "";
+                            clicked => {
+                                if (packsctx-menu.model.length == 0) {
+                                    return;
+                                }
+                                packsctx-menu.show_and_focus();
+                            }
                         }
 
-                        toggle-mod-btn := Button {
-                            text: "Toggle selected";
+                        Button {
+                            text: "Add New Pack";
                             clicked => {
-                                toggle-mod(test-table.current-row)
+                                packcreator.show();
+                            }
+                            width: 180px;
+                        }
+                    }
+
+                    HorizontalBox {
+                        VerticalBox {
+                            Text {
+                                text: "Installed";
+                            }
+
+                            mod-picker := ModPickTable {
+                                width: (window_width / 2) - 100px;
+                                // height: 100%;
+                                height: window_height - 360px;
+                                columns: [{ title :"Name" }];
+                                mods: mods;
+                            }
+
+                            Button {
+                                text: "Reload";
+                                clicked => {
+                                    load-mods();
+                                }
+                            }
+                        }
+
+                        VerticalBox {
+                            Button {
+                                icon: @image-url("assets/right-long-solid.svg");
+                                clicked => {
+                                    if packsctx-menu.current_item != -1 {
+                                        if mod-picker.current-row != -1 {
+                                            add-mod-to-pack(mods[mod-picker.current-row], modpacks[packsctx-menu.current_item]);
+                                            packsctx-menu.set-current-item(-1);
+                                            pack-modified = true;
+                                        }
+                                    }
+                                }
+                            }
+
+                            Button {
+                                enabled: pack-mods.length > 0;
+                                icon: @image-url("assets/left-long-solid.svg");
+                                clicked => {
+                                    if packsctx-menu.current_item != -1 {
+                                        if in-pack.current-row != -1 {
+                                            remove-mod-from-pack(pack-mods[in-pack.current-row], modpacks[packsctx-menu.current_item]);
+                                            packsctx-menu.set-current-item(-1);
+                                            pack-modified = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        VerticalBox {
+                            Text {
+                                text: "In Modpack";
+                            }
+
+                            in-pack := ModPickTable {
+                                width: (window_width / 2) - 100px;
+                                height: window_height - 360px;
+                                columns: [{ title :"Name" }];
+                                mods: pack-mods;
+                            }
+
+                            Button {
+                                text: "Save";
+                                clicked => {
+                                    if packsctx-menu.current_item > -1 {
+                                        save-modpack(modpacks[packsctx-menu.current_item], pack-mods);
+                                        pack-modified = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    aply-btns := HorizontalBox {
+                        Button {
+                            width: (window_width - (aply-btns.spacing * 5)) / 2;
+                            enabled: packsctx-menu.current_item != -1 && !pack-modified;
+                            text: "Apply Modpack";
+                            clicked => {
+                                apply-modpack(pack-mods);
+                            }
+                        }
+
+                        Button {
+                            width: (window_width - (aply-btns.spacing * 5)) / 2;
+                            text: "Repeal Modpacks";
+                            clicked => {
+                                apply-modpack([]);
                             }
                         }
                     }
@@ -174,25 +320,31 @@ export component App inherits Window {
                             vertical-alignment: TextVerticalAlignment.center;
                         }
 
-                        Rectangle {
-                            y: -6px;
-                            height: 35px;
-                            border-width: 2px;
-                            border-color: CosmicPalette.border;
-                            border-radius: 5px;
-                            background: CosmicPalette.alternate-background;
-                            sbox := TextInput {
-                                x: 5px;
-                                y: 3px;
-                                height: 30px;
-                                font-size: 22px;
-                                wrap: word-wrap;
-                                text: "";
-                                accepted => {
-                                    search-gb(self.text)
-                                }
+                        TextBox {
+                            accepted(text) => {
+                                search-gb(text);
                             }
                         }
+
+                        // Rectangle {
+                        //     y: -6px;
+                        //     height: 35px;
+                        //     border-width: 2px;
+                        //     border-color: CosmicPalette.border;
+                        //     border-radius: 5px;
+                        //     background: CosmicPalette.alternate-background;
+                        //     sbox := TextInput {
+                        //         x: 5px;
+                        //         y: 3px;
+                        //         height: 30px;
+                        //         font-size: 22px;
+                        //         wrap: word-wrap;
+                        //         text: "";
+                        //         accepted => {
+                        //             search-gb(self.text)
+                        //         }
+                        //     }
+                        // }
 
                         search-prog := ProgressIndicator {
                             visible: s-prog-vis;

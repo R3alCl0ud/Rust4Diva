@@ -1,0 +1,25 @@
+import { Palette } from "std-widgets.slint";
+export component TextBox {
+    callback accepted(string);
+    in property <string> default-text;
+
+    Rectangle {
+        y: -6px;
+        height: 35px;
+        border-width: 2px;
+        border-color: Palette.border;
+        border-radius: 5px;
+        background: Palette.alternate-background;
+        TextInput {
+            x: 5px;
+            y: 3px;
+            height: 30px;
+            font-size: 22px;
+            wrap: word-wrap;
+            text: default-text;
+            accepted => {
+                accepted(self.text);
+            }
+        }
+    }
+}

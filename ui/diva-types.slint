@@ -1,0 +1,14 @@
+export struct DivaModElement {
+    name: string,
+    author: string,
+    version: string,
+    description: string,
+    enabled: bool,
+    path: string
+}
+
+export struct ModPackElement {
+    name: string,
+    mods: [DivaModElement],
+    path: string
+}

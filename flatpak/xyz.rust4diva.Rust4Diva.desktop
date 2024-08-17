@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+NoDisplay=false
+Terminal=false
+Exec=/usr/bin/rust4diva %u
+Icon=xyz.rust4diva.Rust4Diva
+Name=Rust4Diva
+Comment=Mod manager for Project Diva
+Categories=x-gaming
+MimeType=x-scheme-handler/divamodmanager

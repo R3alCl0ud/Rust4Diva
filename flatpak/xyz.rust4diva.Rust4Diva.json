@@ -32,8 +32,8 @@
                 "cargo fetch --manifest-path Cargo.toml --verbose",
                 "cargo build --release --verbose",
                 "install -Dm755 ./target/release/rust4diva -t /app/bin/",
-                "install -Dm644 ./aur/Rust4Diva.desktop -t /app/share/applications/",
-                "install -Dm644 ./assets/rust4diva.png -t /app/share/icons/"
+                "install -Dm644 ./flatpak/xyz.rust4diva.Rust4Diva.desktop -t /app/share/applications/",
+                "install -Dm644 ./flatpak/xyz.rust4diva.Rust4Diva.png -t /app/share/icons/"
             ],
             "sources": [
                 {

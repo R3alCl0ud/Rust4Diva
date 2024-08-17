@@ -12,8 +12,12 @@ Get new mods online directly in the app
 
 # Planned Features / To-Do List
 - [ ] Mod pack presets for easy switching between incompatible mods
-  - Need to decide on a format for the modpacks
-    - Probably a json file
+  - [x] [Pack format](#Modpack-JSON-Format) has been decided on
+    - [x] Json containing packname and a list of the modfolders included in the pack used as the priority order
+
+  - [x] Modifying and applying packs
+  - [x] In app creation of new modpacks
+  - [ ] In app deletion of existing modpacks
 - [x] Windows Support
   - [x] Finding the Diva Folder
   - [x] Oneclick URL Handling
@@ -25,3 +29,23 @@ Get new mods online directly in the app
     - Not sure how this works on MacOS
 - [x] Commission a proper logo/icon
   - Logo is being made, just waiting now, Ty Nezuko
+
+## Modpack JSON Format
+```json
+{
+  "name": "Example Pack",
+  "mods": [
+    {
+      "name": "test",
+      "enabled": true, // this currently doesn't do anything
+      "path":"/absolute/path/to/mod"
+    }
+  ]
+}
+```
+
+
+# License
+Code: GPL-3.0 unless specified
+
+Artwork: All Rights Reserved (Use allowed in packaging the application)

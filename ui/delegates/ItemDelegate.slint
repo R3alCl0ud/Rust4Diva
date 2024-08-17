@@ -1,0 +1,74 @@
+// SPDX-FileCopyrightText: 2022 flovansl <co_sl@tutanota.com>
+// SPDX-License-Identifier: MIT
+
+import { Palette, Space, Size,Duration, State, IconSettings } from "../styling.slint";
+import { LargeLabel } from "../components.slint";
+import { ItemDelegateBase } from "ItemDelegateBase.slint";
+
+export component ItemDelegate inherits ItemDelegateBase {
+    in property <TextHorizontalAlignment> horizontal_alignment;
+    in property <bool> highlighted;
+    in property <image> leading_icon;
+    in property <image> trailing_icon;
+    in property <bool> edit;
+    in property <string> text;
+    // in property <length> width;
+
+    callback accepted(/* text*/ string);
+
+    property <brush> foreground: Palette.foreground;
+    property <brush> icon_color: highlighted ? Palette.accent_background : Palette.foreground;
+    property <brush> text_color: root.foreground;
+
+    min_height: max(Size.small, layout.min_height);
+    padding_right: Space.medium;
+    padding_left: Space.medium;
+
+    layout := HorizontalLayout {
+        padding_left: root.padding_left;
+        padding_right: root.padding_right;
+        spacing: Space.medium;
+
+        if (root.leading_icon.width > 0 && root.leading_icon.height > 0): Image {
+            source: root.leading_icon;
+            colorize: root.icon_color;
+            width: IconSettings.small;
+        }
+
+        if (!root.edit): LargeLabel {
+            text <=> root.text;
+            vertical_alignment: center;
+            horizontal_alignment: root.horizontal_alignment;
+            color: root.foreground;
+            overflow: elide;
+        }
+
+        if (root.trailing_icon.width > 0 && root.trailing_icon.height > 0): Image {
+            source: root.trailing_icon;
+            colorize: root.foreground;
+            width: IconSettings.small;
+        }
+    }
+
+    states [
+        disabled when !root.enabled: {
+            root.text_color: Palette.foreground-disabled;
+            root.icon_color: Palette.foreground-disabled;
+        }
+        pressed when root.pressed: {
+            background: Palette.background.darker(State.pressed);
+            foreground: Palette.foreground.darker(State.pressed);
+            icon_color: highlighted ? Palette.accent_background.darker(State.pressed) : Palette.foreground.darker(State.pressed);
+        }
+        selected when root.selected: {
+            background: Palette.background.darker(State.selected);
+        }
+        hover when root.has_hover || root.has_drag_hover: {
+            background: Palette.background.darker(State.hover);
+            foreground: Palette.foreground.darker(State.hover);
+            icon_color: highlighted ? Palette.accent_background.darker(State.hover) : Palette.foreground.darker(State.hover);
+        }
+    ]
+
+    animate foreground { duration: Duration.fast; }
+}

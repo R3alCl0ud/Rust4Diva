@@ -1,0 +1,38 @@
+import { StandardButton, VerticalBox, Button } from "std-widgets.slint";
+import { CosmicPalette } from "../styling/cosmic-styling.slint";
+import { PopupBorder, Popup } from "../components/popup.slint";
+
+
+export component ErrorDialog {
+    in property <string> msg;
+    in property <length> offset_x;
+    in property <length> offset_y;
+    popup-window := Popup {
+        min-win-height: 100px;
+        VerticalBox {
+            Text {
+                min-height: 100px;
+                min-width: 100px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                text: root.msg;
+            }
+
+            Button {
+                text: "Ok";
+                clicked => {
+                    root.close();
+                }
+            }
+        }
+    }
+
+    public function show() {
+        popup-window.show();
+        // text-input.focus(); // this will cause the compiler to crash
+    }
+
+    public function close() {
+        popup-window.close();
+    }
+}

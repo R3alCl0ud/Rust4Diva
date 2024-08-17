@@ -1,17 +1,31 @@
-import { ListView, VerticalBox, ProgressIndicator,CheckBox  } from "std-widgets.slint";
-import { StateLayerBase } from "./state-layer-base.slint";
-import {CosmicPalette, CosmicFontSettings} from "./cosmic-styling.slint";
+import { ListView, VerticalBox, ProgressIndicator,CheckBox, Button  } from "std-widgets.slint";
+import { StateLayerBase } from "../components/state-layer-base.slint";
+import {Palette, FontSettings} from "../styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
 // import {Icons} from ""
+import { DivaModElement } from "../diva-types.slint";
+import { ModLogic } from "../applogic.slint";
 
-export struct DivaModElement {
-    name: string,
-    author: string,
-    version: string,
-    description: string,
-    enabled: bool
+
+export component ModTableRow inherits Rectangle {
+    in property <bool> selected;
+    in property <bool> even;
+    callback pointer-event(/* event */ PointerEvent, /* absolute mouse position */ Point);
+
+    min-width: layout.min-width;
+    min-height: max(24px, layout.min-height);
+    background: root.even ? Palette.control-background : transparent;
+
+    layout := HorizontalLayout {
+        @children
+    }
+
+    StateLayerBase {
+        checked: root.selected;
+        focus-boder-margin: 0;
+        border-radius: root.border-radius;
+    }
 }
-
 
 export component ModTable {
     in-out property <[DivaModElement]> mods;
@@ -72,7 +86,7 @@ export component ModTable {
             clip: true;
             vertical-stretch: 0;
             min-height: root.min-header-height;
-            background: CosmicPalette.control-background;
+            background: Palette.control-background;
 
             header-layout := HorizontalLayout {
                 width: max(self.preferred-width, parent.width);
@@ -98,9 +112,9 @@ export component ModTable {
                     Text {
                         vertical-alignment: center;
                         text: column.title;
-                        font-weight: CosmicFontSettings.body.font-weight;
-                        font-size: CosmicFontSettings.body.font-size;
-                        color: CosmicPalette.foreground;
+                        font-weight: FontSettings.body.font-weight;
+                        font-size: FontSettings.body.font-size;
+                        color: Palette.foreground;
                         overflow: elide;
                     }
                 }
@@ -111,7 +125,7 @@ export component ModTable {
         }
 
         scroll-view := ListView {
-            for module[idx] in root.mods: TableViewRow {
+            for module[idx] in root.mods: ModTableRow {
 
                 selected: idx == root.current-row;
                 even: mod(idx, 2) == 0;
@@ -122,36 +136,57 @@ export component ModTable {
                         y: pos.y - root.absolute-position.y,
                     });
                 }
-
-                clicked => {
-                    root.focus();
-                    root.set-current-row(idx);
-                }
-
+                // toggle box
                 TableViewCell {
                     horizontal-stretch: columns[0].horizontal-stretch;
                     min-width: max(columns[0].min-width, columns[0].width);
                     preferred-width: self.min-width;
                     max-width: (1 < columns.length && columns[0].width >= 1px) ? max(columns[0].min-width, columns[0].width) : 100000px;
-                    // width: root.column_sizes[1];
                     Rectangle {
                         mod-toggle := CheckBox {
                             checked: module.enabled;
-                            text: module.enabled ? "Yah" : "Nah";
                             toggled => {
-                                debug("this is a test");
                                 mod-toggled(idx, module);
                             }
                         }
                     }
                 }
 
-                // HorizontalLayout {
+                // change priority
                 TableViewCell {
                     horizontal-stretch: columns[1].horizontal-stretch;
                     min-width: max(columns[1].min-width, columns[1].width);
                     preferred-width: self.min-width;
-                    max-width: (2 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
+                    max-width: (1 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
+                    Rectangle {
+                        HorizontalLayout {
+                            Button {
+                                enabled: idx != 0;
+                                primary: mod(idx, 2) == 0;
+                                icon: @image-url("../assets/up-long-solid.svg");
+                                clicked => {
+                                    ModLogic.move-mod-up(idx);
+                                }
+                            }
+
+                            Button {
+                                enabled: idx != (mods.length - 1);
+                                primary: mod(idx, 2) == 0;
+                                icon: @image-url("../assets/down-long-solid.svg");
+                                clicked => {
+                                    ModLogic.move-mod-down(idx);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // name
+                TableViewCell {
+                    horizontal-stretch: columns[2].horizontal-stretch;
+                    min-width: max(columns[2].min-width, columns[2].width);
+                    preferred-width: self.min-width;
+                    max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
                     // width: root.column_sizes[0];
                     Rectangle {
                         name-text := Text {
@@ -160,24 +195,25 @@ export component ModTable {
                             overflow: elide;
                             vertical-alignment: center;
                             text: module.name;
-                            font-weight: CosmicFontSettings.body.font-weight;
-                            font-size: CosmicFontSettings.body.font-size;
-                            color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
+                            font-weight: FontSettings.body.font-weight;
+                            font-size: FontSettings.body.font-size;
+                            color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
 
                             states [
                                 selected when idx == root.current-row: {
-                                    name-text.color: CosmicPalette.accent-background;
+                                    name-text.color: Palette.accent-background;
                                 }
                             ]
                         }
                     }
                 }
 
+                // author
                 TableViewCell {
-                    horizontal-stretch: columns[2].horizontal-stretch;
-                    min-width: max(columns[2].min-width, columns[2].width);
+                    horizontal-stretch: columns[3].horizontal-stretch;
+                    min-width: max(columns[3].min-width, columns[3].width);
                     preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
+                    max-width: (1 < columns.length && columns[3].width >= 1px) ? max(columns[3].min-width, columns[3].width) : 100000px;
                     // width: root.column_sizes[1];
                     Rectangle {
                         bytes-text := Text {
@@ -186,24 +222,25 @@ export component ModTable {
                             overflow: elide;
                             vertical-alignment: center;
                             text: module.author;
-                            font-weight: CosmicFontSettings.body.font-weight;
-                            font-size: CosmicFontSettings.body.font-size;
-                            color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
+                            font-weight: FontSettings.body.font-weight;
+                            font-size: FontSettings.body.font-size;
+                            color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
 
                             states [
                                 selected when idx == root.current-row: {
-                                    bytes-text.color: CosmicPalette.accent-background;
+                                    bytes-text.color: Palette.accent-background;
                                 }
                             ]
                         }
                     }
                 }
 
+                // version
                 TableViewCell {
-                    horizontal-stretch: columns[3].horizontal-stretch;
-                    min-width: max(columns[3].min-width, columns[3].width);
+                    horizontal-stretch: columns[4].horizontal-stretch;
+                    min-width: max(columns[4].min-width, columns[4].width);
                     preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[3].width >= 1px) ? max(columns[3].min-width, columns[3].width) : 100000px;
+                    max-width: (1 < columns.length && columns[4].width >= 1px) ? max(columns[4].min-width, columns[4].width) : 100000px;
                     // width: root.column_sizes[1];
                     Rectangle {
                         mod-ver := Text {
@@ -212,24 +249,25 @@ export component ModTable {
                             overflow: elide;
                             vertical-alignment: center;
                             text: module.version;
-                            font-weight: CosmicFontSettings.body.font-weight;
-                            font-size: CosmicFontSettings.body.font-size;
-                            color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
+                            font-weight: FontSettings.body.font-weight;
+                            font-size: FontSettings.body.font-size;
+                            color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
 
                             states [
                                 selected when idx == root.current-row: {
-                                    mod-ver.color: CosmicPalette.accent-background;
+                                    mod-ver.color: Palette.accent-background;
                                 }
                             ]
                         }
                     }
                 }
 
+                // description
                 TableViewCell {
-                    horizontal-stretch: columns[4].horizontal-stretch;
-                    min-width: max(columns[4].min-width, columns[4].width);
+                    horizontal-stretch: columns[5].horizontal-stretch;
+                    min-width: max(columns[5].min-width, columns[5].width);
                     preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[4].width >= 1px) ? max(columns[4].min-width, columns[4].width) : 100000px;
+                    max-width: (1 < columns.length && columns[5].width >= 1px) ? max(columns[5].min-width, columns[5].width) : 100000px;
 
                     Rectangle {
                         mod-desc := Text {
@@ -238,13 +276,13 @@ export component ModTable {
                             overflow: elide;
                             vertical-alignment: center;
                             text: module.description;
-                            font-weight: CosmicFontSettings.body.font-weight;
-                            font-size: CosmicFontSettings.body.font-size;
-                            color: mod(idx, 2) == 0 ? CosmicPalette.control-foreground : CosmicPalette.foreground;
+                            font-weight: FontSettings.body.font-weight;
+                            font-size: FontSettings.body.font-size;
+                            color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
 
                             states [
                                 selected when idx == root.current-row: {
-                                    mod-desc.color: CosmicPalette.accent-background;
+                                    mod-desc.color: Palette.accent-background;
                                 }
                             ]
                         }

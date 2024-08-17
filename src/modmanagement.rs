@@ -1,24 +1,30 @@
-use crate::DivaModElement;
-use std::{env, fs};
+use std::collections::HashMap;
+use std::ffi::OsStr;
+use std::fs;
 use std::fs::File;
-use std::io::{ErrorKind, Seek, Write};
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Duration;
 
-use compress_tools::{list_archive_files, Ownership, uncompress_archive};
+use compress_tools::{list_archive_files, uncompress_archive, Ownership};
 use curl::easy::Easy;
-use keyvalues_parser::Vdf;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
-use slint::{ComponentHandle, Model, ModelRc, StandardListViewItem, VecModel, Weak};
-use sonic_rs::JsonValueTrait;
+use slint::{
+    ComponentHandle, EventLoopError, Model, ModelRc, StandardListViewItem, VecModel, Weak,
+};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use toml::de::Error;
 
-use crate::{DivaData, Download};
+use crate::config::write_config;
+use crate::diva::{get_diva_folder, get_temp_folder};
+use crate::modpacks::ModPackMod;
 use crate::slint_generatedApp::App;
+use crate::{DivaData, Download, DIVA_CFG, DML_CFG, MODS};
+use crate::{DivaModElement, ModLogic, DIVA_DIR};
 
 cfg_if::cfg_if! {
     if #[cfg(windows)] {
@@ -27,35 +33,29 @@ cfg_if::cfg_if! {
     }
 }
 
-const STEAM_FOLDER: &str = ".local/share/Steam";
-const STEAM_FOLDER_MAC: &str = "Library/Application Support/Steam";
-const STEAM_LIBRARIES_CONFIG: &str = "config/libraryfolders.vdf";
-const MEGA_MIX_APP_ID: &str = "1761390";
-const DIVA_MOD_FOLDER_SUFFIX: &str = "steamapps/common/Hatsune Miku Project DIVA Mega Mix Plus";
-
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
-    pub(crate) enabled: bool,
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub include: Vec<String>,
     #[serde(default)]
-    pub(crate) include: Vec<String>,
+    pub dll: Vec<String>,
     #[serde(default)]
-    pub(crate) dll: Vec<String>,
-    #[serde(default)]
-    pub(crate) name: String,
-    #[serde(default)]
-    pub(crate) description: String,
-    #[serde(default)]
-    pub(crate) version: String,
-    #[serde(default)]
-    pub(crate) date: String,
-    #[serde(default)]
-    pub(crate) author: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub version: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub date: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub author: String,
 }
 
 #[derive(Clone)]
 pub struct DivaMod {
-    pub(crate) config: DivaModConfig,
-    pub(crate) path: String,
+    pub config: DivaModConfig,
+    pub path: String,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -66,8 +66,17 @@ pub struct DivaModLoader {
     pub(crate) console: bool,
     #[serde(default)]
     pub(crate) mods: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(crate) version: String,
+    ///
+    /// This field tells dml what order to load mods in.
+    ///
+    /// It also happens that it will also only load mods in the array.
+    ///
+    /// The items are the name of the folder that the mod is stored in.
+    ///
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) priority: Vec<String>,
 }
 
 impl DivaModLoader {
@@ -77,6 +86,7 @@ impl DivaModLoader {
             console: false,
             mods: "mods".to_string(),
             version: "".to_string(),
+            priority: vec![],
         }
     }
 }
@@ -86,11 +96,53 @@ impl DivaMod {
         let this = self.clone();
         DivaModElement {
             name: this.config.name.clone().into(),
-            author: this.config.name.clone().into(),
-            description: this.config.name.clone().into(),
+            author: this.config.author.clone().into(),
+            description: this.config.description.clone().into(),
             version: this.config.version.clone().into(),
             enabled: this.config.enabled,
+            path: this.path.into(),
         }
+    }
+    pub fn to_packmod(self: &Self) -> ModPackMod {
+        ModPackMod {
+            name: self.config.name.clone(),
+            enabled: true,
+            path: self.path.clone(),
+        }
+    }
+
+    pub fn dir_name(self: &Self) -> Option<String> {
+        let mut buf = PathBuf::from(self.path.clone());
+        buf.pop();
+        if buf.exists() {
+            return match buf.file_name() {
+                Some(s) => Some(s.to_str().unwrap().to_string()),
+                None => None,
+            };
+        }
+        None
+    }
+}
+
+impl DivaModElement {
+    pub fn to_packmod(self: &Self) -> ModPackMod {
+        ModPackMod {
+            name: self.name.to_string(),
+            enabled: self.enabled,
+            path: self.path.to_string(),
+        }
+    }
+
+    pub fn dir_name(self: &Self) -> Option<String> {
+        let mut buf = PathBuf::from(self.path.to_string().clone());
+        buf.pop();
+        if buf.exists() {
+            return match buf.file_name() {
+                Some(s) => Some(s.to_str().unwrap().to_string()),
+                None => None,
+            };
+        }
+        None
     }
 }
 
@@ -100,8 +152,9 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let ui_progress_handle = ui.as_weak();
     let ui_download_handle = ui.as_weak();
     let ui_file_picker_handle = ui.as_weak();
-    let toggle_diva = diva_arc.clone();
-    let load_diva = diva_arc.clone();
+    let ui_mod_up_handle = ui.as_weak();
+    let ui_mod_down_handle = ui.as_weak();
+    let _load_diva = diva_arc.clone();
     let picker_diva = diva_arc.clone();
     let diva_state = diva_arc.lock().await;
     let mut mod_buf = PathBuf::from(&diva_state.diva_directory);
@@ -112,43 +165,108 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
 
-
-    ui.on_load_mods(move || {
-        let mods = load_mods_from_dir(mods_dir.clone());
-        set_mods_table(&mods, ui_load_handle.clone());
-        let darc = load_diva.clone();
-        tokio::spawn(async move {
-            darc.lock().await.mods = mods.clone();
-        });
+    ui.on_load_mods(move || match load_mods_too() {
+        Ok(_) => {
+            let mods = get_mods_in_order();
+            let _ = set_mods_table(&mods, ui_load_handle.clone());
+        }
+        Err(e) => {
+            eprintln!("{e}");
+        }
     });
 
-
-    ui.on_toggle_mod(move |row_num| {
-        if row_num > -1 {
-            let row_num: usize = row_num as usize;
-            let toggle_diva = Arc::clone(&toggle_diva);
-            let ui_toggle_handle = ui_toggle_handle.clone();
-            tokio::spawn(async move {
-                let darc = &mut toggle_diva.lock().await;
-                if darc.mods.len() < row_num {
-                    return;
+    ui.global::<ModLogic>().on_toggle_mod(move |module| {
+        if let Ok(mut gmods) = MODS.lock() {
+            if let Some(m) = gmods.get_mut(&module.dir_name().unwrap()) {
+                m.config.enabled = !m.config.enabled;
+                let buf = PathBuf::from(m.path.clone());
+                println!("{}", buf.display());
+                // fs::write(buf,
+                if let Err(e) = save_mod_config(buf, &mut m.config.clone()) {
+                    let msg = format!("Unable to save modpack: \n{}", e.to_string());
+                    ui_toggle_handle
+                        .upgrade()
+                        .unwrap()
+                        .invoke_open_error_dialog(msg.into());
                 }
-                let mods_dir = darc.mods_directory.clone();
-                let module = &mut darc.mods[row_num];
-                let mut buf = PathBuf::from(mods_dir.clone());
-                buf.push(&module.path.clone());
-                let mod_path = buf.display().to_string();
-                module.config.enabled = !module.config.enabled;
-                let mut module = module.clone();
-                match save_mod_config(mod_path.as_str(), &mut module.config) {
+            }
+        }
+        let mods = get_mods_in_order();
+        let _ = set_mods_table(&mods, ui_toggle_handle.clone());
+    });
+
+    ui.global::<ModLogic>().on_move_mod_up(move |idx| {
+        let ui_mod_up_handle = ui_mod_up_handle.clone();
+        if idx < 1 {
+            return;
+        }
+        if let Ok(mut gcfg) = DIVA_CFG.lock() {
+            gcfg.priority.swap(idx as usize, (idx - 1) as usize);
+            let lcfg = gcfg.clone();
+            tokio::spawn(async move {
+                match write_config(lcfg).await {
                     Ok(_) => {
-                        set_mods_table(&darc.mods.clone(), ui_toggle_handle);
+                        // let gmods = MODS.lock().unwrap();
+                        if let Err(e) =
+                            set_mods_table(&get_mods_in_order(), ui_mod_up_handle.clone())
+                        {
+                            let msg =
+                                format!("Unable to save priority to disk: \n{}", e.to_string());
+                            ui_mod_up_handle
+                                .upgrade()
+                                .unwrap()
+                                .invoke_open_error_dialog(msg.into());
+                        }
                     }
-                    Err(_e) => {}
+                    Err(e) => {
+                        let msg = format!("Unable to save priority to disk: \n{}", e.to_string());
+                        ui_mod_up_handle
+                            .upgrade()
+                            .unwrap()
+                            .invoke_open_error_dialog(msg.into());
+                    }
                 }
             });
         }
     });
+    ui.global::<ModLogic>().on_move_mod_down(move |idx| {
+        let ui_mod_down_handle = ui_mod_down_handle.clone();
+        if idx < 0 {
+            return;
+        }
+        if let Ok(mut gcfg) = DIVA_CFG.lock() {
+            if idx >= (gcfg.priority.len() - 1) as i32 {
+                return;
+            }
+            gcfg.priority.swap(idx as usize, (idx + 1) as usize);
+            let lcfg = gcfg.clone();
+            tokio::spawn(async move {
+                match write_config(lcfg).await {
+                    Ok(_) => {
+                        // let gmods = MODS.lock().unwrap();
+                        if let Err(e) =
+                            set_mods_table(&get_mods_in_order(), ui_mod_down_handle.clone())
+                        {
+                            let msg =
+                                format!("Unable to save priority to disk: \n{}", e.to_string());
+                            ui_mod_down_handle
+                                .upgrade()
+                                .unwrap()
+                                .invoke_open_error_dialog(msg.into());
+                        }
+                    }
+                    Err(e) => {
+                        let msg = format!("Unable to save priority to disk: \n{}", e.to_string());
+                        ui_mod_down_handle
+                            .upgrade()
+                            .unwrap()
+                            .invoke_open_error_dialog(msg.into());
+                    }
+                }
+            });
+        }
+    });
+
     ui.on_open_file_picker(move || {
         let picker = AsyncFileDialog::new()
             .add_filter("Archives", &["zip", "rar", "7z", "tar.gz"])
@@ -161,10 +279,12 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             if let Some(file_handle) = res {
                 match unpack_mod_path(file_handle.path().to_path_buf(), unpack_diva).await {
                     Ok(_) => {
+                        // waiting for this because idk, sometimes something goes wrong and the table fails to load properly will need to debug later
+                        tokio::time::sleep(Duration::from_millis(5)).await;
                         let darc = picker_diva.clone();
                         let mut diva = darc.lock().await;
                         let mods = load_mods_from_dir(diva.mods_directory.clone());
-                        set_mods_table(&mods, ui_file_picker_handle);
+                        let _ = set_mods_table(&mods, ui_file_picker_handle);
                         diva.mods = mods;
                     }
                     Err(e) => {
@@ -175,12 +295,17 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
         });
     });
 
-
-    let _ = spawn_download_listener(dl_rx, dl_ui_tx, &diva_arc.clone(), reload_dir, ui_download_handle);
+    let _ = spawn_download_listener(
+        dl_rx,
+        dl_ui_tx,
+        &diva_arc.clone(),
+        reload_dir,
+        ui_download_handle,
+    );
     let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
 }
 
-
+#[deprecated]
 pub fn load_mods(diva_data: &DivaData) -> Vec<DivaMod> {
     if diva_data.dml.is_none() {
         return vec![];
@@ -219,7 +344,10 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
     for path in paths {
         let mut mod_path = path.unwrap().path().clone();
         if mod_path.is_file() || !mod_path.clone().is_dir() {
-            println!("Not a mod folder: {}", mod_path.clone().display().to_string());
+            println!(
+                "Not a mod folder: {}",
+                mod_path.clone().display().to_string()
+            );
             continue;
         }
 
@@ -230,7 +358,10 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
             Ok(s) => {
                 let mod_config_res: Result<DivaModConfig, _> = toml::from_str(s.as_str());
                 if mod_config_res.is_err() {
-                    println!("Failed to read mod config for: {}", mod_path.clone().display().to_string());
+                    println!(
+                        "Failed to read mod config for: {}",
+                        mod_path.clone().display().to_string()
+                    );
                     continue;
                 }
                 let mut mod_config = mod_config_res.unwrap();
@@ -241,7 +372,10 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
                 });
             }
             Err(_) => {
-                println!("Not a mod folder: {}", mod_path.clone().display().to_string());
+                println!(
+                    "Not a mod folder: {}",
+                    mod_path.clone().display().to_string()
+                );
                 continue;
             }
         }
@@ -249,137 +383,38 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
     mods
 }
 
-
-pub fn get_steam_folder() -> Option<String> {
-    println!("Attempting to find the Steam folder");
-    return match env::consts::OS {
-        "linux" => {
-            let mut binding = dirs::home_dir().unwrap();
-            binding.push(STEAM_FOLDER);
-            if !binding.exists() {
-                println!("Regular Steam folder not found, searching for flatpak isntead");
-                binding = dirs::home_dir().unwrap();
-                binding.push(".var/app/com.valvesoftware.Steam/data/Steam");
-                if !binding.exists() {
-                    println!("Can't find flatpak steam.");
-                    return None;
-                }
-            }
-            Some(binding.display().to_string())
-        }
-        "macos" => {
-            let mut binding = dirs::home_dir().unwrap();
-            binding.push(STEAM_FOLDER_MAC);
-            if !binding.exists() {
-                println!("Steam folder not found");
-            }
-            Some(binding.display().to_string())
-        }
-        "windows" => {
-            // only compiles on windows
-            cfg_if::cfg_if! {
-                if #[cfg(windows)] {
-                    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-                    let steam_key = hklm.open_subkey(r#"SOFTWARE\WOW6432Node\Valve\Steam"#);
-                    if steam_key.is_err() {
-                        return None;
-                    }
-                    let steam_key = steam_key.unwrap();
-                    let res: std::io::Result<String> = steam_key.get_value("InstallPath");
-                    if let Ok(path) = res {
-                        println!("{}", path);
-                        Some(path);
-                    }
-                } else {
-                   None
-                }
-            }
-        }
-        os => {
-            println!("Unsupported Operating system: {}", os);
-            None
-        }
-    };
-}
-
-pub fn get_diva_folder() -> Option<String> {
-    println!("Looking for the mods folder");
-    match get_steam_folder() {
-        Some(steam_folder) => {
-            let mut path = "".to_owned();
-            let mut lib_path = PathBuf::new();
-            lib_path.push(steam_folder);
-            lib_path.push(STEAM_LIBRARIES_CONFIG);
-            if !lib_path.exists() {
-                return None;
-            }
-
-            let binding = fs::read_to_string(lib_path).unwrap();
-            let lf_res = Vdf::parse(binding.as_str());
-            match lf_res {
-                Ok(libraryfolders) => {
-                    let libraries = libraryfolders.value.unwrap_obj();
-                    for library_id in libraries.clone().keys() {
-                        // get the library obj
-                        let library = libraries.get(library_id).unwrap().first().unwrap().clone().unwrap_obj();
-                        // prevent a crash in case of malformed libraryfolders.vdf
-                        if !library.contains_key("apps") || !library.contains_key("path") { continue; }
-                        // get the list of apps installed to this library
-                        let apps = library.get("apps").unwrap().first().unwrap().clone().unwrap_obj();
-                        // self-explanatory
-                        if apps.contains_key(MEGA_MIX_APP_ID) {
-                            // get the path of the library
-                            let path_str = library.get("path").unwrap().first().unwrap().to_string();
-                            // this is set up for removing the quotes
-                            let mut path_chars = path_str.chars();
-                            // remove the quotes from the value
-                            path_chars.next();
-                            path_chars.next_back();
-                            // concat the strings together properly
-                            let mut buf = PathBuf::new();
-                            buf.push(path_chars.as_str());
-                            let diva = PathBuf::from(DIVA_MOD_FOLDER_SUFFIX);
-                            buf.push(diva.as_os_str());
-                            path = buf.canonicalize().unwrap().as_os_str().to_str().unwrap().to_string();
-                            println!("Fuck yes, we found it, {:?}", path);
-                            break;
-                        }
-                    }
-                    Some(path)
-                }
-                Err(e) => {
-                    eprintln!("{}", e);
-                    None
-                }
-            }
-        }
-        None => {
-            return None;
-        }
-    }
-}
-
-pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) -> std::io::Result<()> {
-    let config_path = Path::new(path);
+pub fn save_mod_config(
+    config_path: PathBuf,
+    diva_mod_config: &mut DivaModConfig,
+) -> std::io::Result<()> {
     if let Ok(config_str) = toml::to_string(&diva_mod_config) {
         return match fs::write(config_path, config_str) {
             Ok(..) => {
                 println!("Successfully updated config for {}", diva_mod_config.name);
                 Ok(())
             }
-            Err(e) => {
-                Err(e.into())
-            }
+            Err(e) => Err(e.into()),
         };
     }
     return Err(std::io::Error::new(ErrorKind::Other, "IDK"));
 }
 
-pub async fn unpack_mod_path(archive: PathBuf, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
-    let diva = diva_arc.lock().await;
-    let mut buf = PathBuf::from(&diva.diva_directory);
-    buf.push(diva.clone().dml.unwrap().mods);
-    let valid = check_archive_valid_structure(File::open(archive.clone()).unwrap());
+pub async fn unpack_mod_path(
+    archive: PathBuf,
+    diva_arc: Arc<Mutex<DivaData>>,
+) -> compress_tools::Result<()> {
+    let mut buf = PathBuf::from(get_diva_folder().unwrap_or("./mods".to_string()));
+    // DIVA_CFG.lock().unwrap().
+    buf.push(DML_CFG.lock().unwrap().mods.clone());
+    // buf.push(diva.clone().dml.unwrap().mods);
+    let name = archive
+        .file_name()
+        .unwrap_or(OsStr::new("missing.zip"))
+        .to_str()
+        .unwrap()
+        .to_string();
+    // let name = buf.extension().unwrap_or(OsStr::new("zip")).to_str().unwrap().to_string();
+    let valid = check_archive_valid_structure(File::open(archive.clone()).unwrap(), name);
     println!("Good structure? {}", valid);
     if !valid {
         buf.push(archive.file_name().unwrap());
@@ -391,17 +426,28 @@ pub async fn unpack_mod_path(archive: PathBuf, diva_arc: Arc<Mutex<DivaData>>) -
     uncompress_archive(mod_archive, buf.as_path(), Ownership::Ignore)
 }
 
-pub fn check_archive_valid_structure(archive: File) -> bool {
+pub fn check_archive_valid_structure(archive: File, name: String) -> bool {
+    println!("name: {}", name);
+    let rar = name.ends_with(".rar");
     return match list_archive_files(archive) {
         Ok(files) => {
+            let mut count = 0;
             for file in files {
                 println!("{}", file);
                 // zip spec uses / not \ so windows will be fine - WagYourTail, 2024
                 if !file.contains("/") {
-                    return false;
+                    // this logic might work now
+                    // rar archive work around since folders are not represented with a trailing /
+                    if rar {
+                        count += 1;
+                        println!("aw dang it");
+                    } else {
+                        return false;
+                    }
                 }
             }
-            true
+            // true if archive contains a single folder and nothing else at the root
+            count <= 1
         }
         Err(e) => {
             eprintln!("{}", e);
@@ -416,41 +462,33 @@ pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
     if !buf.exists() {
         return None;
     }
-    let res: Result<DivaModLoader, Error> = toml::from_str(fs::read_to_string(buf).unwrap().as_str());
+    let res: Result<DivaModLoader, Error> =
+        toml::from_str(fs::read_to_string(buf).unwrap().as_str());
     let mut loader: Option<DivaModLoader> = None;
     match res {
         Ok(diva_ml) => {
             loader = Some(diva_ml);
         }
         Err(e) => {
-            panic!("Failed to read data: {}", e)
+            eprintln!("Failed to read data: {}", e)
         }
     }
     return loader;
 }
 
-pub fn create_tmp_if_not() -> std::io::Result<()> {
-    match get_temp_folder() {
-        Some(p) => {
-            let path = Path::new(&p);
-            if !path.exists() {
-                let dir = fs::create_dir(path);
-                return dir;
-            }
-            Ok(())
-        }
-        None => {
-            Err(std::io::Error::new(ErrorKind::InvalidInput, "Unknown temp dir path"))
-        }
-    }
-}
-
-pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Sender<(i32, f32)>, diva_arc: &Arc<Mutex<DivaData>>, mods_dir: String, ui_download_handle: Weak<App>) {
+pub fn spawn_download_listener(
+    mut dl_rx: Receiver<(i32, Download)>,
+    prog_tx: Sender<(i32, f32)>,
+    diva_arc: &Arc<Mutex<DivaData>>,
+    mods_dir: String,
+    ui_download_handle: Weak<App>,
+) {
     let diva_arc = diva_arc.clone();
     let ui_download_handle = ui_download_handle.clone();
     tokio::spawn(async move {
         println!("Listening for downloads");
         while !dl_rx.is_closed() {
+            // Vec::is_empty()
             if let Some((index, download)) = dl_rx.recv().await {
                 println!("{}", download.url.as_str());
                 let mut dst = Vec::new();
@@ -461,21 +499,23 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
 
                 {
                     let mut transfer = easy.transfer();
-                    transfer.write_function(|data| {
-                        if !started {
-                            started = true;
-                            println!("First chunk received");
-                        }
-                        dst.extend_from_slice(data);
-                        let p = prog_tx.try_send((index.clone(), data.len() as f32));
-                        match p {
-                            Ok(_) => {}
-                            Err(e) => {
-                                eprintln!("{}", e);
+                    transfer
+                        .write_function(|data| {
+                            if !started {
+                                started = true;
+                                println!("First chunk received");
                             }
-                        }
-                        Ok(data.len())
-                    }).unwrap();
+                            dst.extend_from_slice(data);
+                            let p = prog_tx.try_send((index.clone(), data.len() as f32));
+                            match p {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!("{}", e);
+                                }
+                            }
+                            Ok(data.len())
+                        })
+                        .unwrap();
 
                     // handle the error here instead of unwrapping so that this
                     // receiver thread doesn't panic and downloads can continue to happen
@@ -485,14 +525,16 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                             eprintln!("{}", e);
                             let _ = ui_download_handle.upgrade_in_event_loop(move |ui| {
                                 let downloads = ui.get_downloads_list();
-                                if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>() {
+                                if let Some(downloads) =
+                                    downloads.as_any().downcast_ref::<VecModel<Download>>()
+                                {
                                     if let Some(mut download) = downloads.row_data(index as usize) {
                                         download.failed = true;
                                         downloads.set_row_data(index as usize, download);
                                     }
                                 }
                             });
-                            // skip the file shit, wait for next download
+                            // skip the file, wait for next download
                             continue;
                         }
                     }
@@ -501,33 +543,51 @@ pub fn spawn_download_listener(mut dl_rx: Receiver<(i32, Download)>, prog_tx: Se
                 dl_path.push(&download.name.as_str());
                 let file_res = File::create(dl_path.clone());
                 match file_res {
-                    Ok(mut f) => {
-                        match f.write_all(dst.clone().as_slice()) {
-                            Ok(_) => {
-                                println!("Saved successfully, will try to extract");
-                                match unpack_mod_path(dl_path.clone(), diva_arc.clone()).await {
-                                    Ok(_) => {
-                                        println!("Successfully unpacked mod");
-                                        let mods = load_mods_from_dir(mods_dir.clone());
-                                        let mut diva = diva_arc.lock().await;
-                                        diva.mods = mods.clone();
-                                        ui_download_handle.upgrade_in_event_loop(move |ui| {
-                                            let model = create_mods_model(&mods.clone());
-                                            ui.set_stuff(model);
-                                        }).expect("failed to update the mods list after unpacking mod");
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Failed to extract the mod file:\n{}", e);
-                                    }
+                    Ok(mut f) => match f.write_all(dst.clone().as_slice()) {
+                        Ok(_) => {
+                            println!("Saved successfully, will try to extract");
+                            match unpack_mod_path(dl_path.clone(), diva_arc.clone()).await {
+                                Ok(_) => {
+                                    println!("Successfully unpacked mod");
+                                    let mods = load_mods_from_dir(mods_dir.clone());
+                                    let mut diva = diva_arc.lock().await;
+                                    diva.mods = mods.clone();
+                                    let _ = set_mods_table(&mods, ui_download_handle.clone());
+                                }
+                                Err(e) => {
+                                    eprintln!("Failed to extract the mod file:\n{}", e);
+                                    let _ = ui_download_handle.clone().upgrade_in_event_loop(
+                                        move |ui| {
+                                            let msg = format!(
+                                                "Failed to extract the mod file: \n{}",
+                                                e.to_string()
+                                            );
+                                            ui.invoke_open_error_dialog(msg.into());
+                                        },
+                                    );
                                 }
                             }
-                            Err(e) => {
-                                eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                            }
                         }
-                    }
+                        Err(e) => {
+                            eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                            let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
+                                let msg = format!(
+                                    "Something went wrong while saving the file to disk: \n{}",
+                                    e.to_string()
+                                );
+                                ui.invoke_open_error_dialog(msg.into());
+                            });
+                        }
+                    },
                     Err(e) => {
                         eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                        let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
+                            let msg = format!(
+                                "Something went wrong while saving the file to disk: \n{}",
+                                e.to_string()
+                            );
+                            ui.invoke_open_error_dialog(msg.into());
+                        });
                     }
                 }
             }
@@ -542,7 +602,8 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
             if let Ok((index, chunk_size)) = prog_rx.try_recv() {
                 match ui_weak.upgrade_in_event_loop(move |ui| {
                     let downloads = ui.get_downloads_list();
-                    if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>() {
+                    if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>()
+                    {
                         if let Some(mut download) = downloads.row_data(index as usize) {
                             download.progress += chunk_size;
                             downloads.set_row_data(index as usize, download);
@@ -560,53 +621,7 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
     });
 }
 
-pub fn create_mods_model(mods: &Vec<DivaMod>) -> ModelRc<ModelRc<StandardListViewItem>> {
-    let model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
-    for item in mods.iter() {
-        let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
-        let enable_str = if item.config.enabled { "Enabled" } else { "Disabled" };
-        let enabled = StandardListViewItem::from(enable_str);
-        let name = StandardListViewItem::from(item.config.name.as_str());
-        let authors = StandardListViewItem::from(item.config.author.as_str());
-        let version = StandardListViewItem::from(item.config.version.as_str());
-        let description = StandardListViewItem::from(item.config.description.as_str());
-        items.push(enabled);
-        items.push(name);
-        items.push(authors);
-        items.push(version);
-        items.push(description);
-        model_vec.push(items.into());
-    }
-    ModelRc::new(model_vec)
-}
-
-pub fn get_temp_folder() -> Option<String> {
-    match env::consts::OS {
-        "linux" | "macos" => {
-            Some("/tmp/rust4diva".to_string())
-        }
-        "windows" => {
-            let mut tmp = dirs::data_local_dir().unwrap();
-            tmp.push("Temp");
-            let temp = tmp.as_os_str();
-            match temp.to_str() {
-                Some(s) => {
-                    let t = s.to_owned();
-                    Some(t)
-                }
-                None => {
-                    None
-                }
-            }
-        }
-        os => {
-            println!("Unknown OS: {}", os);
-            None
-        }
-    }
-}
-
-pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) {
+pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), EventLoopError> {
     let mods = mods.clone();
     ui_handle.upgrade_in_event_loop(move |ui| {
         let mods_model: VecModel<DivaModElement> = VecModel::default();
@@ -615,5 +630,41 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) {
         }
         let model = ModelRc::new(mods_model);
         ui.set_mods(model);
-    }).unwrap();
+    })
+}
+
+pub fn load_mods_too() -> std::io::Result<()> {
+    let dir = DIVA_DIR.lock().unwrap().to_string();
+    let mut buf = PathBuf::from(dir);
+    let mut gconf = DIVA_CFG.lock().unwrap();
+    buf.push("mods");
+    let buf = buf.canonicalize()?;
+    buf.display().to_string();
+    let mods = load_mods_from_dir(buf.display().to_string());
+    let mut dmods = MODS.lock().unwrap();
+    let mut mod_map = HashMap::new();
+    for m in mods {
+        let n = m.dir_name().unwrap_or(m.config.name.clone());
+        mod_map.insert(n.clone(), m.clone());
+        if !gconf.priority.contains(&n) {
+            gconf.priority.push(n);
+        }
+    }
+    *dmods = mod_map.clone();
+    Ok(())
+}
+
+pub fn get_mods_in_order() -> Vec<DivaMod> {
+    let mut mods = vec![];
+    let prio = DIVA_CFG.lock().unwrap().priority.clone();
+    let gmods = MODS.lock().unwrap().clone();
+    for p in prio {
+        match gmods.get(&p) {
+            Some(m) => {
+                mods.push(m.clone());
+            }
+            None => {}
+        }
+    }
+    mods
 }

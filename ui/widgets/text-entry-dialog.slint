@@ -1,0 +1,67 @@
+import { PopupBorder } from "../components/popup.slint";
+import { VerticalBox, Button, HorizontalBox, Palette, LineEdit } from "std-widgets.slint";
+export component TextEntryDialog {
+    in property <string> default-text;
+    in property <length> offset_x;
+    in property <length> offset_y;
+    // out property <length> win-width: popup-window.width;
+
+    callback accepted(string);
+    popup-window := PopupWindow {
+
+        init => {
+            text-input.focus();
+        }
+
+        x: parent.offset_x;
+        y: parent.offset_y + 15px;
+        close-on-click: false;
+        key-handler := FocusScope {
+            key-pressed(e) => {
+                if (e.text == Key.Escape) {
+                    root.close();
+                }
+                accept
+            }
+
+            PopupBorder {
+                VerticalBox {
+                    text-input := LineEdit {
+                        accepted => {
+                            root.accepted(self.text);
+                            root.close();
+                        }
+                    }
+
+                    HorizontalBox {
+                        Button {
+                            text: "Cancel";
+                            min-width: 80px;
+                            clicked => {
+                                root.close();
+                            }
+                        }
+
+                        Button {
+                            min-width: 80px;
+                            text: "Accept";
+                            clicked => {
+                                root.accepted(text-input.text);
+                                root.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public function show() {
+        popup-window.show();
+        // text-input.focus(); // this will cause the compiler to crash
+    }
+
+    public function close() {
+        popup-window.close();
+    }
+}

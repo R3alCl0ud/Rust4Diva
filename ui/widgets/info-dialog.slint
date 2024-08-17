@@ -1,0 +1,49 @@
+import { StandardButton, VerticalBox, Button, AboutSlint } from "std-widgets.slint";
+import { PopupBorder, Popup } from "../components/popup.slint";
+
+
+export component InfoDialog {
+    in property <string> msg;
+    in property <length> offset_x;
+    in property <length> offset_y;
+    popup-window := Popup {
+        in-out property <length> offset_inner_x;
+        x: -240px;
+        y: -100px;
+        min-win-height: 100px;
+        vb := VerticalBox {
+
+            HorizontalLayout {
+                Image {
+
+                    height: 128px;
+                    width: 128px;
+                    source: @image-url("../../assets/rust4diva.png");
+                }
+
+                Text {
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    text: "Rust4Diva - Neptune 2024\nFast Cross-platform mod manager for Project Diva Mega Mix+";
+                }
+            }
+
+            AboutSlint { }
+
+            Button {
+                text: "Ok";
+                clicked => {
+                    root.close();
+                }
+            }
+        }
+    }
+
+    public function show() {
+        popup-window.show();
+    }
+
+    public function close() {
+        popup-window.close();
+    }
+}
