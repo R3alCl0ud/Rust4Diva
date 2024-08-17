@@ -19,6 +19,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use toml::de::Error;
 
+use crate::config::write_config;
 use crate::diva::{get_diva_folder, get_temp_folder};
 use crate::modpacks::ModPackMod;
 use crate::slint_generatedApp::App;
@@ -151,7 +152,8 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let ui_progress_handle = ui.as_weak();
     let ui_download_handle = ui.as_weak();
     let ui_file_picker_handle = ui.as_weak();
-    let toggle_diva = diva_arc.clone();
+    let ui_mod_up_handle = ui.as_weak();
+    let ui_mod_down_handle = ui.as_weak();
     let _load_diva = diva_arc.clone();
     let picker_diva = diva_arc.clone();
     let diva_state = diva_arc.lock().await;
@@ -193,9 +195,75 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
         let _ = set_mods_table(&mods, ui_toggle_handle.clone());
     });
 
-    ui.global::<ModLogic>().on_move_mod_up(move |idx|{
-        if let Some(gcfg) = DIVA_CFG.lock() {
-            
+    ui.global::<ModLogic>().on_move_mod_up(move |idx| {
+        let ui_mod_up_handle = ui_mod_up_handle.clone();
+        if idx < 1 {
+            return;
+        }
+        if let Ok(mut gcfg) = DIVA_CFG.lock() {
+            gcfg.priority.swap(idx as usize, (idx - 1) as usize);
+            let lcfg = gcfg.clone();
+            tokio::spawn(async move {
+                match write_config(lcfg).await {
+                    Ok(_) => {
+                        // let gmods = MODS.lock().unwrap();
+                        if let Err(e) =
+                            set_mods_table(&get_mods_in_order(), ui_mod_up_handle.clone())
+                        {
+                            let msg =
+                                format!("Unable to save priority to disk: \n{}", e.to_string());
+                            ui_mod_up_handle
+                                .upgrade()
+                                .unwrap()
+                                .invoke_open_error_dialog(msg.into());
+                        }
+                    }
+                    Err(e) => {
+                        let msg = format!("Unable to save priority to disk: \n{}", e.to_string());
+                        ui_mod_up_handle
+                            .upgrade()
+                            .unwrap()
+                            .invoke_open_error_dialog(msg.into());
+                    }
+                }
+            });
+        }
+    });
+    ui.global::<ModLogic>().on_move_mod_down(move |idx| {
+        let ui_mod_down_handle = ui_mod_down_handle.clone();
+        if idx < 0 {
+            return;
+        }
+        if let Ok(mut gcfg) = DIVA_CFG.lock() {
+            if idx >= (gcfg.priority.len() - 1) as i32 {
+                return;
+            }
+            gcfg.priority.swap(idx as usize, (idx + 1) as usize);
+            let lcfg = gcfg.clone();
+            tokio::spawn(async move {
+                match write_config(lcfg).await {
+                    Ok(_) => {
+                        // let gmods = MODS.lock().unwrap();
+                        if let Err(e) =
+                            set_mods_table(&get_mods_in_order(), ui_mod_down_handle.clone())
+                        {
+                            let msg =
+                                format!("Unable to save priority to disk: \n{}", e.to_string());
+                            ui_mod_down_handle
+                                .upgrade()
+                                .unwrap()
+                                .invoke_open_error_dialog(msg.into());
+                        }
+                    }
+                    Err(e) => {
+                        let msg = format!("Unable to save priority to disk: \n{}", e.to_string());
+                        ui_mod_down_handle
+                            .upgrade()
+                            .unwrap()
+                            .invoke_open_error_dialog(msg.into());
+                    }
+                }
+            });
         }
     });
 
@@ -331,7 +399,10 @@ pub fn save_mod_config(
     return Err(std::io::Error::new(ErrorKind::Other, "IDK"));
 }
 
-pub async fn unpack_mod_path(archive: PathBuf, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
+pub async fn unpack_mod_path(
+    archive: PathBuf,
+    diva_arc: Arc<Mutex<DivaData>>,
+) -> compress_tools::Result<()> {
     let mut buf = PathBuf::from(get_diva_folder().unwrap_or("./mods".to_string()));
     // DIVA_CFG.lock().unwrap().
     buf.push(DML_CFG.lock().unwrap().mods.clone());
@@ -485,23 +556,21 @@ pub fn spawn_download_listener(
                                 }
                                 Err(e) => {
                                     eprintln!("Failed to extract the mod file:\n{}", e);
-                                    let _ = ui_download_handle
-                                    .clone()
-                                    .upgrade_in_event_loop(move |ui| {
-                                        let msg = format!(
-                                            "Failed to extract the mod file: \n{}",
-                                            e.to_string()
-                                        );
-                                        ui.invoke_open_error_dialog(msg.into());
-                                    });
+                                    let _ = ui_download_handle.clone().upgrade_in_event_loop(
+                                        move |ui| {
+                                            let msg = format!(
+                                                "Failed to extract the mod file: \n{}",
+                                                e.to_string()
+                                            );
+                                            ui.invoke_open_error_dialog(msg.into());
+                                        },
+                                    );
                                 }
                             }
                         }
                         Err(e) => {
                             eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                            let _ = ui_download_handle
-                            .clone()
-                            .upgrade_in_event_loop(move |ui| {
+                            let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
                                 let msg = format!(
                                     "Something went wrong while saving the file to disk: \n{}",
                                     e.to_string()
@@ -512,9 +581,7 @@ pub fn spawn_download_listener(
                     },
                     Err(e) => {
                         eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                        let _ = ui_download_handle
-                        .clone()
-                        .upgrade_in_event_loop(move |ui| {
+                        let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
                             let msg = format!(
                                 "Something went wrong while saving the file to disk: \n{}",
                                 e.to_string()

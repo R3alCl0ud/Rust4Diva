@@ -151,7 +151,7 @@ export component App inherits Window {
                         height: window_height - 210px;
                         columns: [
                             { title: "Enabled", width: 100px },
-                            { title: "Priority", width: 160px },
+                            { title: "Priority", width: 100px },
                             { title: "Name" },
                             { title: "Authors" },
                             { title: "Version", width: 100px },
@@ -160,7 +160,6 @@ export component App inherits Window {
                         mods: mods;
                         mod-toggled(index, module) => {
                             ModLogic.toggle-mod(module);
-                            // toggle-mod(index);
                         }
                     }
 
