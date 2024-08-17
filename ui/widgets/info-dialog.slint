@@ -12,10 +12,20 @@ export component InfoDialog {
         y: -100px;
         min-win-height: 100px;
         vb := VerticalBox {
-            Text {
-                horizontal-alignment: center;
-                vertical-alignment: center;
-                text: "Rust4Diva - Neptune 2024\nFast Cross-platform mod manager for Project Diva Mega Mix+";
+
+            HorizontalLayout {
+                Image {
+
+                    height: 128px;
+                    width: 128px;
+                    source: @image-url("../../assets/rust4diva.png");
+                }
+
+                Text {
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    text: "Rust4Diva - Neptune 2024\nFast Cross-platform mod manager for Project Diva Mega Mix+";
+                }
             }
 
             AboutSlint { }
