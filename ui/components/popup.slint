@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2022 flovansl <co_sl@tutanota.com>
 // SPDX-License-Identifier: MIT
-
-import { Palette, Radius } from "../styling.slint";
+import {Palette } from "std-widgets.slint";
+import { Radius } from "../styling.slint";
+import { CosmicPalette } from "../styling/cosmic-styling.slint";
 
 export component PopupBorder inherits Rectangle {
     background: Palette.background;
@@ -9,7 +10,7 @@ export component PopupBorder inherits Rectangle {
     border_width: 1px;
     border_color: Palette.border;
     clip: true;
-    drop_shadow_color: Palette.shadow;
+    drop_shadow_color: CosmicPalette.shadow;
     drop_shadow_blur: 16px;
     drop_shadow_offset_y: 4px;
 }

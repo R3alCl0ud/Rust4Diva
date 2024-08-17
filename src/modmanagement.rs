@@ -19,11 +19,11 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use toml::de::Error;
 
-use crate::diva::get_temp_folder;
+use crate::diva::{get_diva_folder, get_temp_folder};
 use crate::modpacks::ModPackMod;
 use crate::slint_generatedApp::App;
-use crate::{DivaData, Download, DIVA_CFG, MODS};
-use crate::{DivaModElement, DIVA_DIR};
+use crate::{DivaData, Download, DIVA_CFG, DML_CFG, MODS};
+use crate::{DivaModElement, ModLogic, DIVA_DIR};
 
 cfg_if::cfg_if! {
     if #[cfg(windows)] {
@@ -34,27 +34,27 @@ cfg_if::cfg_if! {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
-    pub(crate) enabled: bool,
+    pub enabled: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub(crate) include: Vec<String>,
+    pub include: Vec<String>,
     #[serde(default)]
-    pub(crate) dll: Vec<String>,
+    pub dll: Vec<String>,
     #[serde(default)]
-    pub(crate) name: String,
+    pub name: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub(crate) description: String,
+    pub description: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub(crate) version: String,
+    pub version: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub(crate) date: String,
+    pub date: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub(crate) author: String,
+    pub author: String,
 }
 
 #[derive(Clone)]
 pub struct DivaMod {
-    pub(crate) config: DivaModConfig,
-    pub(crate) path: String,
+    pub config: DivaModConfig,
+    pub path: String,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -65,7 +65,7 @@ pub struct DivaModLoader {
     pub(crate) console: bool,
     #[serde(default)]
     pub(crate) mods: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(crate) version: String,
     ///
     /// This field tells dml what order to load mods in.
@@ -173,30 +173,29 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
         }
     });
 
-    ui.on_toggle_mod(move |row_num| {
-        if row_num > -1 {
-            let row_num: usize = row_num as usize;
-            let toggle_diva = Arc::clone(&toggle_diva);
-            let ui_toggle_handle = ui_toggle_handle.clone();
-            tokio::spawn(async move {
-                let darc = &mut toggle_diva.lock().await;
-                if darc.mods.len() < row_num {
-                    return;
+    ui.global::<ModLogic>().on_toggle_mod(move |module| {
+        if let Ok(mut gmods) = MODS.lock() {
+            if let Some(m) = gmods.get_mut(&module.dir_name().unwrap()) {
+                m.config.enabled = !m.config.enabled;
+                let buf = PathBuf::from(m.path.clone());
+                println!("{}", buf.display());
+                // fs::write(buf,
+                if let Err(e) = save_mod_config(buf, &mut m.config.clone()) {
+                    let msg = format!("Unable to save modpack: \n{}", e.to_string());
+                    ui_toggle_handle
+                        .upgrade()
+                        .unwrap()
+                        .invoke_open_error_dialog(msg.into());
                 }
-                let mods_dir = darc.mods_directory.clone();
-                let module = &mut darc.mods[row_num];
-                let mut buf = PathBuf::from(mods_dir.clone());
-                buf.push(&module.path.clone());
-                let mod_path = buf.display().to_string();
-                module.config.enabled = !module.config.enabled;
-                let mut module = module.clone();
-                match save_mod_config(mod_path.as_str(), &mut module.config) {
-                    Ok(_) => {
-                        let _ = set_mods_table(&darc.mods.clone(), ui_toggle_handle);
-                    }
-                    Err(_e) => {}
-                }
-            });
+            }
+        }
+        let mods = get_mods_in_order();
+        let _ = set_mods_table(&mods, ui_toggle_handle.clone());
+    });
+
+    ui.global::<ModLogic>().on_move_mod_up(move |idx|{
+        if let Some(gcfg) = DIVA_CFG.lock() {
+            
         }
     });
 
@@ -316,8 +315,10 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
     mods
 }
 
-pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) -> std::io::Result<()> {
-    let config_path = Path::new(path);
+pub fn save_mod_config(
+    config_path: PathBuf,
+    diva_mod_config: &mut DivaModConfig,
+) -> std::io::Result<()> {
     if let Ok(config_str) = toml::to_string(&diva_mod_config) {
         return match fs::write(config_path, config_str) {
             Ok(..) => {
@@ -330,13 +331,11 @@ pub fn save_mod_config(path: &str, diva_mod_config: &mut DivaModConfig) -> std::
     return Err(std::io::Error::new(ErrorKind::Other, "IDK"));
 }
 
-pub async fn unpack_mod_path(
-    archive: PathBuf,
-    diva_arc: Arc<Mutex<DivaData>>,
-) -> compress_tools::Result<()> {
-    let diva = diva_arc.lock().await;
-    let mut buf = PathBuf::from(&diva.diva_directory);
-    buf.push(diva.clone().dml.unwrap().mods);
+pub async fn unpack_mod_path(archive: PathBuf, diva_arc: Arc<Mutex<DivaData>>) -> compress_tools::Result<()> {
+    let mut buf = PathBuf::from(get_diva_folder().unwrap_or("./mods".to_string()));
+    // DIVA_CFG.lock().unwrap().
+    buf.push(DML_CFG.lock().unwrap().mods.clone());
+    // buf.push(diva.clone().dml.unwrap().mods);
     let name = archive
         .file_name()
         .unwrap_or(OsStr::new("missing.zip"))
@@ -486,15 +485,42 @@ pub fn spawn_download_listener(
                                 }
                                 Err(e) => {
                                     eprintln!("Failed to extract the mod file:\n{}", e);
+                                    let _ = ui_download_handle
+                                    .clone()
+                                    .upgrade_in_event_loop(move |ui| {
+                                        let msg = format!(
+                                            "Failed to extract the mod file: \n{}",
+                                            e.to_string()
+                                        );
+                                        ui.invoke_open_error_dialog(msg.into());
+                                    });
                                 }
                             }
                         }
                         Err(e) => {
                             eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                            let _ = ui_download_handle
+                            .clone()
+                            .upgrade_in_event_loop(move |ui| {
+                                let msg = format!(
+                                    "Something went wrong while saving the file to disk: \n{}",
+                                    e.to_string()
+                                );
+                                ui.invoke_open_error_dialog(msg.into());
+                            });
                         }
                     },
                     Err(e) => {
                         eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                        let _ = ui_download_handle
+                        .clone()
+                        .upgrade_in_event_loop(move |ui| {
+                            let msg = format!(
+                                "Something went wrong while saving the file to disk: \n{}",
+                                e.to_string()
+                            );
+                            ui.invoke_open_error_dialog(msg.into());
+                        });
                     }
                 }
             }
@@ -527,8 +553,6 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
         println!("Progress listener Closed");
     });
 }
-
-
 
 pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), EventLoopError> {
     let mods = mods.clone();

@@ -7,9 +7,11 @@ import { DivaModElement, ModPackElement } from "diva-types.slint";
 import { ModPickTable, PackTable } from "widgets/modpack-tables.slint";
 import { ContextMenu } from "widgets/context-menu.slint";
 import { TextEntryDialog } from "widgets/text-entry-dialog.slint";
-import { ModpackLogic } from "applogic.slint";
+import { ModpackLogic, ModLogic } from "applogic.slint";
+import { InfoDialog } from "widgets/info-dialog.slint";
+import { TextBox } from "widgets/text-box.slint";
 
-export { ModPackElement, ModpackLogic }
+export { ModPackElement, ModpackLogic, ModLogic }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -86,12 +88,15 @@ export component App inherits Window {
     }
 
     packcreator := TextEntryDialog {
-        // height: 0px;
+        // x: (window_width / 2) - 100px;
+        // y: (window_height / 2) - 100px;
         offset_x: -100px;
         accepted(text) => {
             ModpackLogic.create-new-pack(text);
         }
     }
+
+    aboutdialog := InfoDialog { }
 
     VerticalLayout {
         HorizontalBox {
@@ -103,7 +108,10 @@ export component App inherits Window {
             }
 
             Button {
-                text: "(H)elp";
+                text: "About Rust4Diva";
+                clicked => {
+                    aboutdialog.show();
+                }
             }
 
             Button {
@@ -143,6 +151,7 @@ export component App inherits Window {
                         height: window_height - 210px;
                         columns: [
                             { title: "Enabled", width: 100px },
+                            { title: "Priority", width: 160px },
                             { title: "Name" },
                             { title: "Authors" },
                             { title: "Version", width: 100px },
@@ -150,7 +159,8 @@ export component App inherits Window {
                         ];
                         mods: mods;
                         mod-toggled(index, module) => {
-                            toggle-mod(index);
+                            ModLogic.toggle-mod(module);
+                            // toggle-mod(index);
                         }
                     }
 
@@ -185,7 +195,7 @@ export component App inherits Window {
                     HorizontalLayout {
                         packbtn := Button {
                             width: window_width - 200px;
-                            text: packsctx-menu.model[packsctx-menu.current_item];
+                            text: packsctx-menu.current_item != -1 ? "Editing: " + packsctx-menu.model[packsctx-menu.current_item] : "";
                             clicked => {
                                 if (packsctx-menu.model.length == 0) {
                                     return;
@@ -311,25 +321,31 @@ export component App inherits Window {
                             vertical-alignment: TextVerticalAlignment.center;
                         }
 
-                        Rectangle {
-                            y: -6px;
-                            height: 35px;
-                            border-width: 2px;
-                            border-color: CosmicPalette.border;
-                            border-radius: 5px;
-                            background: CosmicPalette.alternate-background;
-                            sbox := TextInput {
-                                x: 5px;
-                                y: 3px;
-                                height: 30px;
-                                font-size: 22px;
-                                wrap: word-wrap;
-                                text: "";
-                                accepted => {
-                                    search-gb(self.text)
-                                }
+                        TextBox {
+                            accepted(text) => {
+                                search-gb(text);
                             }
                         }
+
+                        // Rectangle {
+                        //     y: -6px;
+                        //     height: 35px;
+                        //     border-width: 2px;
+                        //     border-color: CosmicPalette.border;
+                        //     border-radius: 5px;
+                        //     background: CosmicPalette.alternate-background;
+                        //     sbox := TextInput {
+                        //         x: 5px;
+                        //         y: 3px;
+                        //         height: 30px;
+                        //         font-size: 22px;
+                        //         wrap: word-wrap;
+                        //         text: "";
+                        //         accepted => {
+                        //             search-gb(self.text)
+                        //         }
+                        //     }
+                        // }
 
                         search-prog := ProgressIndicator {
                             visible: s-prog-vis;

@@ -57,6 +57,14 @@ pub static DIVA_CFG: LazyLock<std::sync::Mutex<DivaConfig>> =
 pub static MOD_PACKS: LazyLock<std::sync::Mutex<HashMap<String, ModPack>>> =
     LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
 
+pub static DML_CFG: LazyLock<std::sync::Mutex<DivaModLoader>> = LazyLock::new(|| {
+    let mut cfg = None;
+    if let Ok(dir) = DIVA_DIR.lock() {
+        cfg = load_diva_ml_config(dir.as_str());
+    }
+    std::sync::Mutex::new(cfg.unwrap_or(DivaModLoader::new()))
+});
+
 #[tokio::main]
 async fn main() {
     println!("Starting Rust4Diva Slint Edition");

@@ -1,5 +1,5 @@
 import { PopupBorder } from "../components/popup.slint";
-import { VerticalBox, Button, HorizontalBox } from "std-widgets.slint";
+import { VerticalBox, Button, HorizontalBox, Palette, LineEdit } from "std-widgets.slint";
 export component TextEntryDialog {
     in property <string> default-text;
     in property <length> offset_x;
@@ -16,7 +16,6 @@ export component TextEntryDialog {
         x: parent.offset_x;
         y: parent.offset_y + 15px;
         close-on-click: false;
-        forward-focus: key-handler;
         key-handler := FocusScope {
             key-pressed(e) => {
                 if (e.text == Key.Escape) {
@@ -27,10 +26,9 @@ export component TextEntryDialog {
 
             PopupBorder {
                 VerticalBox {
-                    text-input := TextInput {
-                        font-size: 16px;
+                    text-input := LineEdit {
                         accepted => {
-                            root.accepted(text-input.text);
+                            root.accepted(self.text);
                             root.close();
                         }
                     }

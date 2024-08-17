@@ -96,6 +96,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     let ui_change_handle = ui.as_weak();
     let ui_add_pack_handle = ui.as_weak();
     let ui_save_handle = ui.as_weak();
+    let ui_apply_handle = ui.as_weak();
 
     let change_diva = diva_arc.clone();
     let apply_diva = diva_arc.clone();
@@ -207,7 +208,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     ui.on_save_modpack(move |modpack, mods| {
         let modpack = modpack.to_string();
         let modpack = modpack.clone();
-        // let save_diva = save_diva.clone();
         match mods.as_any().downcast_ref::<VecModel<DivaModElement>>() {
             Some(mods) => {
                 let mut vec_mods: Vec<ModPackMod> = Vec::new();
@@ -252,36 +252,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                         None => {}
                     }
                 }
-
-                // tokio::spawn(async move {
-                //     let mods = vec_mods.clone();
-                //     let mut diva = save_diva.lock().await;
-                //     if let Some(mut pack) = diva.mod_packs.get(&modpack) {
-                //         let mut pack = pack.clone();
-                //         let mut new_mods = vec![];
-                //         for m in mods.iter() {
-                //             new_mods.push(m.to_packmod());
-                //         }
-                //         pack.mods = new_mods;
-                //         diva.mod_packs.insert(modpack.clone(), pack.clone());
-                //         match sonic_rs::to_string_pretty(&pack) {
-                //             Ok(pack_str) => {
-                //                 if let Ok(mut buf) = get_modpacks_folder().await {
-                //                     buf.push(format!("{modpack}.json"));
-                //                     match fs::write(buf, pack_str).await {
-                //                         Ok(..) => {}
-                //                         Err(e) => {
-                //                             eprintln!("{e}");
-                //                         }
-                //                     }
-                //                 }
-                //             }
-                //             Err(e) => {
-                //                 eprintln!("{}", e);
-                //             }
-                //         }
-                //     }
-                // });
             }
             None => {
                 return;
@@ -304,6 +274,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                 if vec_mods.is_empty() {
                     vec_mods = DIVA_CFG.lock().unwrap().priority.clone();
                 }
+                let ui_apply_handle = ui_apply_handle.clone();
                 tokio::spawn(async move {
                     let mut diva = apply_diva.lock().await;
                     if diva.dml.is_some() {
@@ -318,7 +289,18 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                                         Ok(_) => {
                                             println!("Mod pack successfully applied");
                                         }
-                                        Err(_) => {}
+                                        Err(e) => {
+                                            eprintln!("{e}");
+                                            let _ = ui_apply_handle.clone().upgrade_in_event_loop(
+                                                move |ui| {
+                                                    let msg = format!(
+                                                        "Unable to save modpack: \n{}",
+                                                        e.to_string()
+                                                    );
+                                                    ui.invoke_open_error_dialog(msg.into());
+                                                },
+                                            );
+                                        }
                                     }
                                 }
                             }

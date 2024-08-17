@@ -1,9 +1,10 @@
-import { ListView, VerticalBox, ProgressIndicator,CheckBox  } from "std-widgets.slint";
+import { ListView, VerticalBox, ProgressIndicator,CheckBox, Button  } from "std-widgets.slint";
 import { StateLayerBase } from "../components/state-layer-base.slint";
 import {Palette, FontSettings} from "../styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
 // import {Icons} from ""
 import { DivaModElement } from "../diva-types.slint";
+import { ModLogic } from "../applogic.slint";
 
 
 export component ModTableRow inherits Rectangle {
@@ -135,17 +136,15 @@ export component ModTable {
                         y: pos.y - root.absolute-position.y,
                     });
                 }
-
+                // toggle box
                 TableViewCell {
                     horizontal-stretch: columns[0].horizontal-stretch;
                     min-width: max(columns[0].min-width, columns[0].width);
                     preferred-width: self.min-width;
                     max-width: (1 < columns.length && columns[0].width >= 1px) ? max(columns[0].min-width, columns[0].width) : 100000px;
-                    // width: root.column_sizes[1];
                     Rectangle {
                         mod-toggle := CheckBox {
                             checked: module.enabled;
-                            // text: module.enabled ? "Yah" : "Nah";
                             toggled => {
                                 mod-toggled(idx, module);
                             }
@@ -153,11 +152,41 @@ export component ModTable {
                     }
                 }
 
+                // change priority
                 TableViewCell {
                     horizontal-stretch: columns[1].horizontal-stretch;
                     min-width: max(columns[1].min-width, columns[1].width);
                     preferred-width: self.min-width;
-                    max-width: (2 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
+                    max-width: (1 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
+                    Rectangle {
+                        HorizontalLayout {
+                            Button {
+                                enabled: idx != 0;
+                                primary: mod(idx, 2) == 0;
+                                icon: @image-url("../assets/up-long-solid.svg");
+                                clicked => {
+                                    ModLogic.move-mod-up(idx);
+                                }
+                            }
+
+                            Button {
+                                enabled: idx != (mods.length - 1);
+                                primary: mod(idx, 2) == 0;
+                                icon: @image-url("../assets/down-long-solid.svg");
+                                clicked => {
+                                    ModLogic.move-mod-down(idx);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // name
+                TableViewCell {
+                    horizontal-stretch: columns[2].horizontal-stretch;
+                    min-width: max(columns[2].min-width, columns[2].width);
+                    preferred-width: self.min-width;
+                    max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
                     // width: root.column_sizes[0];
                     Rectangle {
                         name-text := Text {
@@ -179,11 +208,12 @@ export component ModTable {
                     }
                 }
 
+                // author
                 TableViewCell {
-                    horizontal-stretch: columns[2].horizontal-stretch;
-                    min-width: max(columns[2].min-width, columns[2].width);
+                    horizontal-stretch: columns[3].horizontal-stretch;
+                    min-width: max(columns[3].min-width, columns[3].width);
                     preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
+                    max-width: (1 < columns.length && columns[3].width >= 1px) ? max(columns[3].min-width, columns[3].width) : 100000px;
                     // width: root.column_sizes[1];
                     Rectangle {
                         bytes-text := Text {
@@ -205,11 +235,12 @@ export component ModTable {
                     }
                 }
 
+                // version
                 TableViewCell {
-                    horizontal-stretch: columns[3].horizontal-stretch;
-                    min-width: max(columns[3].min-width, columns[3].width);
+                    horizontal-stretch: columns[4].horizontal-stretch;
+                    min-width: max(columns[4].min-width, columns[4].width);
                     preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[3].width >= 1px) ? max(columns[3].min-width, columns[3].width) : 100000px;
+                    max-width: (1 < columns.length && columns[4].width >= 1px) ? max(columns[4].min-width, columns[4].width) : 100000px;
                     // width: root.column_sizes[1];
                     Rectangle {
                         mod-ver := Text {
@@ -231,11 +262,12 @@ export component ModTable {
                     }
                 }
 
+                // description
                 TableViewCell {
-                    horizontal-stretch: columns[4].horizontal-stretch;
-                    min-width: max(columns[4].min-width, columns[4].width);
+                    horizontal-stretch: columns[5].horizontal-stretch;
+                    min-width: max(columns[5].min-width, columns[5].width);
                     preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[4].width >= 1px) ? max(columns[4].min-width, columns[4].width) : 100000px;
+                    max-width: (1 < columns.length && columns[5].width >= 1px) ? max(columns[5].min-width, columns[5].width) : 100000px;
 
                     Rectangle {
                         mod-desc := Text {
