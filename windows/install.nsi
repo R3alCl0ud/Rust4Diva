@@ -2,7 +2,7 @@
 Name "Rust4Diva"
 
 ; To change from default installer icon:
-;Icon "..\assets\rust4diva.png"
+Icon "..\assets\rust4diva.ico"
 
 ; The setup filename
 OutFile "Rust4Diva installer.exe"
@@ -38,7 +38,7 @@ Section "Rust4Diva"
   SetOutPath $INSTDIR
   
   ; Put file there (you can add more File lines too)
-  File "..\target\debug\rust4diva.exe"
+  File "..\target\release\rust4diva.exe"
   File "libarchive.dll"
   File "..\assets\rust4diva.png"
   ; Wildcards are allowed:

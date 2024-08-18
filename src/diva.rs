@@ -3,6 +3,14 @@ use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use keyvalues_parser::Vdf;
 
+cfg_if::cfg_if! {
+    if #[cfg(windows)] {
+        use winreg::enums::*;
+        use winreg::RegKey;
+    }
+}
+
+
 pub const STEAM_FOLDER: &str = ".local/share/Steam";
 pub const STEAM_FOLDER_MAC: &str = "Library/Application Support/Steam";
 pub const STEAM_LIBRARIES_CONFIG: &str = "config/libraryfolders.vdf";
@@ -91,7 +99,9 @@ pub fn get_steam_folder() -> Option<String> {
                     let res: std::io::Result<String> = steam_key.get_value("InstallPath");
                     if let Ok(path) = res {
                         println!("{}", path);
-                        Some(path);
+                        return Some(path)
+                    } else {
+                        None
                     }
                 } else {
                    None
