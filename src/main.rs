@@ -11,7 +11,7 @@ use crate::config::{load_diva_config, write_config, DivaConfig};
 use crate::diva::{create_tmp_if_not, get_diva_folder, MIKU_ART};
 use crate::gamebanana_async::{parse_dmm_url, GBSearch, GbModDownload};
 use crate::modmanagement::{
-    load_diva_ml_config, load_mods, load_mods_too, set_mods_table, DivaMod, DivaModLoader,
+    load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
 };
 use crate::modpacks::ModPack;
 use crate::oneclick::{spawn_listener, try_send_mmdl};
@@ -127,9 +127,9 @@ async fn main() {
         diva_state.dml = Some(DivaModLoader::new());
     }
 
-    diva_state.mods = load_mods(&diva_state);
+    // diva_state.mods = load_mods(&diva_state);
 
-    let _ = load_mods_too();
+    let _ = load_mods();
     let _ = set_mods_table(&get_mods_in_order(), app_weak.clone());
 
     if let Some(dml) = &diva_state.dml {
@@ -169,10 +169,7 @@ impl DivaData {
             dml: None,
             mod_files: HashMap::new(),
             mod_packs: Default::default(),
-            config: DivaConfig {
-                priority: vec![],
-                diva_dir: "".to_string(),
-            },
+            config: DivaConfig::new(),
         }
     }
 }

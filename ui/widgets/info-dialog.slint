@@ -8,8 +8,8 @@ export component InfoDialog {
     in property <length> offset_y;
     popup-window := Popup {
         in-out property <length> offset_inner_x;
-        x: -240px;
-        y: -100px;
+        x: -368px;
+        y: -300px;
         min-win-height: 100px;
         vb := VerticalBox {
 
@@ -33,6 +33,7 @@ export component InfoDialog {
             Button {
                 text: "Ok";
                 clicked => {
+                    debug(popup-window.width);
                     root.close();
                 }
             }

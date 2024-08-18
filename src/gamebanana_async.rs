@@ -219,8 +219,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, 
         get_mod_files(mod_row, &file_diva, &list_files, ui_file_handle.clone());
     });
 
-    let _download_diva = Arc::clone(&diva_arc);
-    let _download_files = Arc::clone(&file_arc);
     let ui_download_handle = ui.as_weak();
     let oneclick_tx = dl_tx.clone();
     ui.on_download_file(move |file, file_row| {

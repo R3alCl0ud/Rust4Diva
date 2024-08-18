@@ -2,7 +2,6 @@ use filenamify::filenamify;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use sonic_rs::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::vec;
@@ -12,7 +11,7 @@ use tokio::sync::Mutex;
 use crate::diva::{get_config_dir, get_diva_folder};
 use crate::modmanagement::DivaMod;
 use crate::slint_generatedApp::App;
-use crate::{DivaData, DivaModElement, ModPackElement, ModpackLogic, DIVA_CFG, MOD_PACKS};
+use crate::{DivaData, DivaModElement, ModPackElement, ModpackLogic, DIVA_CFG, DML_CFG, MOD_PACKS};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModPack {
@@ -90,7 +89,6 @@ impl ModPack {
 }
 
 pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
-    let init_diva = diva_arc.clone();
     let ui_add_mod_handle = ui.as_weak();
     let ui_remove_mod_handle = ui.as_weak();
     let ui_change_handle = ui.as_weak();
@@ -98,23 +96,15 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     let ui_save_handle = ui.as_weak();
     let ui_apply_handle = ui.as_weak();
 
-    let change_diva = diva_arc.clone();
-    let apply_diva = diva_arc.clone();
-    let save_diva = diva_arc.clone();
-    let create_diva = diva_arc.clone();
-
-    let mut diva = init_diva.lock().await;
-
     match load_mod_packs().await {
         Ok(packs) => {
             let mut gpacks = MOD_PACKS.lock().unwrap();
             *gpacks = packs.clone();
-            diva.mod_packs = packs.clone();
             let binding = ui.get_modpacks();
             match binding.as_any().downcast_ref::<VecModel<SharedString>>() {
                 None => {}
                 Some(ui_packs) => {
-                    for (pack, mods) in gpacks.iter() {
+                    for (pack, _mods) in gpacks.iter() {
                         ui_packs.push(pack.into());
                     }
                 }
@@ -127,7 +117,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
 
     ui.on_add_mod_to_pack(move |diva_mod_element: DivaModElement, mod_pack| {
         let ui = ui_add_mod_handle.upgrade().unwrap();
-        let mut pack_mods = ui.get_pack_mods();
+        let pack_mods = ui.get_pack_mods();
         // ui.
         if let Some(pack_mods) = pack_mods
             .as_any()
@@ -145,7 +135,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
 
     ui.on_remove_mod_from_pack(move |diva_mod_element: DivaModElement, mod_pack| {
         let ui = ui_remove_mod_handle.upgrade().unwrap();
-        let mut pack_mods = ui.get_pack_mods();
+        let pack_mods = ui.get_pack_mods();
         if let Some(pack_mods) = pack_mods
             .as_any()
             .downcast_ref::<VecModel<DivaModElement>>()
@@ -162,25 +152,24 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     ui.on_modpack_changed(move |mod_pack| {
         println!("{}", mod_pack);
         let ui_change_handle = ui_change_handle.clone();
-        let change_diva = change_diva.clone();
         tokio::spawn(async move {
-            let diva = change_diva.lock().await;
-            let packs = diva.mod_packs.clone();
-            let pack = packs.get(&mod_pack.clone().to_string()).clone();
-            if pack.is_none() {
-                return;
+            if let Ok(packs) = MOD_PACKS.lock() {
+                let pack = packs.get(&mod_pack.clone().to_string()).clone();
+                if pack.is_none() {
+                    return;
+                }
+                let pack = pack.unwrap();
+                let pack = pack.clone();
+                ui_change_handle
+                    .upgrade_in_event_loop(move |ui| {
+                        let pack_mods: VecModel<DivaModElement> = VecModel::default();
+                        for module in pack.mods.clone() {
+                            pack_mods.push(module.to_element());
+                        }
+                        ui.set_pack_mods(ModelRc::new(pack_mods));
+                    })
+                    .expect("test");
             }
-            let pack = pack.unwrap();
-            let pack = pack.clone();
-            ui_change_handle
-                .upgrade_in_event_loop(move |ui| {
-                    let pack_mods: VecModel<DivaModElement> = VecModel::default();
-                    for module in pack.mods.clone() {
-                        pack_mods.push(module.to_element());
-                    }
-                    ui.set_pack_mods(ModelRc::new(pack_mods));
-                })
-                .expect("test");
         });
     });
 
@@ -260,7 +249,6 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
     });
 
     ui.on_apply_modpack(move |mods| {
-        let apply_diva = apply_diva.clone();
         match mods.as_any().downcast_ref::<VecModel<DivaModElement>>() {
             Some(mods) => {
                 let mut vec_mods: Vec<String> = Vec::new();
@@ -276,16 +264,14 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
                 }
                 let ui_apply_handle = ui_apply_handle.clone();
                 tokio::spawn(async move {
-                    let mut diva = apply_diva.lock().await;
-                    if diva.dml.is_some() {
-                        let dml = diva.dml.as_mut().unwrap();
-                        dml.priority = vec_mods;
-                        if let Ok(dmlcfg) = toml::to_string(&dml) {
+                    if let Ok(mut dml) = DML_CFG.lock() {
+                        dml.priority = vec_mods.clone();
+                        if let Ok(dmlcfg) = toml::to_string(&dml.clone()) {
                             if let Some(dir) = get_diva_folder() {
                                 let mut buf = PathBuf::from(dir);
                                 buf.push("config.toml");
                                 if buf.exists() {
-                                    match fs::write(buf, dmlcfg).await {
+                                    match std::fs::write(buf, dmlcfg) {
                                         Ok(_) => {
                                             println!("Mod pack successfully applied");
                                         }

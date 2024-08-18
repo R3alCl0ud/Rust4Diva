@@ -163,10 +163,19 @@ export component App inherits Window {
                         }
                     }
 
-                    HorizontalBox {
+                    mgmt:=HorizontalBox {
                         load-mods-btn := Button {
+                            width: (window_width - (mgmt.spacing * 5)) / 2;
                             text: "Reload Mods";
                             icon: @image-url("assets/repeat-solid.svg");
+                        }
+                        Button {
+                            width: (window_width - (mgmt.spacing * 5)) / 2;
+                            text: "Apply Priority (Disables currently active modpack)";
+                            icon: @image-url("assets/repeat-solid.svg");
+                            clicked => {
+                                apply-modpack([]);
+                            }
                         }
                     }
                 }
@@ -325,26 +334,6 @@ export component App inherits Window {
                                 search-gb(text);
                             }
                         }
-
-                        // Rectangle {
-                        //     y: -6px;
-                        //     height: 35px;
-                        //     border-width: 2px;
-                        //     border-color: CosmicPalette.border;
-                        //     border-radius: 5px;
-                        //     background: CosmicPalette.alternate-background;
-                        //     sbox := TextInput {
-                        //         x: 5px;
-                        //         y: 3px;
-                        //         height: 30px;
-                        //         font-size: 22px;
-                        //         wrap: word-wrap;
-                        //         text: "";
-                        //         accepted => {
-                        //             search-gb(self.text)
-                        //         }
-                        //     }
-                        // }
 
                         search-prog := ProgressIndicator {
                             visible: s-prog-vis;

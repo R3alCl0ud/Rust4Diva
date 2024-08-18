@@ -4,7 +4,6 @@ use std::fs;
 use std::fs::File;
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -12,9 +11,7 @@ use compress_tools::{list_archive_files, uncompress_archive, Ownership};
 use curl::easy::Easy;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
-use slint::{
-    ComponentHandle, EventLoopError, Model, ModelRc, StandardListViewItem, VecModel, Weak,
-};
+use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 use toml::de::Error;
@@ -154,18 +151,11 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let ui_file_picker_handle = ui.as_weak();
     let ui_mod_up_handle = ui.as_weak();
     let ui_mod_down_handle = ui.as_weak();
-    let _load_diva = diva_arc.clone();
-    let picker_diva = diva_arc.clone();
-    let diva_state = diva_arc.lock().await;
-    let mut mod_buf = PathBuf::from(&diva_state.diva_directory);
-    mod_buf.push(diva_state.clone().dml.unwrap().mods.as_str());
-    let mods_dir = mod_buf.display().to_string();
-
-    let reload_dir = mods_dir.clone();
+    
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
 
-    ui.on_load_mods(move || match load_mods_too() {
+    ui.on_load_mods(move || match load_mods() {
         Ok(_) => {
             let mods = get_mods_in_order();
             let _ = set_mods_table(&mods, ui_load_handle.clone());
@@ -271,21 +261,17 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
         let picker = AsyncFileDialog::new()
             .add_filter("Archives", &["zip", "rar", "7z", "tar.gz"])
             .set_directory(dirs::home_dir().unwrap());
-        let picker_diva = picker_diva.clone();
-        let unpack_diva = picker_diva.clone();
         let ui_file_picker_handle = ui_file_picker_handle.clone();
         tokio::spawn(async move {
             let res = picker.pick_file().await;
             if let Some(file_handle) = res {
-                match unpack_mod_path(file_handle.path().to_path_buf(), unpack_diva).await {
+                match unpack_mod_path(file_handle.path().to_path_buf()).await {
                     Ok(_) => {
                         // waiting for this because idk, sometimes something goes wrong and the table fails to load properly will need to debug later
                         tokio::time::sleep(Duration::from_millis(5)).await;
-                        let darc = picker_diva.clone();
-                        let mut diva = darc.lock().await;
-                        let mods = load_mods_from_dir(diva.mods_directory.clone());
-                        let _ = set_mods_table(&mods, ui_file_picker_handle);
-                        diva.mods = mods;
+                        if load_mods().is_ok() {
+                            let _ = set_mods_table(&get_mods_in_order(), ui_file_picker_handle);
+                        }
                     }
                     Err(e) => {
                         eprintln!("{}", e);
@@ -295,29 +281,8 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
         });
     });
 
-    let _ = spawn_download_listener(
-        dl_rx,
-        dl_ui_tx,
-        &diva_arc.clone(),
-        reload_dir,
-        ui_download_handle,
-    );
+    let _ = spawn_download_listener(dl_rx, dl_ui_tx, ui_download_handle);
     let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
-}
-
-#[deprecated]
-pub fn load_mods(diva_data: &DivaData) -> Vec<DivaMod> {
-    if diva_data.dml.is_none() {
-        return vec![];
-    }
-    let mut path_buf = PathBuf::new();
-    path_buf.push(diva_data.diva_directory.as_str());
-    path_buf.push(diva_data.clone().dml.unwrap().mods.as_str());
-    let os_str = path_buf.as_os_str().to_str();
-    if os_str.is_none() {
-        return vec![];
-    }
-    load_mods_from_dir(os_str.unwrap().to_string())
 }
 
 pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
@@ -399,10 +364,7 @@ pub fn save_mod_config(
     return Err(std::io::Error::new(ErrorKind::Other, "IDK"));
 }
 
-pub async fn unpack_mod_path(
-    archive: PathBuf,
-    diva_arc: Arc<Mutex<DivaData>>,
-) -> compress_tools::Result<()> {
+pub async fn unpack_mod_path(archive: PathBuf) -> compress_tools::Result<()> {
     let mut buf = PathBuf::from(get_diva_folder().unwrap_or("./mods".to_string()));
     // DIVA_CFG.lock().unwrap().
     buf.push(DML_CFG.lock().unwrap().mods.clone());
@@ -479,11 +441,9 @@ pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
 pub fn spawn_download_listener(
     mut dl_rx: Receiver<(i32, Download)>,
     prog_tx: Sender<(i32, f32)>,
-    diva_arc: &Arc<Mutex<DivaData>>,
-    mods_dir: String,
     ui_download_handle: Weak<App>,
 ) {
-    let diva_arc = diva_arc.clone();
+    // let diva_arc = diva_arc.clone();
     let ui_download_handle = ui_download_handle.clone();
     tokio::spawn(async move {
         println!("Listening for downloads");
@@ -546,13 +506,15 @@ pub fn spawn_download_listener(
                     Ok(mut f) => match f.write_all(dst.clone().as_slice()) {
                         Ok(_) => {
                             println!("Saved successfully, will try to extract");
-                            match unpack_mod_path(dl_path.clone(), diva_arc.clone()).await {
+                            match unpack_mod_path(dl_path.clone()).await {
                                 Ok(_) => {
                                     println!("Successfully unpacked mod");
-                                    let mods = load_mods_from_dir(mods_dir.clone());
-                                    let mut diva = diva_arc.lock().await;
-                                    diva.mods = mods.clone();
-                                    let _ = set_mods_table(&mods, ui_download_handle.clone());
+                                    if load_mods().is_ok() {
+                                        let _ = set_mods_table(
+                                            &get_mods_in_order(),
+                                            ui_download_handle.clone(),
+                                        );
+                                    }
                                 }
                                 Err(e) => {
                                     eprintln!("Failed to extract the mod file:\n{}", e);
@@ -633,7 +595,7 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), E
     })
 }
 
-pub fn load_mods_too() -> std::io::Result<()> {
+pub fn load_mods() -> std::io::Result<()> {
     let dir = DIVA_DIR.lock().unwrap().to_string();
     let mut buf = PathBuf::from(dir);
     let mut gconf = DIVA_CFG.lock().unwrap();
