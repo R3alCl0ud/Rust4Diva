@@ -19,3 +19,9 @@ aur/Rust4Diva/
 aur/src/
 
 .vscode/
+
+flatpak/diva_repo/
+
+flatpak/rust4diva.flatpak
+
+flatpak/rust4diva-sources.json

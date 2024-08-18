@@ -13,4 +13,7 @@ fi
 source $(poetry env info --path)/bin/activate
 poetry install 
 python3 ./flatpak-cargo-generator.py ../Cargo.lock -o rust4diva-sources.json 
-flatpak-builder --install repo xyz.rust4diva.Rust4Diva.json --force-clean --user -y
+rm -rf ./diva_repo
+mkdir ./diva_repo
+flatpak-builder repo xyz.rust4diva.Rust4Diva.json --force-clean --user -y --repo=./diva_repo
+flatpak build-bundle ./diva_repo rust4diva.flatpak xyz.rust4diva.Rust4Diva

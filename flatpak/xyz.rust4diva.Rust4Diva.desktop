@@ -2,7 +2,7 @@
 Type=Application
 NoDisplay=false
 Terminal=false
-Exec=/usr/bin/rust4diva %u
+Exec=flatpak run xyz.rust4diva.Rust4Diva %u
 Icon=xyz.rust4diva.Rust4Diva
 Name=Rust4Diva
 Comment=Mod manager for Project Diva
