@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>xyz.rust4diva.www.Rust4Diva</id>
+
+  <icon type="stock">xyz.rust4diva.www.Rust4Diva.svg</icon>
+  <name>Rust4Diva</name>
+  <summary>Cross platform mod manager for Project Diva Mega Mix+</summary>
+  <developer id="xyz.nepnep">
+    <name>Neptune</name>
+    <id>xyz.nepnep</id>
+  </developer>
+  <!-- <x-categorygame</x-category> -->
+  <metadata_license>CC-BY-SA-4.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <url type="homepage">https://github.com/R3alCl0ud/Rust4Diva</url>
+  <url type="bugtracker">https://github.com/R3alCl0ud/Rust4Diva/issues</url>
+  <content_rating type="oars-1.1" />
+  <categories>
+    <category>Game</category>
+  </categories>
+  <description>
+    <p>
+      Cross platform mod manager for Project Diva Mega Mix+
+      Supports in app mod downloads. Oneclick downloads from gamebanana.com. (supported on
+      linux/steam deck, and windows)
+    </p>
+  </description>
+
+  <launchable type="desktop-id">xyz.rust4diva.www.Rust4Diva.desktop</launchable>
+
+  <keywords>
+    <keyword>Mod Manager</keyword>
+    <keyword>Mod</keyword>
+    <keyword>Diva</keyword>
+  </keywords>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main app window Mod priority screen</caption>
+      <image>../assets/screenshots/main.png</image>
+    </screenshot>
+    <screenshot type="default">
+      <caption>Main app window Mod priority screen</caption>
+      <image>../assets/screenshots/modpacks.png</image>
+    </screenshot>
+    <screenshot type="default">
+      <caption>Main app window Mod priority screen</caption>
+      <image>../assets/screenshots/search.png</image>
+    </screenshot>
+    <screenshot type="default">
+      <caption>Main app window Mod priority screen</caption>
+      <image>../assets/screenshots/downloads.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release date="2024-08-18" version="0.2.1">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Hot fix for high cpu usage on single thread</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>

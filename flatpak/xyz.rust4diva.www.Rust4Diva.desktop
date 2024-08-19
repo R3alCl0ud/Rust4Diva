@@ -2,9 +2,9 @@
 Type=Application
 NoDisplay=false
 Terminal=false
-Exec=flatpak run xyz.rust4diva.Rust4Diva %u
-Icon=xyz.rust4diva.Rust4Diva
+Exec=rust4diva %u
+Icon=xyz.rust4diva.www.Rust4Diva
 Name=Rust4Diva
 Comment=Mod manager for Project Diva
-Categories=x-gaming
+Categories=Game
 MimeType=x-scheme-handler/divamodmanager
