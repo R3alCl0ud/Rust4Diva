@@ -102,7 +102,13 @@ async fn main() {
     // rx.try_recv();
     match spawn_listener(url_tx.clone(), app_weak.clone()).await {
         Ok(_) => {}
-        Err(_) => {}
+        Err(e) => {
+            let msg = format!(
+                "Unable start listener: \n{}",
+                e.to_string()
+            );
+            app_weak.clone().upgrade().unwrap().invoke_open_error_dialog(msg.into());
+        }
     }
 
     let mut diva_state = DivaData::new();

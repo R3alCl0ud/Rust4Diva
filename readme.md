@@ -49,3 +49,4 @@ Get new mods online directly in the app
 Code: GPL-3.0 unless specified
 
 Artwork: All Rights Reserved (Use allowed in packaging the application)
+Logo Artist: Shibabe

@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
+use tokio::time::timeout;
 use toml::de::Error;
 
 use crate::config::write_config;
@@ -151,7 +152,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let ui_file_picker_handle = ui.as_weak();
     let ui_mod_up_handle = ui.as_weak();
     let ui_mod_down_handle = ui.as_weak();
-    
+
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
 
@@ -453,6 +454,8 @@ pub fn spawn_download_listener(
                 println!("{}", download.url.as_str());
                 let mut dst = Vec::new();
                 let mut easy = Easy::new();
+                let mut rcvd = 0;
+                let mut lstsnd = 0;
                 easy.url(download.url.as_str()).unwrap();
                 let _redirect = easy.follow_location(true);
                 let mut started = false;
@@ -466,17 +469,26 @@ pub fn spawn_download_listener(
                                 println!("First chunk received");
                             }
                             dst.extend_from_slice(data);
-                            let p = prog_tx.try_send((index.clone(), data.len() as f32));
-                            match p {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    eprintln!("{}", e);
+                            rcvd += data.len();
+                            let prog = rcvd - lstsnd;
+                            if lstsnd as i32 == 0 || prog >= 30000 {
+                                lstsnd = rcvd.clone();
+                                // prog_tx.send_timeout(value, timeout)
+                                let p = prog_tx.try_send((index.clone(), prog as f32));
+                                match p {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        // eprintln!("{}", e);
+                                    }
                                 }
                             }
                             Ok(data.len())
                         })
                         .unwrap();
-
+                    let _ = transfer.progress_function(|total, next, _, _| {
+                        println!("{total}");
+                        true
+                    });
                     // handle the error here instead of unwrapping so that this
                     // receiver thread doesn't panic and downloads can continue to happen
                     match transfer.perform() {
@@ -560,8 +572,12 @@ pub fn spawn_download_listener(
 
 pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Weak<App>) {
     tokio::spawn(async move {
+        let wait_time = tokio::time::Duration::from_millis(500);
         while !prog_rx.is_closed() {
-            if let Ok((index, chunk_size)) = prog_rx.try_recv() {
+            // await seems to cause it to hang for quite a while
+            // prog_rx.
+            if let Ok(Some((index, chunk_size))) = timeout(wait_time, prog_rx.recv()).await {
+                // println!("prog recieved {chunk_size}");
                 match ui_weak.upgrade_in_event_loop(move |ui| {
                     let downloads = ui.get_downloads_list();
                     if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>()
