@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::thread::sleep;
 use std::time::Duration;
 
 use compress_tools::{list_archive_files, uncompress_archive, Ownership};
@@ -283,7 +284,9 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     });
 
     let _ = spawn_download_listener(dl_rx, dl_ui_tx, ui_download_handle);
+    println!("dl spawned");
     let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
+    println!("ui updater spawned");
 }
 
 pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
@@ -471,9 +474,8 @@ pub fn spawn_download_listener(
                             dst.extend_from_slice(data);
                             rcvd += data.len();
                             let prog = rcvd - lstsnd;
-                            if lstsnd as i32 == 0 || prog >= 30000 {
+                            if lstsnd as i32 == 0 || prog >= 3000 {
                                 lstsnd = rcvd.clone();
-                                // prog_tx.send_timeout(value, timeout)
                                 let p = prog_tx.try_send((index.clone(), prog as f32));
                                 match p {
                                     Ok(_) => {}
@@ -485,10 +487,7 @@ pub fn spawn_download_listener(
                             Ok(data.len())
                         })
                         .unwrap();
-                    let _ = transfer.progress_function(|total, next, _, _| {
-                        println!("{total}");
-                        true
-                    });
+
                     // handle the error here instead of unwrapping so that this
                     // receiver thread doesn't panic and downloads can continue to happen
                     match transfer.perform() {
@@ -576,7 +575,7 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
         while !prog_rx.is_closed() {
             // await seems to cause it to hang for quite a while
             // prog_rx.
-            if let Ok(Some((index, chunk_size))) = timeout(wait_time, prog_rx.recv()).await {
+            if let Ok((index, chunk_size)) = prog_rx.try_recv() {
                 // println!("prog recieved {chunk_size}");
                 match ui_weak.upgrade_in_event_loop(move |ui| {
                     let downloads = ui.get_downloads_list();
@@ -593,6 +592,8 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
                     }
                     _ => {}
                 };
+            } else {
+                sleep(wait_time);
             }
         }
         println!("Progress listener Closed");
