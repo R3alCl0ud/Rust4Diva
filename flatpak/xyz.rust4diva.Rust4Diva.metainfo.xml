@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>xyz.rust4diva.www.Rust4Diva</id>
+  <id>xyz.rust4diva.Rust4Diva</id>
 
-  <icon type="stock">xyz.rust4diva.www.Rust4Diva.svg</icon>
+  <icon type="remote">https://rust4diva.xyz/media/rust4diva-1024.svg</icon>
   <name>Rust4Diva</name>
   <summary>Cross platform mod manager for Project Diva Mega Mix+</summary>
   <developer id="xyz.nepnep">
@@ -12,7 +12,7 @@
   <!-- <x-categorygame</x-category> -->
   <metadata_license>CC-BY-SA-4.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
-  <url type="homepage">https://github.com/R3alCl0ud/Rust4Diva</url>
+  <url type="homepage">https://rust4diva.xyz</url>
   <url type="bugtracker">https://github.com/R3alCl0ud/Rust4Diva/issues</url>
   <content_rating type="oars-1.1" />
   <categories>
@@ -26,7 +26,7 @@
     </p>
   </description>
 
-  <launchable type="desktop-id">xyz.rust4diva.www.Rust4Diva.desktop</launchable>
+  <launchable type="desktop-id">xyz.rust4diva.Rust4Diva.desktop</launchable>
 
   <keywords>
     <keyword>Mod Manager</keyword>
@@ -37,19 +37,19 @@
   <screenshots>
     <screenshot type="default">
       <caption>Main app window Mod priority screen</caption>
-      <image>../assets/screenshots/main.png</image>
+      <image>https://rust4diva.xyz/media/main.png</image>
     </screenshot>
     <screenshot type="default">
-      <caption>Main app window Mod priority screen</caption>
-      <image>../assets/screenshots/modpacks.png</image>
+      <caption>Main app window Mod Pack creation and editing screen</caption>
+      <image>https://rust4diva.xyz/media/modpacks.png</image>
     </screenshot>
     <screenshot type="default">
-      <caption>Main app window Mod priority screen</caption>
-      <image>../assets/screenshots/search.png</image>
+      <caption>Online Mod search screen</caption>
+      <image>https://rust4diva.xyz/media/search.png</image>
     </screenshot>
     <screenshot type="default">
-      <caption>Main app window Mod priority screen</caption>
-      <image>../assets/screenshots/downloads.png</image>
+      <caption>Current downloads screen</caption>
+      <image>https://rust4diva.xyz/media/downloads.png</image>
     </screenshot>
   </screenshots>
 

@@ -15,7 +15,7 @@ poetry install
 python3 ./flatpak-cargo-generator.py ../Cargo.lock -o rust4diva-sources.json 
 rm -rf ./diva_repo
 mkdir ./diva_repo
-flatpak-builder --repo=diva_repo repo xyz.rust4diva.www.Rust4Diva.json --force-clean --user -y 
-flatpak build-bundle ./diva_repo rust4diva.flatpak xyz.rust4diva.www.Rust4Diva
-flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest xyz.rust4diva.www.Rust4Diva.json
-flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo diva_repo 
+flatpak-builder --repo=diva_repo repo xyz.rust4diva.Rust4Diva.json --force-clean --user -y --mirror-screenshots-url=https://rust4diva.xyz/media/
+flatpak build-bundle ./diva_repo rust4diva.flatpak xyz.rust4diva.Rust4Diva
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest xyz.rust4diva.Rust4Diva.json
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo diva_repo
