@@ -1,3 +1,6 @@
+#![windows_subsystem = "windows"]
+
+
 use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, LazyLock};
