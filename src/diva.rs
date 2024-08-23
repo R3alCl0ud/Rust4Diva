@@ -100,13 +100,13 @@ pub fn get_steam_folder() -> Option<String> {
                     let res: std::io::Result<String> = steam_key.get_value("InstallPath");
                     if let Ok(path) = res {
                         println!("{}", path);
-                        if PathBuf::from(path).exists() {
-                            return Some(path);
+                        if PathBuf::from(path.clone()).exists() {
+                            return Some(path.clone());
                         } else {
-                            return Some(r#"C:\Program Files (x86)\Steam"#);
+                            return Some(r#"C:\Program Files (x86)\Steam"#.to_string());
                         }
                     } else {
-                        return Some(r#"C:\Program Files (x86)\Steam"#);
+                        return Some(r#"C:\Program Files (x86)\Steam"#.to_string());
                     }
                 } else {
                    None
