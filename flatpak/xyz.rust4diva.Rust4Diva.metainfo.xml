@@ -56,7 +56,7 @@
   <releases>
     <release date="2024-08-22" version="0.2.2">
       <description>
-        <h3>Changelog:</h3>
+        <p>Changelog:</p>
         <p>New: </p>
         <ul>
           <li>It is now possible to delete modpacks</li>
