@@ -88,13 +88,14 @@ impl ModPack {
     }
 }
 
-pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
+pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
     let ui_add_mod_handle = ui.as_weak();
     let ui_remove_mod_handle = ui.as_weak();
     let ui_change_handle = ui.as_weak();
     let ui_add_pack_handle = ui.as_weak();
     let ui_save_handle = ui.as_weak();
     let ui_apply_handle = ui.as_weak();
+    let ui_delete_handle = ui.as_weak();
 
     match load_mod_packs().await {
         Ok(packs) => {
@@ -297,6 +298,50 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>) {
             None => {}
         }
     });
+
+    ui.global::<ModpackLogic>()
+        .on_delete_modpack(move |packname| {
+            println!("{:?}", packname.to_string());
+            if let Ok(mut packs) = MOD_PACKS.lock() {
+                match packs.remove(&packname.to_string()) {
+                    Some(pack) => {
+                        let mut packsvec: Vec<ModPack> = vec![];
+                        for p in packs.values() {
+                            packsvec.push(p.clone());
+                        }
+                        let ui_delete_handle = ui_delete_handle.clone();
+                        tokio::spawn(async move {
+                            let mut buf = get_modpacks_folder().await.unwrap_or(PathBuf::new());
+                            buf.push(format!("{}.json", pack.name));
+                            match fs::remove_file(buf).await {
+                                Ok(_) => {
+                                    let _ =
+                                        ui_delete_handle.clone().upgrade_in_event_loop(move |ui| {
+                                            let vec_mod: VecModel<SharedString> =
+                                                VecModel::default();
+                                            for p in packsvec {
+                                                vec_mod.push(p.name.clone().into());
+                                            }
+                                            ui.set_modpacks(ModelRc::new(vec_mod));
+                                        });
+                                }
+                                Err(e) => {
+                                    let _ =
+                                        ui_delete_handle.clone().upgrade_in_event_loop(move |ui| {
+                                            let msg = format!(
+                                                "Unable to delete modpack: \n{}",
+                                                e.to_string()
+                                            );
+                                            ui.invoke_open_error_dialog(msg.into());
+                                        });
+                                }
+                            }
+                        });
+                    }
+                    None => {}
+                }
+            }
+        });
 }
 
 pub async fn load_mod_packs() -> std::io::Result<HashMap<String, ModPack>> {

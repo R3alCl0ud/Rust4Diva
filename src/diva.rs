@@ -1,7 +1,9 @@
-use std::{env, fs};
+use keyvalues_parser::Vdf;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
-use keyvalues_parser::Vdf;
+use std::{env, fs};
+
+use crate::DIVA_CFG;
 
 cfg_if::cfg_if! {
     if #[cfg(windows)] {
@@ -9,7 +11,6 @@ cfg_if::cfg_if! {
         use winreg::RegKey;
     }
 }
-
 
 pub const STEAM_FOLDER: &str = ".local/share/Steam";
 pub const STEAM_FOLDER_MAC: &str = "Library/Application Support/Steam";
@@ -27,18 +28,16 @@ pub fn create_tmp_if_not() -> std::io::Result<()> {
             }
             Ok(())
         }
-        None => {
-            Err(std::io::Error::new(ErrorKind::InvalidInput, "Unknown temp dir path"))
-        }
+        None => Err(std::io::Error::new(
+            ErrorKind::InvalidInput,
+            "Unknown temp dir path",
+        )),
     }
 }
 
-
 pub fn get_temp_folder() -> Option<String> {
     match env::consts::OS {
-        "linux" | "macos" => {
-            Some("/tmp/rust4diva".to_string())
-        }
+        "linux" | "macos" => Some("/tmp/rust4diva".to_string()),
         "windows" => {
             let mut tmp = dirs::data_local_dir().unwrap();
             tmp.push("Temp");
@@ -48,9 +47,7 @@ pub fn get_temp_folder() -> Option<String> {
                     let t = s.to_owned();
                     Some(t)
                 }
-                None => {
-                    None
-                }
+                None => None,
             }
         }
         os => {
@@ -60,9 +57,13 @@ pub fn get_temp_folder() -> Option<String> {
     }
 }
 
-
 pub fn get_steam_folder() -> Option<String> {
     println!("Attempting to find the Steam folder");
+    if let Ok(cfg) = DIVA_CFG.lock() {
+        if !cfg.steam_dir.is_empty() && PathBuf::from(cfg.steam_dir.clone()).exists() {
+            return Some(cfg.steam_dir.clone());
+        }
+    }
     return match env::consts::OS {
         "linux" => {
             let mut binding = dirs::home_dir().unwrap();
@@ -99,9 +100,13 @@ pub fn get_steam_folder() -> Option<String> {
                     let res: std::io::Result<String> = steam_key.get_value("InstallPath");
                     if let Ok(path) = res {
                         println!("{}", path);
-                        return Some(path)
+                        if PathBuf::from(path).exists() {
+                            return Some(path);
+                        } else {
+                            return Some(r#"C:\Program Files (x86)\Steam"#);
+                        }
                     } else {
-                        None
+                        return Some(r#"C:\Program Files (x86)\Steam"#);
                     }
                 } else {
                    None
@@ -134,15 +139,30 @@ pub fn get_diva_folder() -> Option<String> {
                     let libraries = libraryfolders.value.unwrap_obj();
                     for library_id in libraries.clone().keys() {
                         // get the library obj
-                        let library = libraries.get(library_id).unwrap().first().unwrap().clone().unwrap_obj();
+                        let library = libraries
+                            .get(library_id)
+                            .unwrap()
+                            .first()
+                            .unwrap()
+                            .clone()
+                            .unwrap_obj();
                         // prevent a crash in case of malformed libraryfolders.vdf
-                        if !library.contains_key("apps") || !library.contains_key("path") { continue; }
+                        if !library.contains_key("apps") || !library.contains_key("path") {
+                            continue;
+                        }
                         // get the list of apps installed to this library
-                        let apps = library.get("apps").unwrap().first().unwrap().clone().unwrap_obj();
+                        let apps = library
+                            .get("apps")
+                            .unwrap()
+                            .first()
+                            .unwrap()
+                            .clone()
+                            .unwrap_obj();
                         // self-explanatory
                         if apps.contains_key(MEGA_MIX_APP_ID) {
                             // get the path of the library
-                            let path_str = library.get("path").unwrap().first().unwrap().to_string();
+                            let path_str =
+                                library.get("path").unwrap().first().unwrap().to_string();
                             // this is set up for removing the quotes
                             let mut path_chars = path_str.chars();
                             // remove the quotes from the value
@@ -153,8 +173,14 @@ pub fn get_diva_folder() -> Option<String> {
                             buf.push(path_chars.as_str());
                             let diva = PathBuf::from(DIVA_MOD_FOLDER_SUFFIX);
                             buf.push(diva.as_os_str());
-                            path = buf.canonicalize().unwrap().as_os_str().to_str().unwrap().to_string();
-                            println!("Fuck yes, we found it, {:?}", path);
+                            path = buf
+                                .canonicalize()
+                                .unwrap()
+                                .as_os_str()
+                                .to_str()
+                                .unwrap()
+                                .to_string();
+                            println!("PD MMP Folder: {:?}", path);
                             break;
                         }
                     }
@@ -172,7 +198,6 @@ pub fn get_diva_folder() -> Option<String> {
     }
 }
 
-
 pub async fn get_config_dir() -> std::io::Result<PathBuf> {
     match dirs::config_dir() {
         Some(mut buf) => {
@@ -182,12 +207,12 @@ pub async fn get_config_dir() -> std::io::Result<PathBuf> {
             }
             Ok(buf.clone())
         }
-        None => {
-            Err(Error::new(ErrorKind::NotFound, "Unable to get config directory"))
-        }
+        None => Err(Error::new(
+            ErrorKind::NotFound,
+            "Unable to get config directory",
+        )),
     }
 }
-
 
 pub static MIKU_ART: &'static str = r#"
 　　🟦　　　　　　　　　　　　　　🟦　　　　　　　　　🟦🟦🟦　　　　　　　　　　　🟦　　　　

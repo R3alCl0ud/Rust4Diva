@@ -1,0 +1,58 @@
+import { StandardButton, VerticalBox, Button } from "std-widgets.slint";
+import { CosmicPalette } from "../styling/cosmic-styling.slint";
+import { PopupBorder, Popup } from "../components/popup.slint";
+import { ModPackElement} from "../diva-types.slint";
+import { ModpackLogic } from "../applogic.slint";
+
+
+export component DeletePackDialog {
+    in-out property <string> modpack;
+    in property <length> offset_x;
+    in property <length> offset_y;
+    popup-window := Popup {
+        x: -368px;
+        y: -300px;
+        min-win-height: 100px;
+        close-on-click: false;
+        VerticalBox {
+            Text {
+                min-height: 100px;
+                min-width: 100px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                text: "You are about to delete:\n" + root.modpack + "\nPress confirm to delete.";
+            }
+
+            HorizontalLayout {
+                Button {
+                    text: "Cancel";
+                    clicked => {
+                        root.close();
+                    }
+                }
+
+                Button {
+                    text: "Confirm";
+                    clicked => {
+                        root.close();
+                        ModpackLogic.delete-modpack(root.modpack);
+                    }
+                }
+            }
+        }
+    }
+
+    public function show() {
+        popup-window.show();
+        // text-input.focus(); // this will cause the compiler to crash
+    }
+
+    public function show-with(modpack: string) {
+        self.modpack = modpack;
+        popup-window.show();
+    }
+
+    public function close() {
+        popup-window.close();
+    }
+}

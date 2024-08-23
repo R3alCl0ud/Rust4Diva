@@ -54,6 +54,21 @@
   </screenshots>
 
   <releases>
+    <release date="2024-08-22" version="0.2.2">
+      <description>
+        <h3>Changelog:</h3>
+        <p>New: </p>
+        <ul>
+          <li>It is now possible to delete modpacks</li>
+          <li>Added Fallback for Steam folder on windows</li>
+        </ul>
+        <p>Bug Fixes: </p>
+        <ul>
+          <li>Fixed Networking on flatpak</li>
+          <li>Fixed transparency issue in icon</li>
+        </ul>
+      </description>
+    </release>
     <release date="2024-08-18" version="0.2.1">
       <description>
         <p>Changelog:</p>

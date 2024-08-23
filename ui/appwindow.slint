@@ -10,6 +10,7 @@ import { TextEntryDialog } from "widgets/text-entry-dialog.slint";
 import { ModpackLogic, ModLogic } from "applogic.slint";
 import { InfoDialog } from "widgets/info-dialog.slint";
 import { TextBox } from "widgets/text-box.slint";
+import { DeletePackDialog } from "widgets/delete-pack-dialog.slint";
 
 export { ModPackElement, ModpackLogic, ModLogic }
 
@@ -98,9 +99,12 @@ export component App inherits Window {
 
     aboutdialog := InfoDialog { }
 
+    confirmdeletepack := DeletePackDialog {}
+
     VerticalLayout {
         HorizontalBox {
             Button {
+                horizontal-stretch: 1;
                 text: "Install Mod Archive";
                 clicked => {
                     open-file-picker();
@@ -108,6 +112,7 @@ export component App inherits Window {
             }
 
             Button {
+                horizontal-stretch: 1;
                 text: "About Rust4Diva";
                 clicked => {
                     aboutdialog.show();
@@ -115,9 +120,10 @@ export component App inherits Window {
             }
 
             Button {
-                text: "Test Error";
+                horizontal-stretch: 1;
+                text: "Open Settings";
                 clicked => {
-                    errordialog.show();
+                    // errordialog.show();
                 }
             }
         }
@@ -165,11 +171,13 @@ export component App inherits Window {
 
                     mgmt:=HorizontalBox {
                         load-mods-btn := Button {
+                            horizontal-stretch: 1;
                             width: (window_width - (mgmt.spacing * 5)) / 2;
                             text: "Reload Mods";
                             icon: @image-url("assets/repeat-solid.svg");
                         }
                         Button {
+                            horizontal-stretch: 1;
                             width: (window_width - (mgmt.spacing * 5)) / 2;
                             text: "Apply Priority (Disables currently active modpack)";
                             icon: @image-url("assets/repeat-solid.svg");
@@ -187,7 +195,7 @@ export component App inherits Window {
                 VerticalBox {
                     HorizontalLayout {
                         packsctx-menu := ContextMenu {
-                            min_menu_width: window_width - 240px;
+                            min_menu_width: window_width - 440px;
                             offset_x: -((self.x + self.min_menu_width) - (packbtn.x + packbtn.width));
                             offset_y: packbtn.height;
                             width: 300px;
@@ -202,7 +210,7 @@ export component App inherits Window {
 
                     HorizontalLayout {
                         packbtn := Button {
-                            width: window_width - 200px;
+                            width: window_width - 400px;
                             text: packsctx-menu.current_item != -1 ? "Editing: " + packsctx-menu.model[packsctx-menu.current_item] : "";
                             clicked => {
                                 if (packsctx-menu.model.length == 0) {
@@ -218,6 +226,14 @@ export component App inherits Window {
                                 packcreator.show();
                             }
                             width: 180px;
+                        }
+                        Button {
+                            text: "Delete Modpack";
+                            width: 180px;
+                            enabled: packsctx-menu.current_item != -1;
+                            clicked => {
+                                confirmdeletepack.show-with(packsctx-menu.model[packsctx-menu.current_item]);
+                            }
                         }
                     }
 

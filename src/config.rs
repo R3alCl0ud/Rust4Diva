@@ -10,6 +10,7 @@ pub struct DivaConfig {
     /// this is the global priority order, this is used when no modpack is applied
     pub priority: Vec<String>,
     pub diva_dir: String,
+    pub steam_dir: String,
     #[serde(default)]
     pub applied_pack: String, // pub
 }
@@ -19,6 +20,7 @@ impl DivaConfig {
         Self {
             priority: vec![],
             diva_dir: "".to_string(),
+            steam_dir: "".to_string(),
             applied_pack: "".to_string(),
         }
     }
