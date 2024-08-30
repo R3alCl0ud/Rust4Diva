@@ -1,4 +1,4 @@
-import { ListView, VerticalBox, ProgressIndicator,CheckBox, Button  } from "std-widgets.slint";
+import { ListView, VerticalBox, ProgressIndicator,CheckBox, Button, Switch  } from "std-widgets.slint";
 import { StateLayerBase } from "../components/state-layer-base.slint";
 import {Palette, FontSettings} from "../styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
@@ -143,7 +143,7 @@ export component ModTable {
                     preferred-width: self.min-width;
                     max-width: (1 < columns.length && columns[0].width >= 1px) ? max(columns[0].min-width, columns[0].width) : 100000px;
                     Rectangle {
-                        mod-toggle := CheckBox {
+                        mod-toggle := Switch {
                             checked: module.enabled;
                             toggled => {
                                 mod-toggled(idx, module);

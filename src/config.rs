@@ -1,9 +1,13 @@
 use std::io::ErrorKind;
 
 use serde::{Deserialize, Serialize};
+use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::fs;
 
-use crate::{diva::get_config_dir, DIVA_CFG};
+use crate::diva::{get_diva_folder, get_steam_folder};
+use crate::slint_generatedApp::App;
+
+use crate::{diva::get_config_dir, SettingsWindow, WindowLogic, DIVA_CFG};
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct DivaConfig {
@@ -66,4 +70,25 @@ pub async fn write_config(cfg: DivaConfig) -> std::io::Result<()> {
         }
         Err(e) => Err(std::io::Error::new(ErrorKind::Other, e.to_string())),
     };
+}
+
+pub async fn init_ui(app: &App) {
+    let _ui_diva_dir_handle = app.as_weak();
+    app.global::<WindowLogic>().on_open_settings(|| {
+        let settings = SettingsWindow::new().unwrap();
+        let steam_dir = get_steam_folder().unwrap_or("Not Set".to_string());
+        let diva_dir = get_diva_folder().unwrap_or("Not Set".to_string());
+        settings.set_steam_dir(steam_dir.into());
+        settings.set_diva_dir(diva_dir.into());
+
+
+        let cancel_handle = settings.as_weak();
+        settings.on_cancel(move || {
+            cancel_handle.upgrade().unwrap().hide().unwrap();
+        });
+
+
+        settings.show().unwrap();
+        // settings.on
+    });
 }

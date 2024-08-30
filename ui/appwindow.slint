@@ -7,12 +7,15 @@ import { DivaModElement, ModPackElement } from "diva-types.slint";
 import { ModPickTable, PackTable } from "widgets/modpack-tables.slint";
 import { ContextMenu } from "widgets/context-menu.slint";
 import { TextEntryDialog } from "widgets/text-entry-dialog.slint";
-import { ModpackLogic, ModLogic } from "applogic.slint";
+import { ModpackLogic, ModLogic, WindowLogic } from "applogic.slint";
 import { InfoDialog } from "widgets/info-dialog.slint";
 import { TextBox } from "widgets/text-box.slint";
 import { DeletePackDialog } from "widgets/delete-pack-dialog.slint";
+import { SettingsWindow} from "subwindows/settings.slint";
 
-export { ModPackElement, ModpackLogic, ModLogic }
+
+
+export { ModPackElement, ModpackLogic, ModLogic, SettingsWindow, WindowLogic }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -123,6 +126,7 @@ export component App inherits Window {
                 horizontal-stretch: 1;
                 text: "Open Settings";
                 clicked => {
+                    WindowLogic.open-settings();
                     // errordialog.show();
                 }
             }

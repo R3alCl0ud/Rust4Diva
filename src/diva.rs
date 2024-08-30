@@ -121,7 +121,7 @@ pub fn get_steam_folder() -> Option<String> {
 }
 
 pub fn get_diva_folder() -> Option<String> {
-    println!("Looking for the mods folder");
+    println!("Looking for Project Diva folder");
     match get_steam_folder() {
         Some(steam_folder) => {
             let mut path = "".to_owned();

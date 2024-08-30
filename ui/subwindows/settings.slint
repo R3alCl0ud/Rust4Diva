@@ -1,0 +1,79 @@
+import { CheckBox, LineEdit, Switch, GridBox, Button, StandardButton } from "std-widgets.slint";
+import { FilePathEdit } from "../widgets/text-box.slint";
+export component SettingsWindow inherits Dialog {
+    preferred-width: 600px;
+    title: "Rust4Diva Settings";
+
+    // property <int> cols: 4;
+
+    in-out property <string> steam-dir: "/path/to/steam";
+    in-out property <string> diva-dir: "/path/to/pdx";
+
+    callback apply-settings(string, string);
+    callback cancel();
+
+    GridBox {
+        Row {
+            Text {
+                text: "AFT Mode: ";
+                font-size: 16px;
+            }
+
+            Switch {
+                col: 3;
+                height: 30px;
+            }
+        }
+
+        Row {
+            Text {
+                text: "Steam Location: ";
+                vertical-alignment: center;
+                font-size: 16px;
+            }
+
+            steam-loc := FilePathEdit {
+                colspan: 3;
+                // te
+                default-path: steam-dir;
+            }
+        }
+
+        Row {
+            Text {
+                text: "PDMM+ Location: ";
+                vertical-alignment: center;
+                font-size: 16px;
+            }
+
+            game-loc := FilePathEdit {
+                colspan: 3;
+                default-path: diva-dir;
+            }
+        }
+
+        Row {
+            Rectangle { }
+        }
+
+        Row {
+            Button {
+                text: "Apply";
+                colspan: 3;
+                height: 35px;
+                clicked => {
+                    apply-settings(steam-loc.default-path, game-loc.default-path);
+                }
+            }
+
+            Button {
+                col: 3;
+                text: "Cancel";
+                height: 35px;
+                clicked => {
+                    cancel();
+                }
+            }
+        }
+    }
+}

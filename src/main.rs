@@ -122,8 +122,6 @@ async fn main() {
         *gcfg = cfg.clone();
     }
 
-    // let diva_dir = get_diva_folder();
-
     if let Some(diva_dir) = get_diva_folder() {
         diva_state.diva_directory = diva_dir;
         let mut dir = DIVA_DIR.lock().expect("fuck");
@@ -135,8 +133,6 @@ async fn main() {
     if diva_state.dml.is_none() {
         diva_state.dml = Some(DivaModLoader::new());
     }
-
-    // diva_state.mods = load_mods(&diva_state);
 
     let _ = load_mods();
     let _ = set_mods_table(&get_mods_in_order(), app_weak.clone());
@@ -150,6 +146,7 @@ async fn main() {
     modmanagement::init(&app, Arc::clone(&diva_arc), dl_rx).await;
     gamebanana_async::init(&app, Arc::clone(&diva_arc), dl_tx, url_rx).await;
     modpacks::init(&app, Arc::clone(&diva_arc)).await;
+    config::init_ui(&app).await;
 
     println!("Does the app run?");
 

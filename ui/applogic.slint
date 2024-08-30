@@ -1,5 +1,9 @@
 import { DivaModElement, ModPackElement } from "diva-types.slint";
 
+export global WindowLogic {
+    callback open-settings();
+}
+
 export global ModpackLogic {
     callback create-new-pack(string);
     callback delete-modpack(string);
@@ -9,5 +13,4 @@ export global ModLogic {
     callback toggle-mod(DivaModElement);
     callback move-mod-up(int);
     callback move-mod-down(int);
-
 }
