@@ -1,0 +1,169 @@
+import { GridBox, Button, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { DivaModElement, ModPackElement } from "../diva-types.slint";
+import { ContextMenu } from "../widgets/context-menu.slint";
+import { ModPickTable } from "../widgets/modpack-tables.slint";
+import { TextEntryDialog } from "../widgets/text-entry-dialog.slint";
+export component ModPacksTab {
+    width: 1000px;
+    in-out property <[string]> modpacks: [];
+    in-out property <[DivaModElement]> mods;
+    in-out property <[DivaModElement]> pack-mods: [];
+    in-out property <bool> pack-modified;
+    callback show-text-entry();
+    callback show-delete-pack(string);
+
+    packsctx-menu := ContextMenu {
+        min_menu_width: packbtn.width - 40px;
+        offset_x: -((self.x + self.min_menu_width) - (packbtn.x + packbtn.width));
+        offset_y: packbtn.height;
+        model: modpacks;
+        horizontal_alignment: center;
+        item-clicked(idx) => {
+            // modpack-changed(modpacks[idx]);
+            pack-modified = false;
+        }
+    }
+
+    GridBox {
+        Row {
+            packbtn := Button {
+                col: 0;
+                colspan: 5;
+                width: 100%;
+                text: packsctx-menu.current_item != -1 ? "Editing: " + packsctx-menu.model[packsctx-menu.current_item] : "No Pack Selected";
+                clicked => {
+                    if (packsctx-menu.model.length == 0) {
+                        return;
+                    }
+                    packsctx-menu.show_and_focus();
+                }
+            }
+
+            Button {
+                col: 5;
+                colspan: 1;
+                text: "Add New Pack";
+                clicked => {
+                    show-text-entry();
+                }
+            }
+
+            Button {
+                col: 6;
+                colspan: 1;
+                text: "Delete Modpack";
+                enabled: packsctx-menu.current_item != -1;
+                clicked => {
+                    show-delete-pack(packsctx-menu.model[packsctx-menu.current_item]);
+                    // confirmdeletepack.show-with(packsctx-menu.model[packsctx-menu.current_item]);
+                }
+            }
+        }
+
+        Row {
+            Text {
+                col: 0;
+                colspan: 3;
+                text: "Installed";
+            }
+
+            Text {
+                col: 4;
+                colspan: 3;
+                text: "In Modpack";
+            }
+        }
+
+        Row {
+
+            mod-picker := ModPickTable {
+                col: 0;
+                colspan: 3;
+                // width: ;
+                columns: [{ title :"Name" }];
+                mods: mods;
+            }
+
+            VerticalLayout {
+                col: 3;
+                rowspan: 2;
+                Button {
+                    icon: @image-url("assets/right-long-solid.svg");
+                    clicked => {
+                        if packsctx-menu.current_item != -1 {
+                            if mod-picker.current-row != -1 {
+                                // add-mod-to-pack(mods[mod-picker.current-row], modpacks[packsctx-menu.current_item]);
+                                packsctx-menu.set-current-item(-1);
+                                pack-modified = true;
+                            }
+                        }
+                    }
+                }
+
+                Button {
+                    // enabled: pack-mods.length > 0;
+                    icon: @image-url("assets/left-long-solid.svg");
+                    clicked => {
+                        if packsctx-menu.current_item != -1 {
+                            if in-pack.current-row != -1 {
+                                // remove-mod-from-pack(pack-mods[in-pack.current-row], modpacks[packsctx-menu.current_item]);
+                                packsctx-menu.set-current-item(-1);
+                                pack-modified = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            in-pack := ModPickTable {
+                col: 4;
+                colspan: 3;
+                columns: [{ title :"Name" }];
+                mods: pack-mods;
+            }
+        }
+
+        packactns := Row {
+            Button {
+                colspan: 3;
+                text: "Reload";
+                clicked => {
+                    // load-mods();
+                }
+            }
+
+            Button {
+                col: 4;
+                colspan: 3;
+                text: "Save";
+                clicked => {
+                    if packsctx-menu.current_item > -1 {
+                        // save-modpack(modpacks[packsctx-menu.current_item], pack-mods);
+                        pack-modified = false;
+                    }
+                }
+            }
+        }
+
+        applyactns := Row {
+            // row: 6;
+            Button {
+                colspan: 3;
+                enabled: packsctx-menu.current_item != -1 && !pack-modified;
+                text: "Apply Modpack";
+                clicked => {
+                    // apply-modpack(pack-mods);
+                }
+            }
+
+            Button {
+                col: 4;
+                // colspan:;
+                text: "Repeal Modpacks";
+                clicked => {
+                    // apply-modpack([]);
+                }
+            }
+        }
+    }
+}

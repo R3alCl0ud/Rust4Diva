@@ -12,6 +12,7 @@ import { InfoDialog } from "widgets/info-dialog.slint";
 import { TextBox } from "widgets/text-box.slint";
 import { DeletePackDialog } from "widgets/delete-pack-dialog.slint";
 import { SettingsWindow, SettingsLogic} from "subwindows/settings.slint";
+import { ModManager } from "tabs/modmanager.slint";
 
 
 
@@ -70,7 +71,7 @@ export component App inherits Window {
     in-out property <[DivaModElement]> pack-mods: [];
     in-out property <[string]> modpacks: [];
 
-    callback load-mods <=> load-mods-btn.clicked;
+    callback load-mods <=> mgmt-tab.clicked;
     callback toggle-mod(int);
     callback toggle-dml();
     callback search-gb(string);
@@ -97,8 +98,6 @@ export component App inherits Window {
     }
 
     packcreator := TextEntryDialog {
-        // x: (window_width / 2) - 100px;
-        // y: (window_height / 2) - 100px;
         offset_x: -100px;
         accepted(text) => {
             ModpackLogic.create-new-pack(text);
@@ -159,44 +158,50 @@ export component App inherits Window {
         TabWidget {
             manager := Tab {
                 title: "Mods";
-                VerticalBox {
-
-                    test-table := ModTable {
-                        min-width: window_width - 12px;
-                        height: window_height - 210px;
-                        columns: [
-                            { title: "Enabled", width: 100px },
-                            { title: "Priority", width: 100px },
-                            { title: "Name" },
-                            { title: "Authors" },
-                            { title: "Version", width: 100px },
-                            { title: "Description" }
-                        ];
-                        mods: mods;
-                        mod-toggled(index, module) => {
-                            ModLogic.toggle-mod(module);
-                        }
-                    }
-
-                    mgmt := HorizontalBox {
-                        load-mods-btn := Button {
-                            horizontal-stretch: 1;
-                            width: (window_width - (mgmt.spacing * 5)) / 2;
-                            text: "Reload Mods";
-                            icon: @image-url("assets/repeat-solid.svg");
-                        }
-
-                        Button {
-                            horizontal-stretch: 1;
-                            width: (window_width - (mgmt.spacing * 5)) / 2;
-                            text: "Apply Priority (Disables currently active modpack)";
-                            icon: @image-url("assets/repeat-solid.svg");
-                            clicked => {
-                                apply-modpack([]);
-                            }
-                        }
-                    }
+                mgmt-tab := ModManager {
+                    width: 100%;
+                    height: (window_height - parent.absolute-position.y) - 5px;
+                    mods: mods;
                 }
+
+                // VerticalBox {
+
+                //     test-table := ModTable {
+                //         min-width: window_width - 12px;
+                //         height: window_height - 210px;
+                //         columns: [
+                //             { title: "Enabled", width: 100px },
+                //             { title: "Priority", width: 100px },
+                //             { title: "Name" },
+                //             { title: "Authors" },
+                //             { title: "Version", width: 100px },
+                //             { title: "Description" }
+                //         ];
+                //         mods: mods;
+                //         mod-toggled(index, module) => {
+                //             ModLogic.toggle-mod(module);
+                //         }
+                //     }
+
+                //     mgmt := HorizontalBox {
+                //         load-mods-btn := Button {
+                //             horizontal-stretch: 1;
+                //             width: (window_width - (mgmt.spacing * 5)) / 2;
+                //             text: "Reload Mods";
+                //             icon: @image-url("assets/repeat-solid.svg");
+                //         }
+
+                //         Button {
+                //             horizontal-stretch: 1;
+                //             width: (window_width - (mgmt.spacing * 5)) / 2;
+                //             text: "Apply Priority (Disables currently active modpack)";
+                //             icon: @image-url("assets/repeat-solid.svg");
+                //             clicked => {
+                //                 apply-modpack([]);
+                //             }
+                //         }
+                //     }
+                // }
             }
 
             packs-tab := Tab {

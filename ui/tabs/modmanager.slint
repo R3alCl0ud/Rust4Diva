@@ -1,0 +1,50 @@
+import { HorizontalBox, Button, VerticalBox, GridBox } from "std-widgets.slint";
+import { ModTable } from "../widgets/mod-table.slint";
+import { ModLogic, ModpackLogic } from "../applogic.slint";
+import { DivaModElement, ModPackElement } from "../diva-types.slint";
+export component ModManager {
+    in-out property <[DivaModElement]> mods;
+    callback clicked <=> load-mods-btn.clicked;
+    GridBox {
+        width: 100%;
+        Row {
+            test-table := ModTable {
+                colspan: 4;
+                columns: [
+                    { title: "Enabled", width: 100px },
+                    { title: "Priority", width: 100px },
+                    { title: "Name" },
+                    { title: "Authors" },
+                    { title: "Version", width: 100px },
+                    { title: "Description" }
+                ];
+                mods: mods;
+                mod-toggled(index, module) => {
+                    ModLogic.toggle-mod(module);
+                }
+            }
+        }
+
+        Row {
+
+            load-mods-btn := Button {
+                colspan: 2;
+                // width: (window_width - (mgmt.spacing * 5)) / 2;
+                text: "Reload Mods";
+                icon: @image-url("../assets/repeat-solid.svg");
+                
+            }
+
+            Button {
+                col: 2;
+                colspan: 2;
+                // width: (window_width - (mgmt.spacing * 5)) / 2;
+                text: "Apply Priority";
+                icon: @image-url("../assets/repeat-solid.svg");
+                clicked => {
+                    ModpackLogic.apply-modpack([]);
+                }
+            }
+        }
+    }
+}
