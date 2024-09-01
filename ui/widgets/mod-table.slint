@@ -2,10 +2,82 @@ import { ListView, VerticalBox, ProgressIndicator,CheckBox, Button, Switch  } fr
 import { StateLayerBase } from "../components/state-layer-base.slint";
 import {Palette, FontSettings} from "../styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
-// import {Icons} from ""
 import { DivaModElement } from "../diva-types.slint";
 import { ModLogic } from "../applogic.slint";
 
+export enum MoveBtnType{
+    start, normal, end
+}
+
+export component MoveBtns {
+    in property <int> idx;
+    in property <MoveBtnType> type;
+    in property <bool> alt;
+
+    Rectangle {
+        border-color: Palette.border;
+        border-radius: 1px;
+        HorizontalLayout {
+            Rectangle {
+                up-ta := TouchArea {
+                    enabled: type == MoveBtnType.start ? false : true;
+                    // clicked => {
+                    //     ModLogic.move-mod-up(idx);
+                    // }
+                    pointer-event(e) => {
+                        if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                            if e.modifiers.shift {
+                                ModLogic.move-mod-up(idx, -1);
+                            } else if e.modifiers.alt {
+                                ModLogic.move-mod-up(idx, 5);
+                            } else if e.modifiers.alt && e.modifiers.shift {
+                                ModLogic.move-mod-up(idx, 10);
+                            } else {
+                                ModLogic.move-mod-up(idx, 1);
+                            }
+                        }
+                    }
+                }
+
+                background: alt ? Palette.alternate-background : Palette.control-background;
+                Image {
+                    height: 20px;
+                    source: @image-url("../assets/up-long-solid.svg");
+                    colorize: Palette.control-foreground;
+                }
+            }
+
+            Rectangle {
+                background: alt ? Palette.alternate-background : Palette.control-background;
+                TouchArea {
+                    enabled: type == MoveBtnType.end ? false : true;
+                    // clicked => {
+                    //     ModLogic.move-mod-down(idx, 1);
+                    // }
+                    pointer-event(e) => {
+                        if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                            if e.modifiers.shift {
+                                ModLogic.move-mod-down(idx, -1);
+                            } else if e.modifiers.alt {
+                                ModLogic.move-mod-down(idx, 5);
+                            } else if e.modifiers.alt && e.modifiers.shift {
+                                ModLogic.move-mod-down(idx, 10);
+                            } else {
+                                ModLogic.move-mod-down(idx, 1);
+                            }
+                        }
+                    }
+                }
+
+                Image {
+                    height: 20px;
+                    source: @image-url("../assets/down-long-solid.svg");
+                    colorize: Palette.control-foreground;
+                }
+            }
+        }
+    }
+}
 
 export component ModTableRow inherits Rectangle {
     in property <bool> selected;
@@ -158,27 +230,33 @@ export component ModTable {
                     min-width: max(columns[1].min-width, columns[1].width);
                     preferred-width: self.min-width;
                     max-width: (1 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
-                    Rectangle {
-                        HorizontalLayout {
-                            Button {
-                                enabled: idx != 0;
-                                primary: mod(idx, 2) == 0;
-                                icon: @image-url("../assets/up-long-solid.svg");
-                                clicked => {
-                                    ModLogic.move-mod-up(idx);
-                                }
-                            }
-
-                            Button {
-                                enabled: idx != (mods.length - 1);
-                                primary: mod(idx, 2) == 0;
-                                icon: @image-url("../assets/down-long-solid.svg");
-                                clicked => {
-                                    ModLogic.move-mod-down(idx);
-                                }
-                            }
-                        }
+                    MoveBtns {
+                        idx: idx;
+                        alt: mod(idx, 2) == 0;
+                        type: idx == 0 ? start : idx == (mods.length - 1) ? end : normal;
                     }
+
+                    // Rectangle {
+                    //     HorizontalLayout {
+                    //         Button {
+                    //             enabled: idx != 0;
+                    //             primary: mod(idx, 2) == 0;
+                    //             icon: @image-url("../assets/up-long-solid.svg");
+                    //             clicked => {
+                    //                 ModLogic.move-mod-up(idx);
+                    //             }
+                    //         }
+
+                    //         Button {
+                    //             enabled: idx != (mods.length - 1);
+                    //             primary: mod(idx, 2) == 0;
+                    //             icon: @image-url("../assets/down-long-solid.svg");
+                    //             clicked => {
+                    //                 ModLogic.move-mod-down(idx);
+                    //             }
+                    //         }
+                    //     }
+                    // }
                 }
 
                 // name

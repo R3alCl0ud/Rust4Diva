@@ -32,11 +32,9 @@ slint::include_modules!();
 pub struct DivaData {
     mods: Vec<DivaMod>,
     search_results: Vec<GBSearch>,
-    mods_directory: String,
     diva_directory: String,
     dml: Option<DivaModLoader>,
     mod_files: HashMap<u64, Vec<GbModDownload>>,
-    mod_packs: HashMap<String, ModPack>,
     config: DivaConfig,
 }
 
@@ -170,11 +168,9 @@ impl DivaData {
         Self {
             mods: Vec::new(),
             search_results: Vec::new(),
-            mods_directory: "".to_string(),
             diva_directory: "".to_string(),
             dml: None,
             mod_files: HashMap::new(),
-            mod_packs: Default::default(),
             config: DivaConfig::new(),
         }
     }

@@ -116,11 +116,12 @@ export component LineEditBase inherits Rectangle {
     }
 }
 
-
 export component FilePathEdit {
     callback accepted(string);
     callback open-picker();
     in-out property <string> default-path;
+
+    in-out property <bool> enabled: true;
 
     public function set-selection-offsets(start: int, end: int) {
         base.set-selection-offsets(start, end);
@@ -164,12 +165,13 @@ export component FilePathEdit {
                 text: default-path;
                 min-width: 200px;
                 text-color: Palette.foreground;
+                enabled: root.enabled;
                 accepted => {
                     accepted(self.text);
                 }
             }
 
-            Rectangle {
+            pick-btn := Rectangle {
                 col: 5;
                 border-top-left-radius: 0;
                 border-bottom-left-radius: 0;
@@ -179,8 +181,9 @@ export component FilePathEdit {
                 border-width: 1px;
                 border-color: Palette.border;
                 width: 60px;
-                background: ta.pressed ? CosmicPalette.state-pressed : Palette.accent-background;
+                background: ta.pressed ? CosmicPalette.state-pressed : Palette.alternate-background;
                 ta := TouchArea {
+                    enabled: root.enabled;
                     clicked => {
                         open-picker();
                     }
@@ -190,7 +193,7 @@ export component FilePathEdit {
                     height: 20px;
                     width: 20px;
                     source: @image-url("../assets/folder-solid.svg");
-                    colorize: Palette.accent-foreground;
+                    colorize: Palette.foreground;
                 }
 
                 animate background, border-color { duration: 150ms; }

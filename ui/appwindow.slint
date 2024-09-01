@@ -1,4 +1,4 @@
-import { Button, VerticalBox,HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator } from "std-widgets.slint";
+import { Button, VerticalBox, HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator } from "std-widgets.slint";
 import { FileTable, Download } from "widgets/filetable.slint";
 import { Palette as CosmicPalette } from "styling.slint";
 import { ErrorDialog } from "widgets/errordialog.slint";
@@ -11,11 +11,11 @@ import { ModpackLogic, ModLogic, WindowLogic } from "applogic.slint";
 import { InfoDialog } from "widgets/info-dialog.slint";
 import { TextBox } from "widgets/text-box.slint";
 import { DeletePackDialog } from "widgets/delete-pack-dialog.slint";
-import { SettingsWindow} from "subwindows/settings.slint";
+import { SettingsWindow, SettingsLogic} from "subwindows/settings.slint";
 
 
 
-export { ModPackElement, ModpackLogic, ModLogic, SettingsWindow, WindowLogic }
+export { ModPackElement, ModpackLogic, ModLogic, SettingsWindow, WindowLogic, SettingsLogic }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -28,6 +28,11 @@ export struct SlintModConfig {
     dll: [string]
 }
 
+
+
+@rust-attr(derive(serde::Serialize, serde::Deserialize))
+export struct TestJSON {
+    test: int}
 
 
 export component App inherits Window {
@@ -102,7 +107,7 @@ export component App inherits Window {
 
     aboutdialog := InfoDialog { }
 
-    confirmdeletepack := DeletePackDialog {}
+    confirmdeletepack := DeletePackDialog { }
 
     VerticalLayout {
         HorizontalBox {
@@ -173,13 +178,14 @@ export component App inherits Window {
                         }
                     }
 
-                    mgmt:=HorizontalBox {
+                    mgmt := HorizontalBox {
                         load-mods-btn := Button {
                             horizontal-stretch: 1;
                             width: (window_width - (mgmt.spacing * 5)) / 2;
                             text: "Reload Mods";
                             icon: @image-url("assets/repeat-solid.svg");
                         }
+
                         Button {
                             horizontal-stretch: 1;
                             width: (window_width - (mgmt.spacing * 5)) / 2;
@@ -231,6 +237,7 @@ export component App inherits Window {
                             }
                             width: 180px;
                         }
+
                         Button {
                             text: "Delete Modpack";
                             width: 180px;

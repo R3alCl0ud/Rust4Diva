@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
@@ -187,13 +188,22 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
         let _ = set_mods_table(&mods, ui_toggle_handle.clone());
     });
 
-    ui.global::<ModLogic>().on_move_mod_up(move |idx| {
+    ui.global::<ModLogic>().on_move_mod_up(move |idx, amt| {
         let ui_mod_up_handle = ui_mod_up_handle.clone();
         if idx < 1 {
             return;
         }
         if let Ok(mut gcfg) = DIVA_CFG.lock() {
-            gcfg.priority.swap(idx as usize, (idx - 1) as usize);
+            if amt == 1 {
+                gcfg.priority.swap(idx as usize, (idx - 1) as usize);
+            } else {
+                let m = gcfg.priority.remove(idx as usize);
+                if amt == -1 {
+                    gcfg.priority.insert(0, m);
+                } else {
+                    gcfg.priority.insert(max((idx - amt) as usize, 0), m);
+                }
+            }
             let lcfg = gcfg.clone();
             tokio::spawn(async move {
                 match write_config(lcfg).await {
@@ -221,7 +231,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             });
         }
     });
-    ui.global::<ModLogic>().on_move_mod_down(move |idx| {
+    ui.global::<ModLogic>().on_move_mod_down(move |idx, amt| {
         let ui_mod_down_handle = ui_mod_down_handle.clone();
         if idx < 0 {
             return;
@@ -230,7 +240,18 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             if idx >= (gcfg.priority.len() - 1) as i32 {
                 return;
             }
-            gcfg.priority.swap(idx as usize, (idx + 1) as usize);
+            if amt == 1 {
+                gcfg.priority.swap(idx as usize, (idx + 1) as usize);
+            } else {
+                let m = gcfg.priority.remove(idx as usize);
+                if amt == -1 {
+                    gcfg.priority.push(m);
+                } else {
+                    let len = gcfg.priority.len();
+                    gcfg.priority
+                        .insert(min((idx + amt) as usize, max(len - 1, 0)), m)
+                }
+            }
             let lcfg = gcfg.clone();
             tokio::spawn(async move {
                 match write_config(lcfg).await {
@@ -571,12 +592,18 @@ pub fn spawn_download_listener(
 
 pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Weak<App>) {
     tokio::spawn(async move {
-        let wait_time = tokio::time::Duration::from_millis(500);
+        let wait_time = tokio::time::Duration::from_millis(50);
         while !prog_rx.is_closed() {
-            // await seems to cause it to hang for quite a while
-            // prog_rx.
+            /*
+            await recv causes thread to hang until download is finished
+            so we are try_recv'ing instead
+            but we can't do this without a timeout so it's be moved to wait
+            a little bit before trying again
+            Try_recv without the timeout causes preformance issues on the host's PC
+
+            Time wasted trying to make await work = 3 hours
+            */
             if let Ok((index, chunk_size)) = prog_rx.try_recv() {
-                // println!("prog recieved {chunk_size}");
                 match ui_weak.upgrade_in_event_loop(move |ui| {
                     let downloads = ui.get_downloads_list();
                     if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>()

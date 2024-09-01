@@ -51,7 +51,7 @@ export component ContextMenu {
     }
 
     popup_window := PopupWindow {
-        x: parent.offset_x;
+        x: parent.absolute-position.x;
         y: parent.offset_y + 15px;
 
         PopupBorder {
