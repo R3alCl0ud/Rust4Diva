@@ -1,12 +1,13 @@
 import { StateLayerBase } from "../components/state-layer-base.slint";
-import { Palette as  CosmicPalette, FontSettings as CosmicFontSettings  } from "../styling.slint";
+import { Palette } from "std-widgets.slint";
+import { FontSettings as CosmicFontSettings  } from "../styling.slint";
 
 export component TableViewColumn inherits Rectangle {
     in property <SortOrder> sort-order: SortOrder.unsorted;
     callback clicked <=> touch-area.clicked;
     callback adjust_size(length);
     min-height: max(24px, layout.min-height);
-    background: CosmicPalette.control-background;
+    background: Palette.control-background;
     touch-area := TouchArea {
         width: parent.width - 11px;
     }
@@ -21,7 +22,7 @@ export component TableViewColumn inherits Rectangle {
 
         icon := Image {
             image-fit: contain;
-            colorize: CosmicPalette.foreground;
+            colorize: Palette.foreground;
             visible: root.sort-order != SortOrder.unsorted;
             width: 12px;
             y: (parent.height - self.height) / 2;
@@ -42,7 +43,7 @@ export component TableViewColumn inherits Rectangle {
         y: parent.height - self.height;
         width: 100%;
         height: 1px;
-        background: CosmicPalette.border;
+        background: Palette.border;
     }
 
     Rectangle {
@@ -50,7 +51,7 @@ export component TableViewColumn inherits Rectangle {
         width: 1px;
         states [
             hover when movable-touch-area.has-hover: {
-                background: CosmicPalette.foreground;
+                background: Palette.foreground;
             }
         ]
         animate background { duration: 150ms; }
@@ -85,7 +86,7 @@ export component TableViewRow inherits Rectangle {
 
     min-width: layout.min-width;
     min-height: max(24px, layout.min-height);
-    background: root.even ? CosmicPalette.control-background : transparent;
+    background: root.even ? Palette.control-background : transparent;
 
     layout := HorizontalLayout {
         @children

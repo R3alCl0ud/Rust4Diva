@@ -1,6 +1,6 @@
-import { ListView, VerticalBox, ProgressIndicator,CheckBox  } from "std-widgets.slint";
+import { ListView, VerticalBox, ProgressIndicator,CheckBox,Palette  } from "std-widgets.slint";
 import { StateLayerBase } from "../components/state-layer-base.slint";
-import {Palette, FontSettings} from "../styling.slint";
+import { FontSettings} from "../styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
 // import {Icons} from ""
 import {DivaModElement} from "../diva-types.slint";
@@ -54,8 +54,8 @@ export component ModPickTable {
         root.current-sort-column = index;
     }
 
-    // min-width: 400px;
-    min-height: 200px;
+    min-width: 400px;
+    min-height: 300px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
     accessible-role: table;

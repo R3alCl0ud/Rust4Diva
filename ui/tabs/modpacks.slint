@@ -3,33 +3,34 @@ import { DivaModElement, ModPackElement } from "../diva-types.slint";
 import { ContextMenu } from "../widgets/context-menu.slint";
 import { ModPickTable } from "../widgets/modpack-tables.slint";
 import { TextEntryDialog } from "../widgets/text-entry-dialog.slint";
+import { ModpackLogic, ModLogic, WindowLogic } from "../applogic.slint";
 export component ModPacksTab {
-    width: 1000px;
     in-out property <[string]> modpacks: [];
     in-out property <[DivaModElement]> mods;
     in-out property <[DivaModElement]> pack-mods: [];
     in-out property <bool> pack-modified;
     callback show-text-entry();
-    callback show-delete-pack(string);
+    property <length> btn-height: 35px;
 
     packsctx-menu := ContextMenu {
         min_menu_width: packbtn.width - 40px;
-        offset_x: -((self.x + self.min_menu_width) - (packbtn.x + packbtn.width));
-        offset_y: packbtn.height;
+        offset_x: -((self.x + self.min_menu_width) - (packbtn.absolute-position.x + packbtn.width));
+        offset_y: -((self.y + self.height) - (packbtn.absolute-position.y)) * 2;
         model: modpacks;
         horizontal_alignment: center;
         item-clicked(idx) => {
-            // modpack-changed(modpacks[idx]);
+            debug(self.offset_x);
+            ModpackLogic.change-modpack(modpacks[idx]);
             pack-modified = false;
         }
     }
 
-    GridBox {
-        Row {
+    layout := GridBox {
+        selection-controls := Row {
             packbtn := Button {
+                height: btn-height;
                 col: 0;
                 colspan: 5;
-                width: 100%;
                 text: packsctx-menu.current_item != -1 ? "Editing: " + packsctx-menu.model[packsctx-menu.current_item] : "No Pack Selected";
                 clicked => {
                     if (packsctx-menu.model.length == 0) {
@@ -39,7 +40,8 @@ export component ModPacksTab {
                 }
             }
 
-            Button {
+            add-pack-bnt := Button {
+                height: btn-height;
                 col: 5;
                 colspan: 1;
                 text: "Add New Pack";
@@ -49,50 +51,57 @@ export component ModPacksTab {
             }
 
             Button {
+                height: btn-height;
                 col: 6;
                 colspan: 1;
                 text: "Delete Modpack";
                 enabled: packsctx-menu.current_item != -1;
                 clicked => {
-                    show-delete-pack(packsctx-menu.model[packsctx-menu.current_item]);
-                    // confirmdeletepack.show-with(packsctx-menu.model[packsctx-menu.current_item]);
+                    WindowLogic.open-delete-dialog(packsctx-menu.model[packsctx-menu.current_item]);
                 }
             }
         }
 
-        Row {
+        labels := Row {
             Text {
                 col: 0;
                 colspan: 3;
+                height: 20px;
                 text: "Installed";
             }
 
             Text {
                 col: 4;
                 colspan: 3;
+                height: 20px;
                 text: "In Modpack";
             }
         }
 
-        Row {
+        main-contents := Row {
 
             mod-picker := ModPickTable {
                 col: 0;
                 colspan: 3;
+                horizontal-stretch: 0.5;
                 // width: ;
+                preferred-height: 500px;
                 columns: [{ title :"Name" }];
                 mods: mods;
             }
 
-            VerticalLayout {
+            move-btns := VerticalBox {
                 col: 3;
-                rowspan: 2;
+                rowspan: 1;
+                width: 10%;
                 Button {
-                    icon: @image-url("assets/right-long-solid.svg");
+                    height: 48%;
+                    colorize-icon: true;
+                    icon: @image-url("../assets/right-long-solid.svg");
                     clicked => {
                         if packsctx-menu.current_item != -1 {
                             if mod-picker.current-row != -1 {
-                                // add-mod-to-pack(mods[mod-picker.current-row], modpacks[packsctx-menu.current_item]);
+                                ModpackLogic.add-mod-to-pack(mods[mod-picker.current-row], modpacks[packsctx-menu.current_item]);
                                 packsctx-menu.set-current-item(-1);
                                 pack-modified = true;
                             }
@@ -101,12 +110,14 @@ export component ModPacksTab {
                 }
 
                 Button {
-                    // enabled: pack-mods.length > 0;
-                    icon: @image-url("assets/left-long-solid.svg");
+                    height: 48%;
+                    colorize-icon: true;
+                    enabled: pack-mods.length > 0;
+                    icon: @image-url("../assets/left-long-solid.svg");
                     clicked => {
                         if packsctx-menu.current_item != -1 {
                             if in-pack.current-row != -1 {
-                                // remove-mod-from-pack(pack-mods[in-pack.current-row], modpacks[packsctx-menu.current_item]);
+                                ModpackLogic.remove-mod-from-pack(pack-mods[in-pack.current-row], modpacks[packsctx-menu.current_item]);
                                 packsctx-menu.set-current-item(-1);
                                 pack-modified = true;
                             }
@@ -116,6 +127,7 @@ export component ModPacksTab {
             }
 
             in-pack := ModPickTable {
+                preferred-height: 500px;
                 col: 4;
                 colspan: 3;
                 columns: [{ title :"Name" }];
@@ -126,19 +138,21 @@ export component ModPacksTab {
         packactns := Row {
             Button {
                 colspan: 3;
+                height: btn-height;
                 text: "Reload";
                 clicked => {
-                    // load-mods();
+                    ModLogic.load-mods();
                 }
             }
 
             Button {
                 col: 4;
                 colspan: 3;
+                height: btn-height;
                 text: "Save";
                 clicked => {
                     if packsctx-menu.current_item > -1 {
-                        // save-modpack(modpacks[packsctx-menu.current_item], pack-mods);
+                        ModpackLogic.save-modpack(modpacks[packsctx-menu.current_item], pack-mods);
                         pack-modified = false;
                     }
                 }
@@ -146,22 +160,23 @@ export component ModPacksTab {
         }
 
         applyactns := Row {
-            // row: 6;
             Button {
                 colspan: 3;
+                height: btn-height;
                 enabled: packsctx-menu.current_item != -1 && !pack-modified;
                 text: "Apply Modpack";
                 clicked => {
-                    // apply-modpack(pack-mods);
+                    ModpackLogic.apply-modpack(pack-mods);
                 }
             }
 
             Button {
                 col: 4;
-                // colspan:;
+                colspan: 3;
+                height: btn-height;
                 text: "Repeal Modpacks";
                 clicked => {
-                    // apply-modpack([]);
+                    ModpackLogic.apply-modpack([]);
                 }
             }
         }

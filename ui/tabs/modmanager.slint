@@ -2,6 +2,7 @@ import { HorizontalBox, Button, VerticalBox, GridBox } from "std-widgets.slint";
 import { ModTable } from "../widgets/mod-table.slint";
 import { ModLogic, ModpackLogic } from "../applogic.slint";
 import { DivaModElement, ModPackElement } from "../diva-types.slint";
+import { Palette } from "../styling.slint";
 export component ModManager {
     in-out property <[DivaModElement]> mods;
     callback clicked <=> load-mods-btn.clicked;
@@ -29,17 +30,16 @@ export component ModManager {
 
             load-mods-btn := Button {
                 colspan: 2;
-                // width: (window_width - (mgmt.spacing * 5)) / 2;
                 text: "Reload Mods";
+                colorize-icon: true;
                 icon: @image-url("../assets/repeat-solid.svg");
-                
             }
 
             Button {
                 col: 2;
                 colspan: 2;
-                // width: (window_width - (mgmt.spacing * 5)) / 2;
                 text: "Apply Priority";
+                colorize-icon: true;
                 icon: @image-url("../assets/repeat-solid.svg");
                 clicked => {
                     ModpackLogic.apply-modpack([]);

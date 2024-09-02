@@ -1,17 +1,17 @@
 #![windows_subsystem = "windows"]
 
-
 use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, LazyLock};
 
 use modmanagement::get_mods_in_order;
+use slint::private_unstable_api::re_exports::ColorScheme;
 use slint::{SharedString, VecModel};
 use slint_interpreter::ComponentHandle;
 use tokio::sync::Mutex;
 
 use crate::config::{load_diva_config, write_config, DivaConfig};
-use crate::diva::{create_tmp_if_not, get_diva_folder, MIKU_ART};
+use crate::diva::{create_tmp_if_not, get_diva_folder, MIKU_ART, open_error_window};
 use crate::gamebanana_async::{parse_dmm_url, GBSearch, GbModDownload};
 use crate::modmanagement::{
     load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
@@ -104,11 +104,8 @@ async fn main() {
     match spawn_listener(url_tx.clone(), app_weak.clone()).await {
         Ok(_) => {}
         Err(e) => {
-            let msg = format!(
-                "Unable start listener: \n{}",
-                e.to_string()
-            );
-            app_weak.clone().upgrade().unwrap().invoke_open_error_dialog(msg.into());
+            let msg = format!("Unable start listener: \n{}", e.to_string());
+            open_error_window(msg);
         }
     }
 
@@ -118,6 +115,12 @@ async fn main() {
         diva_state.config = cfg.clone();
         let mut gcfg = DIVA_CFG.lock().expect("msg");
         *gcfg = cfg.clone();
+        if gcfg.dark_mode {
+            app.invoke_set_color_scheme(ColorScheme::Dark);
+        }
+        if !gcfg.dark_mode {
+            app.invoke_set_color_scheme(ColorScheme::Light);
+        }
     }
 
     if let Some(diva_dir) = get_diva_folder() {
@@ -153,7 +156,8 @@ async fn main() {
         match url_tx.clone().send(url).await {
             Ok(_) => {}
             Err(e) => {
-                eprintln!("{}", e);
+                // eprintln!("{}", e);
+                open_error_window(e.to_string());
             }
         }
     }

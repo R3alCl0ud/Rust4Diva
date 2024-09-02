@@ -1,9 +1,11 @@
 use keyvalues_parser::Vdf;
+use slint_interpreter::invoke_from_event_loop;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::DIVA_CFG;
+use crate::{ErrorMessageWindow, DIVA_CFG};
+use slint::ComponentHandle;
 
 cfg_if::cfg_if! {
     if #[cfg(windows)] {
@@ -226,3 +228,15 @@ pub static MIKU_ART: &'static str = r#"
 　　🟦　　　🟦　　　🟦　　　🟦　　　　　　🟦　　　　　　🟦🟦🟦🟦🟦　　　　　　　　　🟦　　　
 　　🟦　　🟦　　　　🟦　　　🟦🟦🟦🟦🟦🟦🟦🟦　　　　　　　　　　🟦🟦　　　　　　🟦🟦　　　　
 　　🟦　🟦　　　🟦🟦　　　　🟦　　　　　　🟦　　　　　　　　　　　　　　　　　🟦🟦　　　　　"#;
+
+pub fn open_error_window(message: String) {
+    // tokio::spawn(async move {
+    let error = ErrorMessageWindow::new().unwrap();
+    error.set_msg(message.into());
+    let close_handle = error.as_weak();
+    error.on_close(move || {
+        close_handle.upgrade().unwrap().hide().unwrap();
+    });
+    error.show().unwrap();
+    // });
+}

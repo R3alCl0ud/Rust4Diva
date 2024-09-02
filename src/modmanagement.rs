@@ -20,7 +20,7 @@ use tokio::time::timeout;
 use toml::de::Error;
 
 use crate::config::write_config;
-use crate::diva::{get_diva_folder, get_temp_folder};
+use crate::diva::{get_diva_folder, get_temp_folder, open_error_window};
 use crate::modpacks::ModPackMod;
 use crate::slint_generatedApp::App;
 use crate::{DivaData, Download, DIVA_CFG, DML_CFG, MODS};
@@ -164,7 +164,8 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             let _ = set_mods_table(&mods, ui_load_handle.clone());
         }
         Err(e) => {
-            eprintln!("{e}");
+            open_error_window(e.to_string());
+            // eprintln!("{e}");
         }
     });
 
@@ -176,11 +177,8 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                 println!("{}", buf.display());
                 // fs::write(buf,
                 if let Err(e) = save_mod_config(buf, &mut m.config.clone()) {
-                    let msg = format!("Unable to save modpack: \n{}", e.to_string());
-                    ui_toggle_handle
-                        .upgrade()
-                        .unwrap()
-                        .invoke_open_error_dialog(msg.into());
+                    let msg = format!("Unable to save mod config: \n{}", e.to_string());
+                    open_error_window(msg);
                 }
             }
         }
@@ -214,18 +212,12 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                         {
                             let msg =
                                 format!("Unable to save priority to disk: \n{}", e.to_string());
-                            ui_mod_up_handle
-                                .upgrade()
-                                .unwrap()
-                                .invoke_open_error_dialog(msg.into());
+                            open_error_window(msg);
                         }
                     }
                     Err(e) => {
                         let msg = format!("Unable to save priority to disk: \n{}", e.to_string());
-                        ui_mod_up_handle
-                            .upgrade()
-                            .unwrap()
-                            .invoke_open_error_dialog(msg.into());
+                        open_error_window(msg);
                     }
                 }
             });
@@ -262,18 +254,12 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                         {
                             let msg =
                                 format!("Unable to save priority to disk: \n{}", e.to_string());
-                            ui_mod_down_handle
-                                .upgrade()
-                                .unwrap()
-                                .invoke_open_error_dialog(msg.into());
+                            open_error_window(msg);
                         }
                     }
                     Err(e) => {
                         let msg = format!("Unable to save priority to disk: \n{}", e.to_string());
-                        ui_mod_down_handle
-                            .upgrade()
-                            .unwrap()
-                            .invoke_open_error_dialog(msg.into());
+                        open_error_window(msg);
                     }
                 }
             });
@@ -298,6 +284,7 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                     }
                     Err(e) => {
                         eprintln!("{}", e);
+                        open_error_window(e.to_string());
                     }
                 }
             }
@@ -324,7 +311,9 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
         match fs::create_dir(mods_folder) {
             Ok(_) => {}
             Err(e) => {
-                eprintln!("Unable to create default mods folder: {}", e);
+                let msg = format!("Unable to create default mods folder: {}", e);
+                eprintln!("{msg}");
+                open_error_window(msg);
             }
         }
         return mods;
@@ -438,6 +427,7 @@ pub fn check_archive_valid_structure(archive: File, name: String) -> bool {
         }
         Err(e) => {
             eprintln!("{}", e);
+            open_error_window(e.to_string());
             false
         }
     };
@@ -515,6 +505,7 @@ pub fn spawn_download_listener(
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("{}", e);
+                            open_error_window(e.to_string());
                             let _ = ui_download_handle.upgrade_in_event_loop(move |ui| {
                                 let downloads = ui.get_downloads_list();
                                 if let Some(downloads) =
@@ -550,38 +541,35 @@ pub fn spawn_download_listener(
                                 }
                                 Err(e) => {
                                     eprintln!("Failed to extract the mod file:\n{}", e);
-                                    let _ = ui_download_handle.clone().upgrade_in_event_loop(
-                                        move |ui| {
-                                            let msg = format!(
-                                                "Failed to extract the mod file: \n{}",
-                                                e.to_string()
-                                            );
-                                            ui.invoke_open_error_dialog(msg.into());
-                                        },
+                                    // let _ = ui_download_handle.clone().upgrade_in_event_loop(
+                                    //     move |ui| {
+                                    let msg = format!(
+                                        "Failed to extract the mod file: \n{}",
+                                        e.to_string()
                                     );
+                                    // ui.invoke_open_error_dialog(msg.into());
+                                    // },
+                                    // );
+                                    open_error_window(msg);
                                 }
                             }
                         }
                         Err(e) => {
                             eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                            let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
-                                let msg = format!(
-                                    "Something went wrong while saving the file to disk: \n{}",
-                                    e.to_string()
-                                );
-                                ui.invoke_open_error_dialog(msg.into());
-                            });
-                        }
-                    },
-                    Err(e) => {
-                        eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                        let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
                             let msg = format!(
                                 "Something went wrong while saving the file to disk: \n{}",
                                 e.to_string()
                             );
-                            ui.invoke_open_error_dialog(msg.into());
-                        });
+                            open_error_window(msg);
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                        let msg = format!(
+                            "Something went wrong while saving the file to disk: \n{}",
+                            e.to_string()
+                        );
+                        open_error_window(msg);
                     }
                 }
             }

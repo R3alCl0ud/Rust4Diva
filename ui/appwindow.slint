@@ -1,4 +1,4 @@
-import { Button, VerticalBox, HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator } from "std-widgets.slint";
+import { Palette, Button, VerticalBox, HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator } from "std-widgets.slint";
 import { FileTable, Download } from "widgets/filetable.slint";
 import { Palette as CosmicPalette } from "styling.slint";
 import { ErrorDialog } from "widgets/errordialog.slint";
@@ -13,10 +13,12 @@ import { TextBox } from "widgets/text-box.slint";
 import { DeletePackDialog } from "widgets/delete-pack-dialog.slint";
 import { SettingsWindow, SettingsLogic} from "subwindows/settings.slint";
 import { ModManager } from "tabs/modmanager.slint";
+import { ModPacksTab } from "tabs/modpacks.slint";
+import {ConfirmDeletePack} from "dialogs/deletepack.slint";
 
+import {ErrorMessageWindow } from "dialogs/errormsg.slint";
 
-
-export { ModPackElement, ModpackLogic, ModLogic, SettingsWindow, WindowLogic, SettingsLogic }
+export { ModPackElement, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack, WindowLogic, SettingsLogic, ErrorMessageWindow }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -37,6 +39,7 @@ export struct TestJSON {
 
 
 export component App inherits Window {
+    // scal
     min-width: 1280px;
     preferred-width: 1280px;
     min-height: 900px;
@@ -63,6 +66,7 @@ export component App inherits Window {
     in-out property <bool> show-error: true;
     in-out property <bool> pack-modified: false;
     in-out property <string> error-msg: "This is a test message";
+    out property <ColorScheme> color-scheme: Palette.color-scheme;
 
     property window_width <=> self.width;
     property window_height <=> self.height;
@@ -83,6 +87,10 @@ export component App inherits Window {
     callback modpack-changed(string);
     callback save-modpack(string, [DivaModElement]);
     callback apply-modpack([DivaModElement]);
+
+    public function set-color-scheme(scheme: ColorScheme) {
+        Palette.color-scheme = scheme;
+    }
 
     public function open-error-dialog(error-msg: string) {
         root.error-msg = error-msg;
@@ -163,188 +171,18 @@ export component App inherits Window {
                     height: (window_height - parent.absolute-position.y) - 5px;
                     mods: mods;
                 }
-
-                // VerticalBox {
-
-                //     test-table := ModTable {
-                //         min-width: window_width - 12px;
-                //         height: window_height - 210px;
-                //         columns: [
-                //             { title: "Enabled", width: 100px },
-                //             { title: "Priority", width: 100px },
-                //             { title: "Name" },
-                //             { title: "Authors" },
-                //             { title: "Version", width: 100px },
-                //             { title: "Description" }
-                //         ];
-                //         mods: mods;
-                //         mod-toggled(index, module) => {
-                //             ModLogic.toggle-mod(module);
-                //         }
-                //     }
-
-                //     mgmt := HorizontalBox {
-                //         load-mods-btn := Button {
-                //             horizontal-stretch: 1;
-                //             width: (window_width - (mgmt.spacing * 5)) / 2;
-                //             text: "Reload Mods";
-                //             icon: @image-url("assets/repeat-solid.svg");
-                //         }
-
-                //         Button {
-                //             horizontal-stretch: 1;
-                //             width: (window_width - (mgmt.spacing * 5)) / 2;
-                //             text: "Apply Priority (Disables currently active modpack)";
-                //             icon: @image-url("assets/repeat-solid.svg");
-                //             clicked => {
-                //                 apply-modpack([]);
-                //             }
-                //         }
-                //     }
-                // }
             }
 
             packs-tab := Tab {
                 title: "Modpacks";
-
-                VerticalBox {
-                    HorizontalLayout {
-                        packsctx-menu := ContextMenu {
-                            min_menu_width: window_width - 440px;
-                            offset_x: -((self.x + self.min_menu_width) - (packbtn.x + packbtn.width));
-                            offset_y: packbtn.height;
-                            width: 300px;
-                            model: modpacks;
-                            horizontal_alignment: center;
-                            item-clicked(idx) => {
-                                modpack-changed(modpacks[idx]);
-                                pack-modified = false;
-                            }
-                        }
-                    }
-
-                    HorizontalLayout {
-                        packbtn := Button {
-                            width: window_width - 400px;
-                            text: packsctx-menu.current_item != -1 ? "Editing: " + packsctx-menu.model[packsctx-menu.current_item] : "";
-                            clicked => {
-                                if (packsctx-menu.model.length == 0) {
-                                    return;
-                                }
-                                packsctx-menu.show_and_focus();
-                            }
-                        }
-
-                        Button {
-                            text: "Add New Pack";
-                            clicked => {
-                                packcreator.show();
-                            }
-                            width: 180px;
-                        }
-
-                        Button {
-                            text: "Delete Modpack";
-                            width: 180px;
-                            enabled: packsctx-menu.current_item != -1;
-                            clicked => {
-                                confirmdeletepack.show-with(packsctx-menu.model[packsctx-menu.current_item]);
-                            }
-                        }
-                    }
-
-                    HorizontalBox {
-                        VerticalBox {
-                            Text {
-                                text: "Installed";
-                            }
-
-                            mod-picker := ModPickTable {
-                                width: (window_width / 2) - 100px;
-                                // height: 100%;
-                                height: window_height - 360px;
-                                columns: [{ title :"Name" }];
-                                mods: mods;
-                            }
-
-                            Button {
-                                text: "Reload";
-                                clicked => {
-                                    load-mods();
-                                }
-                            }
-                        }
-
-                        VerticalBox {
-                            Button {
-                                icon: @image-url("assets/right-long-solid.svg");
-                                clicked => {
-                                    if packsctx-menu.current_item != -1 {
-                                        if mod-picker.current-row != -1 {
-                                            add-mod-to-pack(mods[mod-picker.current-row], modpacks[packsctx-menu.current_item]);
-                                            packsctx-menu.set-current-item(-1);
-                                            pack-modified = true;
-                                        }
-                                    }
-                                }
-                            }
-
-                            Button {
-                                enabled: pack-mods.length > 0;
-                                icon: @image-url("assets/left-long-solid.svg");
-                                clicked => {
-                                    if packsctx-menu.current_item != -1 {
-                                        if in-pack.current-row != -1 {
-                                            remove-mod-from-pack(pack-mods[in-pack.current-row], modpacks[packsctx-menu.current_item]);
-                                            packsctx-menu.set-current-item(-1);
-                                            pack-modified = true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        VerticalBox {
-                            Text {
-                                text: "In Modpack";
-                            }
-
-                            in-pack := ModPickTable {
-                                width: (window_width / 2) - 100px;
-                                height: window_height - 360px;
-                                columns: [{ title :"Name" }];
-                                mods: pack-mods;
-                            }
-
-                            Button {
-                                text: "Save";
-                                clicked => {
-                                    if packsctx-menu.current_item > -1 {
-                                        save-modpack(modpacks[packsctx-menu.current_item], pack-mods);
-                                        pack-modified = false;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    aply-btns := HorizontalBox {
-                        Button {
-                            width: (window_width - (aply-btns.spacing * 5)) / 2;
-                            enabled: packsctx-menu.current_item != -1 && !pack-modified;
-                            text: "Apply Modpack";
-                            clicked => {
-                                apply-modpack(pack-mods);
-                            }
-                        }
-
-                        Button {
-                            width: (window_width - (aply-btns.spacing * 5)) / 2;
-                            text: "Repeal Modpacks";
-                            clicked => {
-                                apply-modpack([]);
-                            }
-                        }
+                ModPacksTab {
+                    width: 100%;
+                    height: (window_height - parent.absolute-position.y) - 5px;
+                    mods: mods;
+                    modpacks: modpacks;
+                    pack-mods: pack-mods;
+                    show-text-entry => {
+                        packcreator.show();
                     }
                 }
             }

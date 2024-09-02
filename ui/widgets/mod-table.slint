@@ -1,6 +1,6 @@
-import { ListView, VerticalBox, ProgressIndicator,CheckBox, Button, Switch  } from "std-widgets.slint";
+import { ListView, VerticalBox, ProgressIndicator,CheckBox, Button, Switch, Palette  } from "std-widgets.slint";
 import { StateLayerBase } from "../components/state-layer-base.slint";
-import {Palette, FontSettings} from "../styling.slint";
+import { FontSettings} from "../styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
 import { DivaModElement } from "../diva-types.slint";
 import { ModLogic } from "../applogic.slint";
@@ -21,17 +21,14 @@ export component MoveBtns {
             Rectangle {
                 up-ta := TouchArea {
                     enabled: type == MoveBtnType.start ? false : true;
-                    // clicked => {
-                    //     ModLogic.move-mod-up(idx);
-                    // }
                     pointer-event(e) => {
                         if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
-                            if e.modifiers.shift {
-                                ModLogic.move-mod-up(idx, -1);
-                            } else if e.modifiers.alt {
+                            if e.modifiers.alt {
                                 ModLogic.move-mod-up(idx, 5);
                             } else if e.modifiers.alt && e.modifiers.shift {
                                 ModLogic.move-mod-up(idx, 10);
+                            } else if e.modifiers.shift {
+                                ModLogic.move-mod-up(idx, -1);
                             } else {
                                 ModLogic.move-mod-up(idx, 1);
                             }
@@ -51,17 +48,14 @@ export component MoveBtns {
                 background: alt ? Palette.alternate-background : Palette.control-background;
                 TouchArea {
                     enabled: type == MoveBtnType.end ? false : true;
-                    // clicked => {
-                    //     ModLogic.move-mod-down(idx, 1);
-                    // }
                     pointer-event(e) => {
                         if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
-                            if e.modifiers.shift {
-                                ModLogic.move-mod-down(idx, -1);
-                            } else if e.modifiers.alt {
+                            if e.modifiers.alt {
                                 ModLogic.move-mod-down(idx, 5);
                             } else if e.modifiers.alt && e.modifiers.shift {
                                 ModLogic.move-mod-down(idx, 10);
+                            } else if e.modifiers.shift {
+                                ModLogic.move-mod-down(idx, -1);
                             } else {
                                 ModLogic.move-mod-down(idx, 1);
                             }
@@ -105,9 +99,9 @@ export component ModTable {
     in-out property <int> current-row: -1;
     out property <int> current-sort-column: -1;
     callback row-pointer-event(int/* row-index */, PointerEvent/* event */, Point/* absolute mouse position */);
-    callback current-row-changed(int/* current-row */);
-    callback sort-ascending(/* column-index */ int);
-    callback sort-descending(/* column-index */ int);
+    callback current-row-changed(int/* current-row */); 
+    callback sort-ascending(/* column-index */ int); // unused
+    callback sort-descending(/* column-index */ int); // unused
     callback mod-toggled(int, DivaModElement);
 
     private property <length> min-header-height: 32px;

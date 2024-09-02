@@ -3,10 +3,11 @@ use std::path::{Path, PathBuf};
 
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
+use slint::private_unstable_api::re_exports::ColorScheme;
 use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::fs;
 
-use crate::diva::{get_diva_folder, get_steam_folder};
+use crate::diva::{get_diva_folder, get_steam_folder, open_error_window};
 use crate::slint_generatedApp::App;
 
 use crate::{diva::get_config_dir, SettingsLogic, SettingsWindow, WindowLogic, DIVA_CFG};
@@ -24,6 +25,12 @@ pub struct DivaConfig {
     pub applied_pack: String, // pub
     #[serde(default)]
     pub aft_mode: bool,
+    #[serde(default = "yes")]
+    pub dark_mode: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl DivaConfig {
@@ -35,6 +42,7 @@ impl DivaConfig {
             aft_dir: "".to_string(),
             applied_pack: "".to_string(),
             aft_mode: false,
+            dark_mode: true,
         }
     }
 }
@@ -82,12 +90,16 @@ pub async fn write_config(cfg: DivaConfig) -> std::io::Result<()> {
 
 pub async fn init_ui(diva_ui: &App) {
     let _ui_diva_dir_handle = diva_ui.as_weak();
-    diva_ui.global::<WindowLogic>().on_open_settings(|| {
+    let main_ui_handle = diva_ui.as_weak();
+    let scheme_handle = diva_ui.as_weak();
+    diva_ui.global::<WindowLogic>().on_open_settings(move || {
+        let current_scheme = scheme_handle.upgrade().unwrap().get_color_scheme();
         let settings = SettingsWindow::new().unwrap();
         let steam_dir = get_steam_folder().unwrap_or("Not Set".to_string());
         let diva_dir = get_diva_folder().unwrap_or("Not Set".to_string());
         settings.set_steam_dir(steam_dir.into());
         settings.set_diva_dir(diva_dir.into());
+        settings.invoke_set_color_scheme(current_scheme);
 
         let cancel_handle = settings.as_weak();
         settings.on_cancel(move || {
@@ -136,9 +148,12 @@ pub async fn init_ui(diva_ui: &App) {
             });
 
         let apply_handle = settings.as_weak();
+        let color_handle = main_ui_handle.clone();
         settings
             .global::<SettingsLogic>()
-            .on_apply_settings(|settings| {
+            .on_apply_settings(move |settings| {
+                let color_handle = color_handle.clone();
+                let apply_handle = apply_handle.clone();
                 if let Ok(mut cfg) = DIVA_CFG.lock() {
                     if PathBuf::from(settings.diva_dir.to_string()).exists() {
                         cfg.diva_dir = settings.diva_dir.to_string().clone();
@@ -150,14 +165,32 @@ pub async fn init_ui(diva_ui: &App) {
                         cfg.aft_dir = settings.aft_dir.to_string().clone();
                     }
                     cfg.aft_mode = settings.aft_mode;
+                    cfg.dark_mode = settings.dark_mode;
+
                     let cfg = cfg.clone();
                     tokio::spawn(async move {
+                        let cfg = cfg.clone();
                         match write_config(cfg.clone()).await {
                             Ok(_) => {
                                 println!("Config successfully updated");
+                                let _ = apply_handle.upgrade_in_event_loop(move |ui| {
+                                    if cfg.dark_mode {
+                                        ui.invoke_set_color_scheme(ColorScheme::Dark);
+                                    } else {
+                                        ui.invoke_set_color_scheme(ColorScheme::Light);
+                                    }
+                                });
+                                let _ = color_handle.upgrade_in_event_loop(move |ui| {
+                                    if cfg.dark_mode {
+                                        ui.invoke_set_color_scheme(ColorScheme::Dark);
+                                    } else {
+                                        ui.invoke_set_color_scheme(ColorScheme::Light);
+                                    }
+                                });
                             }
                             Err(e) => {
                                 eprintln!("{e}");
+                                open_error_window(e.to_string());
                             }
                         }
                     });
