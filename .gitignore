@@ -27,3 +27,5 @@ flatpak/rust4diva.flatpak
 flatpak/rust4diva-sources.json
 
 linux/
+
+aur/

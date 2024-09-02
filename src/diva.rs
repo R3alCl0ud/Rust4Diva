@@ -231,12 +231,17 @@ pub static MIKU_ART: &'static str = r#"
 
 pub fn open_error_window(message: String) {
     // tokio::spawn(async move {
-    let error = ErrorMessageWindow::new().unwrap();
-    error.set_msg(message.into());
-    let close_handle = error.as_weak();
-    error.on_close(move || {
-        close_handle.upgrade().unwrap().hide().unwrap();
+    let _ = invoke_from_event_loop(move || match ErrorMessageWindow::new() {
+        Ok(error) => {
+            error.set_msg(message.into());
+            let close_handle = error.as_weak();
+            error.on_close(move || {
+                close_handle.upgrade().unwrap().hide().unwrap();
+            });
+            error.show().unwrap();
+        }
+        Err(e) => {
+            eprintln!("{e}");
+        }
     });
-    error.show().unwrap();
-    // });
 }
