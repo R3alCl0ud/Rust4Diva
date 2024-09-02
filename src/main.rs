@@ -6,11 +6,10 @@ use std::sync::{Arc, LazyLock};
 
 use modmanagement::get_mods_in_order;
 use slint::private_unstable_api::re_exports::ColorScheme;
-use slint::{SharedString, VecModel};
 use slint_interpreter::ComponentHandle;
 use tokio::sync::Mutex;
 
-use crate::config::{load_diva_config, write_config, DivaConfig};
+use crate::config::{load_diva_config, DivaConfig};
 use crate::diva::{create_tmp_if_not, get_diva_folder, MIKU_ART, open_error_window};
 use crate::gamebanana_async::{parse_dmm_url, GBSearch, GbModDownload};
 use crate::modmanagement::{

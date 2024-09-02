@@ -96,8 +96,8 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
     let ui_remove_mod_handle = ui.as_weak();
     let ui_change_handle = ui.as_weak();
     let ui_add_pack_handle = ui.as_weak();
-    let ui_save_handle = ui.as_weak();
-    let ui_apply_handle = ui.as_weak();
+    let _ui_save_handle = ui.as_weak();
+    let _ui_apply_handle = ui.as_weak();
     let ui_delete_handle = ui.as_weak();
 
     match load_mod_packs().await {
@@ -116,14 +116,14 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
         }
         Err(e) => {
             eprintln!("{}", e);
+            open_error_window(e.to_string());
         }
     }
 
     ui.global::<ModpackLogic>().on_add_mod_to_pack(
-        move |diva_mod_element: DivaModElement, mod_pack| {
+        move |diva_mod_element: DivaModElement, _mod_pack| {
             let ui = ui_add_mod_handle.upgrade().unwrap();
             let pack_mods = ui.get_pack_mods();
-            // ui.
             if let Some(pack_mods) = pack_mods
                 .as_any()
                 .downcast_ref::<VecModel<DivaModElement>>()
@@ -140,7 +140,7 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
     );
 
     ui.global::<ModpackLogic>().on_remove_mod_from_pack(
-        move |diva_mod_element: DivaModElement, mod_pack| {
+        move |diva_mod_element: DivaModElement, _mod_pack| {
             let ui = ui_remove_mod_handle.upgrade().unwrap();
             let pack_mods = ui.get_pack_mods();
             if let Some(pack_mods) = pack_mods
@@ -260,16 +260,13 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
             Some(mods) => {
                 let mut vec_mods: Vec<String> = Vec::new();
                 for m in mods.iter() {
-                    println!("path: {}", m.path);
                     if let Some(dir) = m.dir_name() {
                         vec_mods.push(dir);
                     }
                 }
-                println!("{:?}", vec_mods);
                 if vec_mods.is_empty() {
                     vec_mods = DIVA_CFG.lock().unwrap().priority.clone();
                 }
-                let ui_apply_handle = ui_apply_handle.clone();
                 tokio::spawn(async move {
                     if let Ok(mut dml) = DML_CFG.lock() {
                         dml.priority = vec_mods.clone();
@@ -284,15 +281,11 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
                                         }
                                         Err(e) => {
                                             eprintln!("{e}");
-                                            let _ = ui_apply_handle.clone().upgrade_in_event_loop(
-                                                move |ui| {
-                                                    let msg = format!(
-                                                        "Unable to save modpack: \n{}",
-                                                        e.to_string()
-                                                    );
-                                                    ui.invoke_open_error_dialog(msg.into());
-                                                },
+                                            let msg = format!(
+                                                "Unable to activate modpack: \n{}",
+                                                e.to_string()
                                             );
+                                            open_error_window(msg);
                                         }
                                     }
                                 }
@@ -347,15 +340,11 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
                                             );
                                         }
                                         Err(e) => {
-                                            let _ = ui_delete_handle.clone().upgrade_in_event_loop(
-                                                move |ui| {
-                                                    let msg = format!(
-                                                        "Unable to delete modpack: \n{}",
-                                                        e.to_string()
-                                                    );
-                                                    ui.invoke_open_error_dialog(msg.into());
-                                                },
+                                            let msg = format!(
+                                                "Unable to delete modpack: \n{}",
+                                                e.to_string()
                                             );
+                                            open_error_window(msg);
                                         }
                                     }
                                 });

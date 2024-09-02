@@ -5,7 +5,6 @@ import { ErrorDialog } from "widgets/errordialog.slint";
 import { ModTable } from "widgets/mod-table.slint";
 import { DivaModElement, ModPackElement } from "diva-types.slint";
 import { ModPickTable, PackTable } from "widgets/modpack-tables.slint";
-import { ContextMenu } from "widgets/context-menu.slint";
 import { TextEntryDialog } from "widgets/text-entry-dialog.slint";
 import { ModpackLogic, ModLogic, WindowLogic } from "applogic.slint";
 import { InfoDialog } from "widgets/info-dialog.slint";
@@ -40,10 +39,10 @@ export struct TestJSON {
 
 export component App inherits Window {
     // scal
-    min-width: 1280px;
+    // min-width: 1280px;
     preferred-width: 1280px;
-    min-height: 800px;
-    preferred-height: 900px;
+    // min-height: 800px;
+    preferred-height: 800px;
     title: "Rust4Diva: Project Diva MM+ Mod Manager";
     in property <int> counter: 4;
     in property <[int]> fs: [1, 2, 3];

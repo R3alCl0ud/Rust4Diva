@@ -1,18 +1,19 @@
-import { StandardButton, VerticalBox, Button, GridBox } from "std-widgets.slint";
+import { StandardButton, VerticalBox, Button, GridBox, TextEdit } from "std-widgets.slint";
 import { CosmicPalette } from "../styling/cosmic-styling.slint";
 import { PopupBorder, Popup } from "../components/popup.slint";
 
 
 export component ErrorMessageWindow inherits Dialog {
     in property <string> msg;
+    min-height: 150px;
+    max-width: 300px;
     title: "Rust4Diva Error";
     GridBox {
         Row {
-            Text {
-                // min-height: 100px;
+            TextEdit {
                 min-width: 100px;
                 horizontal-alignment: center;
-                vertical-alignment: center;
+                read-only: true;
                 text: root.msg;
             }
         }

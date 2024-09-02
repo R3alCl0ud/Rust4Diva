@@ -1,10 +1,10 @@
 use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
-use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
+use slint::ComponentHandle;
 use tokio::fs;
 
 use crate::diva::{get_diva_folder, get_steam_folder, open_error_window};

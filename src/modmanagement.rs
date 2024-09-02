@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
-use tokio::time::timeout;
 use toml::de::Error;
 
 use crate::config::write_config;
@@ -146,7 +145,7 @@ impl DivaModElement {
     }
 }
 
-pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32, Download)>) {
+pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32, Download)>) {
     let ui_toggle_handle = ui.as_weak();
     let ui_load_handle = ui.as_weak();
     let ui_progress_handle = ui.as_weak();
@@ -490,7 +489,7 @@ pub fn spawn_download_listener(
                                 let p = prog_tx.try_send((index.clone(), prog as f32));
                                 match p {
                                     Ok(_) => {}
-                                    Err(e) => {
+                                    Err(_e) => {
                                         // eprintln!("{}", e);
                                     }
                                 }
