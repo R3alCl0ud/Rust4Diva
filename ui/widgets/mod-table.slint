@@ -3,7 +3,8 @@ import { StateLayerBase } from "../components/state-layer-base.slint";
 import { FontSettings} from "../styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
 import { DivaModElement } from "../diva-types.slint";
-import { ModLogic } from "../applogic.slint";
+import { ModLogic, WindowLogic } from "../applogic.slint";
+
 
 export enum MoveBtnType{
     start, normal, end
@@ -16,7 +17,7 @@ export component MoveBtns {
 
     Rectangle {
         border-color: Palette.border;
-        border-radius: 1px;
+        border-radius: 12px;
         HorizontalLayout {
             Rectangle {
                 up-ta := TouchArea {
@@ -89,6 +90,9 @@ export component ModTableRow inherits Rectangle {
     min-width: layout.min-width;
     min-height: max(24px, layout.min-height);
     background: root.even ? Palette.control-background : Palette.background;
+
+    accessible-role: table;
+    
 
     layout := HorizontalLayout {
         @children
@@ -370,7 +374,7 @@ export component ModTable {
                 columns: columns;
                 moved(mouse) => {
                     if self.should-move {
-                        self.y += mouse.y - self.m-offset;
+                        self.y += mouse.y - (self.height / 2);
                         i-shadow-mod.y = self.y;
                     }
                 }
@@ -380,20 +384,27 @@ export component ModTable {
                         y: pos.y - root.absolute-position.y,
                     });
 
-                    if pe.kind == PointerEventKind.down && pe.button == PointerEventButton.left {
-                        self.should-move = true;
-                        i-shadow-mod.module = module;
-                        i-shadow-mod.y = self.y;
-                        i-shadow-mod.even = self.even;
-                        i-shadow-mod.idx = idx;
-                        i-shadow-mod.list-position = self.list-position;
-                        i-shadow-mod.visible = true;
+                    if pe.kind == PointerEventKind.down {
+                        if pe.button == PointerEventButton.left {
+                            self.should-move = true;
+                            self.y += pos.y - (self.height / 2);
+                            self.opacity = 0.5;
+                            i-shadow-mod.module = module;
+                            i-shadow-mod.y = self.y;
+                            i-shadow-mod.even = self.even;
+                            i-shadow-mod.idx = idx;
+                            i-shadow-mod.list-position = self.list-position;
+                            i-shadow-mod.visible = true;
+                        } else if pe.button == PointerEventButton.right {
+                            WindowLogic.open-mod-editor(module);
+                        }
                     }
                     if pe.kind == PointerEventKind.up && pe.button == PointerEventButton.left {
                         self.should-move = true;
                         i-shadow-mod.visible = false;
                         ModLogic.set-priority(module, idx, max(0, round((self.y / 1px) / (self.height / 1px))));
                         self.y = max(0px, round((self.y / 1px) / (self.height / 1px)) * self.height);
+                        self.opacity = 1;
                     }
                 }
                 states [
@@ -414,6 +425,7 @@ export component ModTable {
                 list-position: normal;
                 columns: columns;
                 height: max(45px, item-height);
+                opacity: 0.5;
             }
         }
     }

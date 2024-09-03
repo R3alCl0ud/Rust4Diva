@@ -1,0 +1,51 @@
+import { Palette, GridBox, LineEdit } from "std-widgets.slint";
+import { DivaModElement, ModPackElement } from "../diva-types.slint";
+
+export component EditModDialog inherits Dialog {
+    public function set-color-scheme(scheme: ColorScheme) {
+        Palette.color-scheme = scheme;
+    }
+
+    callback cancel();
+
+    in-out property <DivaModElement> module;
+
+    GridBox {
+        Row {
+            Text {
+                text: "Name: ";
+            }
+
+            LineEdit { 
+                text: module.name;
+            }
+        }
+        Row {
+            Text {
+                text: "Author: ";
+            }
+
+            LineEdit { 
+                text: module.name;
+            }
+        }
+        Row {
+            Text {
+                text: "Version: ";
+            }
+
+            LineEdit { 
+                text: module.name;
+            }
+        }
+        Row {
+            Text {
+                text: "Description: ";
+            }
+
+            LineEdit { 
+                text: module.name;
+            }
+        }
+    }
+}
