@@ -153,6 +153,7 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i3
     let ui_file_picker_handle = ui.as_weak();
     let ui_mod_up_handle = ui.as_weak();
     let ui_mod_down_handle = ui.as_weak();
+    let ui_priority_handle = ui.as_weak();
 
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
@@ -288,6 +289,34 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i3
                 }
             }
         });
+    });
+
+    ui.global::<ModLogic>().on_set_priority(move |module, old, new| {
+        if let Ok(mut cfg) = DIVA_CFG.lock() {
+            let item = cfg.priority.remove(old as usize);
+            let new = max(0, min(new as usize, cfg.priority.len()));
+            cfg.priority.insert(new, item);
+            let lcfg = cfg.clone();
+            let ui_priority_handle = ui_priority_handle.clone();
+            tokio::spawn(async move {
+                match write_config(lcfg).await {
+                    Ok(_) => {
+                        // let gmods = MODS.lock().unwrap();
+                        if let Err(e) =
+                            set_mods_table(&get_mods_in_order(), ui_priority_handle.clone())
+                        {
+                            let msg =
+                                format!("Unable to save priority to disk: \n{}", e.to_string());
+                            open_error_window(msg);
+                        }
+                    }
+                    Err(e) => {
+                        let msg = format!("Unable to save priority to disk: \n{}", e.to_string());
+                        open_error_window(msg);
+                    }
+                }
+            });
+        }
     });
 
     let _ = spawn_download_listener(dl_rx, dl_ui_tx, ui_download_handle);

@@ -68,7 +68,18 @@ export component TableViewColumn inherits Rectangle {
 }
 
 export component TableViewCell inherits Rectangle {
+    out property <length> mouse-x: i-ta.mouse-x;
+    out property <length> mouse-y: i-ta.mouse-y;
+    callback pointer-event(PointerEvent);
+    callback clicked <=> i-ta.clicked;
+    callback moved <=> i-ta.moved;
     clip: true;
+
+    i-ta := TouchArea {
+        pointer-event(e) => {
+            root.pointer-event(e);
+        }
+    }
 
     HorizontalLayout {
         padding: 8px;
