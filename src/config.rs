@@ -27,6 +27,8 @@ pub struct DivaConfig {
     pub aft_mode: bool,
     #[serde(default = "yes")]
     pub dark_mode: bool,
+    #[serde(default = "yes")]
+    pub first_run: bool,
 }
 
 fn yes() -> bool {
@@ -43,6 +45,7 @@ impl DivaConfig {
             applied_pack: "".to_string(),
             aft_mode: false,
             dark_mode: true,
+            first_run: true,
         }
     }
 }

@@ -11,6 +11,7 @@ makedepends=(
     cargo
     git
 )
+depends=( libarchive )
 
 source=('git+https://github.com/R3alCl0ud/Rust4Diva.git')
 sha256sums=('SKIP')

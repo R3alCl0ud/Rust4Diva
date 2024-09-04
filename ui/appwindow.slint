@@ -1,4 +1,4 @@
-import { Palette, Button, VerticalBox, HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator } from "std-widgets.slint";
+import { Palette, Button, VerticalBox, HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator, GridBox, Switch } from "std-widgets.slint";
 import { FileTable, Download } from "widgets/filetable.slint";
 import { Palette as CosmicPalette } from "styling.slint";
 import { ErrorDialog } from "widgets/errordialog.slint";
@@ -15,9 +15,11 @@ import { ModManager } from "tabs/modmanager.slint";
 import { ModPacksTab } from "tabs/modpacks.slint";
 import {ConfirmDeletePack} from "dialogs/deletepack.slint";
 
+import {FirstSetup, SetupLogic} from "subwindows/setup.slint";
+
 import {ErrorMessageWindow } from "dialogs/errormsg.slint";
 
-export { ModPackElement, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack, WindowLogic, SettingsLogic, ErrorMessageWindow }
+export { ModPackElement, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack, WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -55,6 +57,7 @@ export component App inherits Window {
     in property <[[StandardListViewItem]]> stuff: [];
 
     in property <string> dml-version: "";
+    in property <string> r4d-version: "";
     in-out property <bool> dml-enabled: false;
     in-out property <string> selected-search: "";
     in-out property <string> selected-file: "";
@@ -62,7 +65,7 @@ export component App inherits Window {
     in-out property <int> temp-pos;
     in property <bool> s-prog-vis: false;
 
-    in-out property <bool> show-error: true;
+
     in-out property <bool> pack-modified: false;
     in-out property <string> error-msg: "This is a test message";
     out property <ColorScheme> color-scheme: Palette.color-scheme;
@@ -91,10 +94,6 @@ export component App inherits Window {
         Palette.color-scheme = scheme;
     }
 
-    public function open-error-dialog(error-msg: string) {
-        root.error-msg = error-msg;
-        errordialog.show();
-    }
 
     default-font-size: 16px;
     errordialog := ErrorDialog {
@@ -111,53 +110,55 @@ export component App inherits Window {
         }
     }
 
-    aboutdialog := InfoDialog { }
+    aboutdialog := InfoDialog {
+        r4dversion: r4d-version;
+     }
 
     confirmdeletepack := DeletePackDialog { }
 
     VerticalLayout {
-        HorizontalBox {
-            Button {
-                horizontal-stretch: 1;
-                text: "Install Mod Archive";
-                clicked => {
-                    open-file-picker();
+        GridBox {
+            Row {
+                Button {
+                    horizontal-stretch: 0;
+                    text: "Install Mod Archive";
+                    clicked => {
+                        open-file-picker();
+                    }
                 }
-            }
 
-            Button {
-                horizontal-stretch: 1;
-                text: "About Rust4Diva";
-                clicked => {
-                    aboutdialog.show();
+                Button {
+                    horizontal-stretch: 0;
+                    text: "About Rust4Diva";
+                    clicked => {
+                        aboutdialog.show();
+                    }
                 }
-            }
 
-            Button {
-                horizontal-stretch: 1;
-                text: "Open Settings";
-                clicked => {
-                    WindowLogic.open-settings();
-                    // errordialog.show();
+                HorizontalBox {
+                    Text {
+                        text: "Diva Mod Loader: " + dml-version;
+                        vertical-alignment: center;
+                    }
+
+                    Switch {
+                        checked: dml-enabled;
+                        toggled => {
+                            dml-enabled = !dml-enabled;
+                            toggle-dml();
+                        }
+                    }
+                    Button {
+                        text: "Update DML";
+                    }
                 }
-            }
-        }
 
-        HorizontalBox {
-            Text {
-                text: "Diva Mod Loader";
-            }
-
-            Text {
-                text: "Version: " + dml-version;
-            }
-
-            CheckBox {
-                checked: dml-enabled;
-                text: dml-enabled ? "Enabled" : "Disabled";
-                toggled => {
-                    dml-enabled = !dml-enabled;
-                    toggle-dml();
+                Button {
+                    horizontal-stretch: 0;
+                    text: "Open Settings";
+                    clicked => {
+                        WindowLogic.open-settings();
+                    }
                 }
             }
         }

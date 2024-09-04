@@ -10,7 +10,7 @@ use slint_interpreter::ComponentHandle;
 use tokio::sync::Mutex;
 
 use crate::config::{load_diva_config, DivaConfig};
-use crate::diva::{create_tmp_if_not, get_diva_folder, MIKU_ART, open_error_window};
+use crate::diva::{create_tmp_if_not, get_diva_folder, open_error_window, MIKU_ART};
 use crate::gamebanana_async::{parse_dmm_url, GBSearch, GbModDownload};
 use crate::modmanagement::{
     load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
@@ -20,6 +20,7 @@ use crate::oneclick::{spawn_listener, try_send_mmdl};
 
 mod config;
 mod diva;
+mod firstlaunch;
 mod gamebanana_async;
 mod modmanagement;
 mod modpacks;
@@ -142,11 +143,14 @@ async fn main() {
         app.set_dml_enabled(dml.enabled);
     }
 
+    app.set_r4d_version(env!("CARGO_PKG_VERSION").into());
+
     let diva_arc = Arc::new(Mutex::new(diva_state));
     modmanagement::init(&app, Arc::clone(&diva_arc), dl_rx).await;
     gamebanana_async::init(&app, Arc::clone(&diva_arc), dl_tx, url_rx).await;
     modpacks::init(&app, Arc::clone(&diva_arc)).await;
     config::init_ui(&app).await;
+    let _ = firstlaunch::init(&app).await;
 
     println!("Does the app run?");
 
@@ -162,6 +166,7 @@ async fn main() {
     }
 
     app.run().expect("Welp, gui thread paniced");
+
     println!("OMG Migu says \"goodbye\"");
     // Ok(())
 }

@@ -60,12 +60,12 @@ pub fn get_temp_folder() -> Option<String> {
 }
 
 pub fn get_steam_folder() -> Option<String> {
-    println!("Attempting to find the Steam folder");
-    if let Ok(cfg) = DIVA_CFG.lock() {
+    if let Ok(cfg) = DIVA_CFG.try_lock() {
         if !cfg.steam_dir.is_empty() && PathBuf::from(cfg.steam_dir.clone()).exists() {
             return Some(cfg.steam_dir.clone());
         }
     }
+    println!("Attempting to find the Steam folder");
     return match env::consts::OS {
         "linux" => {
             let mut binding = dirs::home_dir().unwrap();
@@ -123,6 +123,17 @@ pub fn get_steam_folder() -> Option<String> {
 }
 
 pub fn get_diva_folder() -> Option<String> {
+    if let Ok(cfg) = DIVA_CFG.try_lock() {
+        let mut buf = PathBuf::from(cfg.diva_dir.clone());
+        if !cfg.diva_dir.is_empty() && buf.exists() {
+            buf.push("DivaMegaMix.exe");
+            if buf.exists() {
+                buf.pop();
+                return Some(cfg.diva_dir.clone());
+            }
+        }
+    }
+
     println!("Looking for Project Diva folder");
     match get_steam_folder() {
         Some(steam_folder) => {

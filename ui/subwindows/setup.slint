@@ -1,16 +1,127 @@
-import { GridBox } from "std-widgets.slint";
+import { GridBox, Button, Palette, Switch, HorizontalBox, CheckBox, ListView } from "std-widgets.slint";
+import { FilePathEdit } from "../widgets/text-box.slint";
+
+export global SetupLogic {
+    callback import-dmm();
+    callback open-diva-picker(/* Default/Current Path*/ string);
+
+    callback apply();
+}
+
+export struct Loadout {
+    name: string,
+    import: bool}
+
+
 export component FirstSetup inherits Dialog {
     default-font-size: 16px;
+    title: "Rust4Diva Setup";
+
+    property <length> control-text-size: 16px;
+    in-out property <string> diva-dir: "/path/to/pdmm";
+    in-out property <[Loadout]> loadouts;//: [{ name: "Default", import: true }, { name: "test", import: true }];
+
+    public function set-color-scheme(scheme: ColorScheme) {
+        Palette.color-scheme = scheme;
+    }
+
     GridBox {
+
         Row {
             Text {
-                text: "Rust4Diva Setup";
+                text: "Dark Mode: ";
+                font-size: control-text-size;
+            }
+
+            dark-mode := Switch {
+                col: 4;
+                height: 30px;
+                checked: Palette.color-scheme == ColorScheme.dark;
             }
         }
 
         Row {
             Text {
-                text: "Rust4Diva Setup";
+                text: "PDMM+ Location: ";
+                vertical-alignment: center;
+                font-size: control-text-size;
+            }
+
+            diva-loc := FilePathEdit {
+                colspan: 4;
+                default-path: diva-dir;
+                open-picker => {
+                    SetupLogic.open-diva-picker(diva-dir);
+                }
+            }
+        }
+
+        Row {
+            Text {
+                text: "Select loadouts to import: ";
+                font-size: control-text-size;
+            }
+
+            Rectangle {
+                border-color: Palette.border;
+                border-width: 1px;
+                colspan: 4;
+                min-height: min(150px, 50px * loadouts.length);
+                ListView {
+                    padding-left: 2px;
+                    padding-right: 2px;
+                    // border-color: Palette.border;
+                    // border-width: 1px;
+                    for loadout[idx] in loadouts: Rectangle {
+                        background: mod(idx, 2) == 0 ? Palette.control-background : Palette.background;
+                        HorizontalBox {
+                            Switch {
+                                checked: loadout.import;
+                            }
+
+                            Text {
+                                text: loadout.name;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Row {
+            Rectangle { }
+        }
+
+        Row {
+            Text {
+                colspan: 4;
+                text: "Import from DivaModManager";
+                height: 30px;
+                font-size: control-text-size;
+            }
+
+            Button {
+                col: 4;
+                text: "Select DMM install folder";
+                colorize-icon: true;
+                height: 30px;
+                // font-size: control-text-size;
+                // size
+                clicked => {
+                    SetupLogic.import-dmm();
+                }
+            }
+        }
+
+        Row {
+            Button {
+                text: "Apply";
+                colspan: 5;
+                height: 35px;
+                clicked => {
+                    SetupLogic.apply();
+                }
             }
         }
     }
