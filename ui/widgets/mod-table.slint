@@ -92,7 +92,6 @@ export component ModTableRow inherits Rectangle {
     background: root.even ? Palette.control-background : Palette.background;
 
     accessible-role: table;
-    
 
     layout := HorizontalLayout {
         @children
@@ -388,7 +387,8 @@ export component ModTable {
                         if pe.button == PointerEventButton.left {
                             self.should-move = true;
                             self.y += pos.y - (self.height / 2);
-                            self.opacity = 0.5;
+                            self.opacity = 0;
+                            // self.visible = false;
                             i-shadow-mod.module = module;
                             i-shadow-mod.y = self.y;
                             i-shadow-mod.even = self.even;
@@ -405,18 +405,17 @@ export component ModTable {
                         ModLogic.set-priority(module, idx, max(0, round((self.y / 1px) / (self.height / 1px))));
                         self.y = max(0px, round((self.y / 1px) / (self.height / 1px)) * self.height);
                         self.opacity = 1;
+                        // self.visible = true;
                     }
                 }
                 states [
                     active when !self.should-move: {
                     // animate background: ;
                         // this would be pretty cool to have instead of it just snappin into place on release
-                        // animate y {
-                        //     duration: 10ms;
-                        //     easing: ease-in-out;
-                        // }
+
                     }
                 ]
+
             }
 
             i-shadow-mod := ModTableRow {
@@ -425,7 +424,7 @@ export component ModTable {
                 list-position: normal;
                 columns: columns;
                 height: max(45px, item-height);
-                opacity: 0.5;
+                opacity: 0.75;
             }
         }
     }

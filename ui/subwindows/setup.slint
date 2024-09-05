@@ -19,7 +19,9 @@ export component FirstSetup inherits Dialog {
 
     property <length> control-text-size: 16px;
     in-out property <string> diva-dir: "/path/to/pdmm";
-    in-out property <[Loadout]> loadouts;//: [{ name: "Default", import: true }, { name: "test", import: true }];
+    in-out property <bool> dark-mode: s-dark-mode.checked;
+    in-out property <[Loadout]> loadouts;
+    //: [{ name: "Default", import: true }, { name: "test", import: true }];
 
     public function set-color-scheme(scheme: ColorScheme) {
         Palette.color-scheme = scheme;
@@ -33,7 +35,7 @@ export component FirstSetup inherits Dialog {
                 font-size: control-text-size;
             }
 
-            dark-mode := Switch {
+            s-dark-mode := Switch {
                 col: 4;
                 height: 30px;
                 checked: Palette.color-scheme == ColorScheme.dark;
@@ -63,20 +65,20 @@ export component FirstSetup inherits Dialog {
             }
 
             Rectangle {
-                border-color: Palette.border;
-                border-width: 1px;
                 colspan: 4;
-                min-height: min(150px, 50px * loadouts.length);
+                min-height: 150px;
+                max-height: 500px;
                 ListView {
                     padding-left: 2px;
                     padding-right: 2px;
-                    // border-color: Palette.border;
-                    // border-width: 1px;
                     for loadout[idx] in loadouts: Rectangle {
                         background: mod(idx, 2) == 0 ? Palette.control-background : Palette.background;
                         HorizontalBox {
                             Switch {
                                 checked: loadout.import;
+                                toggled => {
+                                    loadout.import = self.checked;
+                                }
                             }
 
                             Text {

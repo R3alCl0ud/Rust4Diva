@@ -8,6 +8,7 @@ export component ModPacksTab {
     in-out property <[DivaModElement]> mods;
     in-out property <[DivaModElement]> pack-mods: [];
     in-out property <bool> pack-modified;
+    out property <string> current-pack: packs.current-value;
     callback show-text-entry();
     property <length> btn-height: 36px;
 
@@ -84,7 +85,7 @@ export component ModPacksTab {
                         if packs.current-index != -1 {
                             if mod-picker.current-row != -1 {
                                 ModpackLogic.add-mod-to-pack(mods[mod-picker.current-row], packs.current-value);
-                                packs.current-index = -1;
+                                in-pack.set-current-row(-1);
                                 pack-modified = true;
                             }
                         }
@@ -100,7 +101,7 @@ export component ModPacksTab {
                         if packs.current-index != -1 {
                             if in-pack.current-row != -1 {
                                 ModpackLogic.remove-mod-from-pack(pack-mods[in-pack.current-row], packs.current-value);
-                                packs.current-index = -1;
+                                in-pack.set-current-row(-1);
                                 pack-modified = true;
                             }
                         }

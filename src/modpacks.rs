@@ -8,6 +8,7 @@ use std::vec;
 use tokio::fs;
 use tokio::sync::Mutex;
 
+use crate::config::write_config;
 use crate::diva::{get_config_dir, get_diva_folder, open_error_window};
 use crate::modmanagement::DivaMod;
 use crate::slint_generatedApp::App;
@@ -18,8 +19,8 @@ use crate::{
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModPack {
-    name: String,
-    mods: Vec<ModPackMod>,
+    pub name: String,
+    pub mods: Vec<ModPackMod>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -97,7 +98,7 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
     let ui_change_handle = ui.as_weak();
     let ui_add_pack_handle = ui.as_weak();
     let _ui_save_handle = ui.as_weak();
-    let _ui_apply_handle = ui.as_weak();
+    let ui_apply_handle = ui.as_weak();
     let ui_delete_handle = ui.as_weak();
 
     match load_mod_packs().await {
@@ -118,6 +119,10 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
             eprintln!("{}", e);
             open_error_window(e.to_string());
         }
+    }
+
+    if let Ok(cfg) = DIVA_CFG.try_lock() {
+        ui.set_active_pack(cfg.applied_pack.clone().into());
     }
 
     ui.global::<ModpackLogic>().on_add_mod_to_pack(
@@ -168,15 +173,14 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
                     }
                     let pack = pack.unwrap();
                     let pack = pack.clone();
-                    ui_change_handle
-                        .upgrade_in_event_loop(move |ui| {
-                            let pack_mods: VecModel<DivaModElement> = VecModel::default();
-                            for module in pack.mods.clone() {
-                                pack_mods.push(module.to_element());
-                            }
-                            ui.set_pack_mods(ModelRc::new(pack_mods));
-                        })
-                        .expect("UI Update should have happened");
+                    let _ = ui_change_handle.upgrade_in_event_loop(move |ui| {
+                        let pack_mods: VecModel<DivaModElement> = VecModel::default();
+                        for module in pack.mods.clone() {
+                            pack_mods.push(module.to_element());
+                        }
+                        ui.set_pack_mods(ModelRc::new(pack_mods));
+                        ui.set_active_pack(pack.name.into());
+                    });
                 }
             });
         });
@@ -264,8 +268,22 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
                         vec_mods.push(dir);
                     }
                 }
-                if vec_mods.is_empty() {
-                    vec_mods = DIVA_CFG.lock().unwrap().priority.clone();
+                if let Ok(mut cfg) = DIVA_CFG.try_lock() {
+                    let ui = ui_apply_handle.upgrade().unwrap();
+                    if vec_mods.is_empty() {
+                        vec_mods = cfg.priority.clone();
+                        cfg.applied_pack = "".to_string();
+                    } else {
+                        cfg.applied_pack = ui.get_current_pack().to_string();
+                    }
+                    ui.set_active_pack(cfg.applied_pack.clone().into());
+                    let cfg = cfg.clone();
+
+                    tokio::spawn(async move {
+                        if let Err(e) = write_config(cfg.clone()).await {
+                            open_error_window(e.to_string());
+                        }
+                    });
                 }
                 tokio::spawn(async move {
                     if let Ok(mut dml) = DML_CFG.lock() {
@@ -325,7 +343,7 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
                                 tokio::spawn(async move {
                                     let mut buf =
                                         get_modpacks_folder().await.unwrap_or(PathBuf::new());
-                                    buf.push(format!("{}.json", pack.name));
+                                    buf.push(format!("{}.json", filenamify(pack.name)));
                                     match fs::remove_file(buf).await {
                                         Ok(_) => {
                                             let _ = ui_delete_handle.clone().upgrade_in_event_loop(
@@ -384,6 +402,19 @@ pub async fn get_modpacks_folder() -> std::io::Result<PathBuf> {
                 fs::create_dir(config_dir.clone()).await?
             }
             Ok(config_dir)
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
+pub async fn save_modpack(pack: ModPack) -> std::io::Result<()> {
+    match get_modpacks_folder().await {
+        Ok(mut packs_dir) => {
+            packs_dir.push(filenamify(pack.name.clone()) + ".json");
+            if let Ok(pckstr) = sonic_rs::to_string_pretty(&pack.clone()) {
+                return fs::write(packs_dir, pckstr).await;
+            }
+            Ok(())
         }
         Err(e) => Err(e.into()),
     }

@@ -40,10 +40,7 @@ export struct TestJSON {
 
 
 export component App inherits Window {
-    // scal
-    // min-width: 1280px;
     preferred-width: 1280px;
-    // min-height: 800px;
     preferred-height: 800px;
     title: "Rust4Diva: Project Diva MM+ Mod Manager";
     in property <int> counter: 4;
@@ -65,7 +62,6 @@ export component App inherits Window {
     in-out property <int> temp-pos;
     in property <bool> s-prog-vis: false;
 
-
     in-out property <bool> pack-modified: false;
     in-out property <string> error-msg: "This is a test message";
     out property <ColorScheme> color-scheme: Palette.color-scheme;
@@ -76,6 +72,8 @@ export component App inherits Window {
     in property <[DivaModElement]> mods: [];
     in-out property <[DivaModElement]> pack-mods: [];
     in-out property <[string]> modpacks: [];
+    in-out property <string> active-pack;
+    out property <string> current-pack: mpmgmt-tab.current-pack;
 
     callback load-mods <=> mgmt-tab.clicked;
     callback toggle-mod(int);
@@ -94,7 +92,6 @@ export component App inherits Window {
         Palette.color-scheme = scheme;
     }
 
-
     default-font-size: 16px;
     errordialog := ErrorDialog {
         x: (window_width / 2) - 100px;
@@ -112,7 +109,7 @@ export component App inherits Window {
 
     aboutdialog := InfoDialog {
         r4dversion: r4d-version;
-     }
+    }
 
     confirmdeletepack := DeletePackDialog { }
 
@@ -148,6 +145,7 @@ export component App inherits Window {
                             toggle-dml();
                         }
                     }
+
                     Button {
                         text: "Update DML";
                     }
@@ -167,6 +165,7 @@ export component App inherits Window {
             manager := Tab {
                 title: "Mods";
                 mgmt-tab := ModManager {
+                    active-pack: active-pack;
                     width: 100%;
                     height: (window_height - parent.absolute-position.y) - 5px;
                     mods: mods;
@@ -175,7 +174,7 @@ export component App inherits Window {
 
             packs-tab := Tab {
                 title: "Modpacks";
-                ModPacksTab {
+                mpmgmt-tab := ModPacksTab {
                     width: 100%;
                     height: (window_height - parent.absolute-position.y) - 5px;
                     mods: mods;

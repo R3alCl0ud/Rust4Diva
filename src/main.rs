@@ -150,10 +150,9 @@ async fn main() {
     gamebanana_async::init(&app, Arc::clone(&diva_arc), dl_tx, url_rx).await;
     modpacks::init(&app, Arc::clone(&diva_arc)).await;
     config::init_ui(&app).await;
-    let _ = firstlaunch::init(&app).await;
-
+    
     println!("Does the app run?");
-
+    
     if let Some(url) = dmm_url {
         println!("We have a url to handle");
         match url_tx.clone().send(url).await {
@@ -164,9 +163,10 @@ async fn main() {
             }
         }
     }
-
-    app.run().expect("Welp, gui thread paniced");
-
+    
+    app.show().expect("Window should have opened");
+    let _ = firstlaunch::init(&app).await;
+    slint::run_event_loop().unwrap();
     println!("OMG Migu says \"goodbye\"");
     // Ok(())
 }

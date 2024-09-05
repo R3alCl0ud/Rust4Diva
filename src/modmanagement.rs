@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
-use std::{fs, io};
+use std::{fs};
 
 use compress_tools::{list_archive_files, uncompress_archive, Ownership};
 use curl::easy::Easy;
@@ -667,8 +667,14 @@ pub fn load_mods() -> std::io::Result<()> {
     let mods = load_mods_from_dir(buf.display().to_string());
     let mut dmods = MODS.lock().unwrap();
     let mut mod_map = HashMap::new();
-    for m in mods {
+    for mut m in mods {
         let n = m.dir_name().unwrap_or(m.config.name.clone());
+
+        // Will make the mod's name default to the folder name if the field is blank for some reason
+        if m.config.name.is_empty() {
+            m.config.name = n.clone();
+        }
+
         mod_map.insert(n.clone(), m.clone());
         if !gconf.priority.contains(&n) {
             gconf.priority.push(n);
