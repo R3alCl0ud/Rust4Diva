@@ -1,0 +1,14 @@
+
+
+
+import { PopupBorder, Popup } from "../components/popup.slint";
+import { ListView } from "std-widgets.slint";
+export component ModCtxMenu {
+    popup-window := Popup {
+        ListView {
+            for i in 5: Text {
+                text: "Fuck";
+            }
+        }
+    }
+}

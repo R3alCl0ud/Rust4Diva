@@ -274,6 +274,8 @@ export component ModTable {
     // unused
     callback mod-toggled(int, DivaModElement);
 
+    callback open-ctx-menu(DivaModElement, int);
+
     private property <length> min-header-height: 32px;
     private property <length> item-height: scroll-view.viewport-height / mods.length;
     private property <length> current-item-y: scroll-view.viewport-y + current-row * item-height;
@@ -362,6 +364,13 @@ export component ModTable {
 
         scroll-view := ScrollView {
             viewport-height: 45px * mods.length;
+            viewport-y: 0;
+            changed height => {
+                if self.viewport-y > 0 {
+                    self.viewport-y = clamp(self.viewport-y, (self.height - self.viewport-height), 0);
+                }
+            }
+
             for module[idx] in root.mods: ModTableRow {
                 module: module;
                 idx: idx;
@@ -372,22 +381,35 @@ export component ModTable {
                 list-position: idx == 0 ? start : idx == mods.length - 1 ? end : normal;
                 columns: columns;
                 moved(mouse) => {
+
                     if self.should-move {
                         self.y += mouse.y - (self.height / 2);
+                        if self.y - abs(scroll-view.viewport-y) < 20px {
+                            scroll-view.viewport-y += abs(self.y - abs(scroll-view.viewport-y)) / 2;
+                            scroll-view.viewport-y = clamp(scroll-view.viewport-y, (scroll-view.height - scroll-view.viewport-height), 0);
+                        }// debug("dist?: " + ((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height)) / 1px);
+                        if ((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height)) < 20px {
+                            scroll-view.viewport-y -= abs((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height));
+                            scroll-view.viewport-y = clamp(scroll-view.viewport-y, (scroll-view.height - scroll-view.viewport-height), 0);
+                            self.y += abs((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height));
+                        }
+                        self.y = clamp(self.y, min(0px, abs(scroll-view.viewport-y)), scroll-view.viewport-height - self.height);
                         i-shadow-mod.y = self.y;
                     }
                 }
+                // dr
                 pointer-event(pe, pos) => {
                     root.row-pointer-event(idx, pe, {
-                        x: pos.x - root.absolute-position.x,
+                        x
+                        : pos.x - root.absolute-position.x,
                         y: pos.y - root.absolute-position.y,
                     });
-
                     if pe.kind == PointerEventKind.down {
                         if pe.button == PointerEventButton.left {
                             self.should-move = true;
                             self.y += pos.y - (self.height / 2);
                             self.opacity = 0;
+                            self.y = clamp(self.y, min(0px, abs(scroll-view.viewport-y)), scroll-view.viewport-height - self.height);
                             // self.visible = false;
                             i-shadow-mod.module = module;
                             i-shadow-mod.y = self.y;
@@ -396,7 +418,8 @@ export component ModTable {
                             i-shadow-mod.list-position = self.list-position;
                             i-shadow-mod.visible = true;
                         } else if pe.button == PointerEventButton.right {
-                            WindowLogic.open-mod-editor(module);
+                            // WindowLogic.open-mod-editor(module);
+                            open-ctx-menu(self.module, idx);
                         }
                     }
                     if pe.kind == PointerEventKind.up && pe.button == PointerEventButton.left {
@@ -415,7 +438,6 @@ export component ModTable {
 
                     }
                 ]
-
             }
 
             i-shadow-mod := ModTableRow {
