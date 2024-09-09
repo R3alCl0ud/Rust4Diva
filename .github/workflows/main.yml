@@ -14,7 +14,7 @@ jobs:
       - name: install libarchive
         run: sudo apt install libarchive-dev -y
       - name: Build
-        run: cargo build --verbose
+        run: SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 cargo build --verbose
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
