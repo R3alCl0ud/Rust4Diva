@@ -4,7 +4,7 @@ export global WindowLogic {
     callback open-settings();
     callback open-delete-dialog(string);
     callback open-about-window();
-    callback open-mod-editor(DivaModElement);
+    callback open-mod-editor(DivaModElement, int);
 }
 
 export global ModpackLogic {
@@ -24,4 +24,5 @@ export global ModLogic {
     callback load-mods();
     callback mod-toggled(int, DivaModElement);
     callback set-priority(DivaModElement, int, int);
+    callback delete-mod(DivaModElement);
 }

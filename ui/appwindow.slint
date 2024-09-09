@@ -1,7 +1,7 @@
 import { Palette, Button, VerticalBox, HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator, GridBox, Switch } from "std-widgets.slint";
 import { FileTable, Download } from "widgets/filetable.slint";
 import { Palette as CosmicPalette } from "styling.slint";
-import { ErrorDialog } from "widgets/errordialog.slint";
+import { ErrorDialog } from "dialogs/errordialog.slint";
 import { ModTable } from "widgets/mod-table.slint";
 import { DivaModElement, ModPackElement } from "diva-types.slint";
 import { ModPickTable, PackTable } from "widgets/modpack-tables.slint";
@@ -10,16 +10,20 @@ import { ModpackLogic, ModLogic, WindowLogic } from "applogic.slint";
 import { InfoDialog } from "widgets/info-dialog.slint";
 import { TextBox } from "widgets/text-box.slint";
 import { DeletePackDialog } from "widgets/delete-pack-dialog.slint";
-import { SettingsWindow, SettingsLogic} from "subwindows/settings.slint";
+import { SettingsWindow, SettingsLogic } from "subwindows/settings.slint";
 import { ModManager } from "tabs/modmanager.slint";
 import { ModPacksTab } from "tabs/modpacks.slint";
-import {ConfirmDeletePack} from "dialogs/deletepack.slint";
+import { ConfirmDeletePack } from "dialogs/deletepack.slint";
 
-import {FirstSetup, SetupLogic} from "subwindows/setup.slint";
+import { FirstSetup, SetupLogic } from "subwindows/setup.slint";
 
-import {ErrorMessageWindow } from "dialogs/errormsg.slint";
+import { ErrorMessageWindow } from "dialogs/errormsg.slint";
+import { ModCtxMenu } from "widgets/modctxmenu.slint";
+import { EditModDialog } from "subwindows/editmod.slint";
+import { ConfirmDelete } from "dialogs/confirmdelete.slint";
 
-export { ModPackElement, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack, WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic }
+export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack }
+export { WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic, ConfirmDelete }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -92,6 +96,9 @@ export component App inherits Window {
         Palette.color-scheme = scheme;
     }
 
+    // ConfirmDelete {}
+
+    // EditModDialog {}
     default-font-size: 16px;
     errordialog := ErrorDialog {
         x: (window_width / 2) - 100px;
@@ -112,6 +119,11 @@ export component App inherits Window {
     }
 
     confirmdeletepack := DeletePackDialog { }
+
+    mod-ctx-menu := ModCtxMenu {
+        win-height: window_height;
+        win-width: window_width;
+    }
 
     VerticalLayout {
         GridBox {
@@ -134,7 +146,8 @@ export component App inherits Window {
 
                 HorizontalBox {
                     Text {
-                        text: "Diva Mod Loader: " + dml-version;
+                        // text: "Diva Mod Loader: " + dml-version;
+                        text: "H: " + window_height / 1px + " W: " + window_width / 1px;
                         vertical-alignment: center;
                     }
 
@@ -169,6 +182,9 @@ export component App inherits Window {
                     width: 100%;
                     height: (window_height - parent.absolute-position.y) - 5px;
                     mods: mods;
+                    open-module-ctx(m, i, p) => {
+                        mod-ctx-menu.show(m, i, p);
+                    }
                 }
             }
 

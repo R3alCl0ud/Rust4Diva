@@ -1,13 +1,13 @@
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fs;
 use std::fs::File;
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
-use std::{fs};
 
 use compress_tools::{list_archive_files, uncompress_archive, Ownership};
 use curl::easy::Easy;
@@ -22,8 +22,8 @@ use crate::config::write_config;
 use crate::diva::{get_diva_folder, get_temp_folder, open_error_window};
 use crate::modpacks::ModPackMod;
 use crate::slint_generatedApp::App;
+use crate::{ConfirmDelete, DivaModElement, EditModDialog, ModLogic, WindowLogic, DIVA_DIR};
 use crate::{DivaData, Download, DIVA_CFG, DML_CFG, MODS};
-use crate::{DivaModElement, ModLogic, DIVA_DIR};
 
 cfg_if::cfg_if! {
     if #[cfg(windows)] {
@@ -154,6 +154,8 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i3
     let ui_mod_up_handle = ui.as_weak();
     let ui_mod_down_handle = ui.as_weak();
     let ui_priority_handle = ui.as_weak();
+    let ui_scheme_handle = ui.as_weak();
+    let ui_edit_handle = ui.as_weak();
 
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
@@ -320,6 +322,84 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i3
                 });
             }
         });
+
+    ui.global::<WindowLogic>()
+        .on_open_mod_editor(move |module, _idx| {
+            let ui_edit_handle = ui_edit_handle.clone();
+            let editdialog = EditModDialog::new().unwrap();
+            let current_scheme = ui_scheme_handle.upgrade().unwrap().get_color_scheme();
+            editdialog.invoke_set_color_scheme(current_scheme);
+            println!("{module:?}");
+            editdialog.set_name(module.name);
+            if let Ok(cfg_str) = fs::read_to_string(PathBuf::from(module.path.to_string())) {
+                editdialog.set_module(cfg_str.into());
+            }
+            let weak = editdialog.as_weak();
+            editdialog.on_cancel(move || {
+                weak.upgrade().unwrap().hide().unwrap();
+            });
+            let weak = editdialog.as_weak();
+            editdialog.on_apply(move || {
+                let ui = weak.upgrade().unwrap();
+                let m = ui.get_module().to_string();
+                match toml::from_str::<DivaModConfig>(m.as_str()) {
+                    Ok(mut cfg) => {
+                        if let Err(e) =
+                            save_mod_config(PathBuf::from(module.path.to_string()), &mut cfg)
+                        {
+                            open_error_window(e.to_string());
+                        } else {
+                            if let Ok(_) = load_mods() {
+                                let _ =
+                                    set_mods_table(&get_mods_in_order(), ui_edit_handle.clone());
+                                ui.hide().unwrap();
+                            }
+                        }
+                        // weak.upgrade()
+                    }
+                    Err(e) => open_error_window(e.to_string()),
+                }
+            });
+
+            editdialog.show().unwrap();
+        });
+
+        // ui.global::<ModLogic>().i
+    let weak = ui.as_weak();
+    ui.global::<ModLogic>().on_delete_mod(move |module| {
+        let ui_weak = weak.clone();
+        let ui = weak.upgrade().unwrap();
+        let confirm = ConfirmDelete::new().unwrap();
+        confirm.invoke_set_color_scheme(ui.get_color_scheme());
+        confirm.set_item(module.name);
+        let cweak = confirm.as_weak();
+        confirm.on_close(move || {
+            cweak.unwrap().hide().unwrap();
+        });
+        let cweak = confirm.as_weak();
+
+        confirm.on_confirm(move || {
+            cweak.unwrap().hide().unwrap();
+            let mut buf = PathBuf::from(module.path.to_string());
+            buf.pop();
+            if let Ok(buf) = buf.canonicalize() {
+                if buf.eq(&PathBuf::from("/").canonicalize().unwrap()) {
+                    return;
+                }
+                match fs::remove_dir_all(buf) {
+                    Ok(_) => {
+                        if let Ok(_) = load_mods() {
+                            if let Err(e) = set_mods_table(&get_mods_in_order(), ui_weak.clone()) {
+                                open_error_window(e.to_string());
+                            }
+                        }
+                    }
+                    Err(e) => open_error_window(e.to_string()),
+                }
+            }
+        });
+        confirm.show().unwrap();
+    });
 
     let _ = spawn_download_listener(dl_rx, dl_ui_tx, ui_download_handle);
     println!("dl spawned");

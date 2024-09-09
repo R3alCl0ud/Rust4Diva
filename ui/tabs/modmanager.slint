@@ -7,6 +7,9 @@ export component ModManager {
     in-out property <[DivaModElement]> mods;
     in property <string> active-pack;
     callback clicked <=> load-mods-btn.clicked;
+
+    callback open-module-ctx(DivaModElement, int, Point);
+
     VerticalLayout {
         GridBox {
             width: 100%;
@@ -24,6 +27,9 @@ export component ModManager {
                     mods: mods;
                     mod-toggled(index, module) => {
                         ModLogic.toggle-mod(module);
+                    }
+                    open-ctx-menu(module, idx, pos) => {
+                        open-module-ctx(module, idx, pos);
                     }
                 }
             }

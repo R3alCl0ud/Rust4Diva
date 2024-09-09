@@ -1,0 +1,39 @@
+import { VerticalBox, Button, Palette } from "std-widgets.slint";
+import { ModpackLogic, ModLogic } from "../applogic.slint";
+export component ConfirmDelete inherits Dialog {
+    in-out property <string> item;
+
+    callback close();
+    callback confirm();
+
+    public function set-color-scheme(scheme: ColorScheme) {
+        Palette.color-scheme = scheme;
+    }
+
+    VerticalBox {
+        Text {
+            // min-height: 100px;
+            min-width: 200px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            text: "Confirm Deletion:\n" + root.item + "";
+            font-size: 24px;
+        }
+
+        HorizontalLayout {
+            Button {
+                text: "Cancel";
+                clicked => {
+                    root.close();
+                }
+            }
+
+            Button {
+                text: "Confirm";
+                clicked => {
+                    root.confirm();
+                }
+            }
+        }
+    }
+}

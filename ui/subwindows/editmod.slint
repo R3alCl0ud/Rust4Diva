@@ -1,4 +1,4 @@
-import { Palette, GridBox, LineEdit } from "std-widgets.slint";
+import { Palette, GridBox, LineEdit, TextEdit, Button } from "std-widgets.slint";
 import { DivaModElement, ModPackElement } from "../diva-types.slint";
 
 export component EditModDialog inherits Dialog {
@@ -6,45 +6,46 @@ export component EditModDialog inherits Dialog {
         Palette.color-scheme = scheme;
     }
 
-    callback cancel();
-
-    in-out property <DivaModElement> module;
+    callback cancel <=> cancel-btn.clicked;
+    callback apply();
+    in-out property <string> module;
+    in-out property <string> name;
+    title: "Editing: " + name;
 
     GridBox {
         Row {
-            Text {
-                text: "Name: ";
-            }
-
-            LineEdit { 
-                text: module.name;
-            }
-        }
-        Row {
-            Text {
-                text: "Author: ";
-            }
-
-            LineEdit { 
-                text: module.name;
+            editor := TextEdit {
+                min-height: 200px;
+                min-width: 400px;
+                colspan: 5;
+                text: module;
             }
         }
-        Row {
-            Text {
-                text: "Version: ";
-            }
 
-            LineEdit { 
-                text: module.name;
+        Row {
+            Rectangle {
+                height: 10px;
             }
         }
+
         Row {
-            Text {
-                text: "Description: ";
+            apply-btn := Button {
+                height: 40px;
+
+                colspan: 4;
+                text: "Apply";
+                clicked => {
+                    module = editor.text;
+                    apply();
+                }
             }
 
-            LineEdit { 
-                text: module.name;
+            cancel-btn := Button {
+                height: 40px;
+
+                col: 4;
+                colspan: 1;
+                text: "Cancel";
             }
         }
     }

@@ -1,14 +1,89 @@
-
-
-
 import { PopupBorder, Popup } from "../components/popup.slint";
-import { ListView } from "std-widgets.slint";
+import { ListView, Button, Palette } from "std-widgets.slint";
+import { ModLogic, WindowLogic } from "../applogic.slint";
+import { DivaModElement } from "../diva-types.slint";
 export component ModCtxMenu {
-    popup-window := Popup {
-        ListView {
-            for i in 5: Text {
-                text: "Fuck";
+    in-out property <DivaModElement> module;
+    in-out property <Point> pos;
+    in-out property <int> idx;
+    in property <length> win-height;
+    in property <length> win-width;
+    popup-window := PopupWindow {
+        x: -(win-width / 2) + pos.x;
+        y: -(win-height / 2) + (pos.y - 20px);
+        width: 100px;
+        Rectangle {
+            background: Palette.background;
+            border-color: Palette.border;
+            border-width: 5px;
+            VerticalLayout {
+                width: 100px;
+                Rectangle {
+                    // forward-focus: e-ta;
+                    height: 30px;
+                    background: edit-ta.has-hover ? Palette.alternate-background : Palette.background;
+
+                    edit-ta := TouchArea {
+                        clicked => {
+                            debug("Test");
+                            WindowLogic.open-mod-editor(module, idx);
+                        }
+                        Text {
+                            x: 5px;
+                            width: 95px;
+                            horizontal-alignment: left;
+                            text: "Edit";
+                        }
+                    }
+                }
+
+                Rectangle {
+                    height: 30px;
+                    background: delete-ta.has-hover ? Palette.alternate-background : Palette.background;
+
+                    delete-ta := TouchArea {
+                        width: 100px;
+                        Text {
+                            x: 5px;
+                            width: 95px;
+                            horizontal-alignment: left;
+                            text: "Delete";
+                        }
+
+                        clicked => {
+                            ModLogic.delete-mod(module);
+                        }
+                    }
+                }
             }
         }
+    }
+
+    // Rectangle {
+    //     height: 30px;
+    //     background: b-ta.has-hover ? Palette.alternate-background : Palette.background;
+    //     b-ta := TouchArea {
+    //         Text {
+    //             horizontal-alignment: left;
+    //             text: "Test";
+    //         }
+
+    //         pointer-event(e) => {
+    //             if e.kind == PointerEventKind.down {
+    //                 show({ }, {
+    //                     x: (self.absolute-position.x + self.mouse-x)- 20px,
+    //                     y: (self.absolute-position.y + self.mouse-y) - 100px
+    //                 });
+    //             }
+    //         }
+    //     }
+    // }
+
+    public function show(module: DivaModElement, idx: int, pos: Point) {
+
+        self.pos = pos;
+        self.module = module;
+        self.idx = idx;
+        popup-window.show();
     }
 }
