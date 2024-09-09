@@ -322,7 +322,7 @@ export component ModTable {
         Rectangle {
             clip: true;
             vertical-stretch: 0;
-            min-height: root.min-header-height;
+            height: root.min-header-height;
             background: Palette.control-background;
 
             header-layout := HorizontalLayout {
@@ -383,15 +383,17 @@ export component ModTable {
 
                     if self.should-move {
                         self.y += mouse.y - (self.height / 2);
-                        if self.y - abs(scroll-view.viewport-y) < 20px {
-                            scroll-view.viewport-y += abs(self.y - abs(scroll-view.viewport-y)) / 2;
-                            scroll-view.viewport-y = clamp(scroll-view.viewport-y, (scroll-view.height - scroll-view.viewport-height), 0);
-                            // self.y += abs(self.y - abs(scroll-view.viewport-y)) / 2;
-                        }
-                        if ((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height)) < 20px {
-                            scroll-view.viewport-y -= abs((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height));
-                            scroll-view.viewport-y = clamp(scroll-view.viewport-y, (scroll-view.height - scroll-view.viewport-height), 0);
-                            // self.y += abs((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height));
+                        if scroll-view.viewport-height > scroll-view.height {
+                            if self.y - abs(scroll-view.viewport-y) < 20px {
+                                scroll-view.viewport-y += abs(self.y - abs(scroll-view.viewport-y)) / 2;
+                                scroll-view.viewport-y = clamp(scroll-view.viewport-y, (scroll-view.height - scroll-view.viewport-height), 0);
+                                // self.y += abs(self.y - abs(scroll-view.viewport-y)) / 2;
+                            }
+                            if ((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height)) < 20px {
+                                scroll-view.viewport-y -= abs((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height));
+                                scroll-view.viewport-y = clamp(scroll-view.viewport-y, (scroll-view.height - scroll-view.viewport-height), 0);
+                                // self.y += abs((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height));
+                            }
                         }
                         self.y = clamp(self.y, min(0px, abs(scroll-view.viewport-y)), scroll-view.viewport-height - self.height);
                         i-shadow-mod.y = self.y;
@@ -415,6 +417,8 @@ export component ModTable {
                             i-shadow-mod.idx = idx;
                             i-shadow-mod.list-position = self.list-position;
                             i-shadow-mod.visible = true;
+                            debug("VH: " + scroll-view.viewport-height / 1px);
+                            debug("VH: " + scroll-view.height / 1px);
                         } else if pe.button == PointerEventButton.right {
                             open-ctx-menu(self.module, idx, {
                                 x: pos.x - root.absolute-position.x,
