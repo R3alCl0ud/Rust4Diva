@@ -761,6 +761,22 @@ pub fn load_mods() -> std::io::Result<()> {
         }
     }
     *dmods = mod_map.clone();
+    if mod_map.len() != gconf.priority.len() {
+        let mut mods: Vec<DivaMod> = vec![];
+        for p in gconf.priority.clone() {
+            match dmods.get(&p) {
+                Some(m) => {
+                    mods.push(m.clone());
+                }
+                None => {}
+            }
+        }
+        let mut prio = vec![];
+        for m in mods {
+            prio.push(m.dir_name().unwrap_or(m.config.name.clone()));
+        }
+        gconf.priority = prio.clone();
+    }
     Ok(())
 }
 
