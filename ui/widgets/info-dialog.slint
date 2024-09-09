@@ -1,4 +1,4 @@
-import { StandardButton, VerticalBox, Button, AboutSlint } from "std-widgets.slint";
+import { StandardButton, VerticalBox, Button, AboutSlint, HorizontalBox } from "std-widgets.slint";
 import { PopupBorder, Popup } from "../components/popup.slint";
 
 
@@ -6,6 +6,7 @@ export component InfoDialog {
     in property <string> msg;
     in property <length> offset_x;
     in property <length> offset_y;
+    in property <string> r4dversion;
     popup-window := Popup {
         in-out property <length> offset_inner_x;
         x: -368px;
@@ -24,16 +25,17 @@ export component InfoDialog {
                 Text {
                     horizontal-alignment: center;
                     vertical-alignment: center;
-                    text: "Rust4Diva - Neptune 2024\nFast Cross-platform mod manager for Project Diva Mega Mix+";
+                    text: "\n\nRust4Diva - Neptune 2024\nFast Cross-platform mod manager for Project Diva Mega Mix+\n\nVersion: " + r4dversion;
                 }
             }
 
-            AboutSlint { }
+            HorizontalBox {
+                AboutSlint { }
+            }
 
             Button {
                 text: "Ok";
                 clicked => {
-                    debug(popup-window.width);
                     root.close();
                 }
             }

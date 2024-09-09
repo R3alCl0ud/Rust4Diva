@@ -1,0 +1,142 @@
+import { Switch, GridBox, Button,Palette } from "std-widgets.slint";
+import { FilePathEdit } from "../widgets/text-box.slint";
+
+export struct SettingsData {
+    diva-dir: string,
+    steam-dir: string,
+    aft-dir: string,
+    aft-mode: bool,
+    dark-mode: bool}
+
+
+export global SettingsLogic {
+    callback apply-settings(SettingsData);
+    callback cancel();
+    callback open-diva-picker(/* Default/Current Path*/ string);
+    callback open-steam-picker(/* Default/Current Path*/ string);
+    callback open-aft-picker(/* Default/Current Path*/ string);
+}
+
+export component SettingsWindow inherits Dialog {
+    preferred-width: 600px;
+    title: "Rust4Diva Settings";
+
+    in-out property <string> steam-dir: "/path/to/steam";
+    in-out property <string> diva-dir: "/path/to/pdx";
+    in-out property <string> aft-dir: "/path/to/aft";
+    property <length> control-text-size: 16px;
+    default-font-size: 16px;
+
+    public function set-color-scheme(scheme: ColorScheme) {
+        Palette.color-scheme = scheme;
+    }
+
+    callback cancel();
+
+    GridBox {
+        Row {
+            Text {
+                text: "Dark Mode: ";
+                font-size: control-text-size;
+            }
+
+            dark-mode := Switch {
+                col: 3;
+                height: 30px;
+                checked: Palette.color-scheme == ColorScheme.dark;
+            }
+        }
+        Row {
+            Text {
+                text: "AFT Mode: ";
+                font-size: control-text-size;
+            }
+
+            aft-mode := Switch {
+                col: 3;
+                height: 30px;
+                enabled: false;
+            }
+        }
+
+        Row {
+            Text {
+                text: "Steam Location: ";
+                vertical-alignment: center;
+                font-size: control-text-size;
+            }
+
+            steam-loc := FilePathEdit {
+                colspan: 3;
+                default-path: steam-dir;
+                open-picker => {
+                    SettingsLogic.open-steam-picker(steam-dir);
+                }
+            }
+        }
+
+        Row {
+            Text {
+                text: "PDMM+ Location: ";
+                vertical-alignment: center;
+                font-size: control-text-size;
+            }
+
+            diva-loc := FilePathEdit {
+                colspan: 3;
+                default-path: diva-dir;
+                open-picker => {
+                    SettingsLogic.open-diva-picker(diva-dir);
+                }
+            }
+        }
+
+        Row {
+            Text {
+                text: "AFT Location: ";
+                vertical-alignment: center;
+                font-size: control-text-size;
+            }
+
+            aft-loc := FilePathEdit {
+                colspan: 3;
+                default-path: aft-dir;
+                open-picker => {
+                    SettingsLogic.open-aft-picker(aft-dir);
+                }
+            }
+        }
+
+
+
+        Row {
+            Rectangle { }
+        }
+
+        Row {
+            Button {
+                text: "Apply";
+                colspan: 3;
+                height: 35px;
+                clicked => {
+                    SettingsLogic.apply-settings({
+                        aft-mode: aft-mode.checked,
+                        steam-dir: steam-loc.default-path,
+                        diva-dir: diva-loc.default-path,
+                        aft-dir: aft-loc.default-path,
+                        dark-mode: dark-mode.checked
+                    });
+                }
+            }
+
+            Button {
+                col: 3;
+                text: "Close";
+                height: 35px;
+                clicked => {
+                    cancel();
+                }
+            }
+        }
+    }
+}

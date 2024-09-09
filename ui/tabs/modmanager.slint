@@ -1,0 +1,65 @@
+import { HorizontalBox, Button, VerticalBox, GridBox } from "std-widgets.slint";
+import { ModTable } from "../widgets/mod-table.slint";
+import { ModLogic, ModpackLogic } from "../applogic.slint";
+import { DivaModElement, ModPackElement } from "../diva-types.slint";
+import { Palette } from "../styling.slint";
+export component ModManager {
+    in-out property <[DivaModElement]> mods;
+    in property <string> active-pack;
+    callback clicked <=> load-mods-btn.clicked;
+
+    callback open-module-ctx(DivaModElement, int, Point);
+
+    VerticalLayout {
+        GridBox {
+            width: 100%;
+            Row {
+                test-table := ModTable {
+                    colspan: 4;
+                    columns: [
+                        { title: "Enabled", width: 100px },
+                        { title: "Priority", width: 100px },
+                        { title: "Name" },
+                        { title: "Authors" },
+                        { title: "Version", width: 100px },
+                        { title: "Description" }
+                    ];
+                    mods: mods;
+                    mod-toggled(index, module) => {
+                        ModLogic.toggle-mod(module);
+                    }
+                    open-ctx-menu(module, idx, pos) => {
+                        open-module-ctx(module, idx, pos);
+                    }
+                }
+            }
+
+            Row {
+
+                load-mods-btn := Button {
+                    colspan: 2;
+                    text: "Reload Mods";
+                    colorize-icon: true;
+                    icon: @image-url("../assets/repeat-solid.svg");
+                }
+
+                Button {
+                    col: 2;
+                    colspan: 2;
+                    text: "Apply Priority";
+                    colorize-icon: true;
+                    icon: @image-url("../assets/repeat-solid.svg");
+                    clicked => {
+                        ModpackLogic.apply-modpack([]);
+                    }
+                }
+            }
+        }
+
+        if active-pack != "": Text {
+            x: -8px;
+            text: "Active Modpack: " + active-pack + ". Priority changes will not take affect until it is disabled";
+            horizontal-alignment: right;
+        }
+    }
+}

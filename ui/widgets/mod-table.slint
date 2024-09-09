@@ -1,23 +1,256 @@
-import { ListView, VerticalBox, ProgressIndicator,CheckBox, Button  } from "std-widgets.slint";
+import { ListView, VerticalBox, ProgressIndicator,CheckBox, Button, Switch, Palette, ScrollView  } from "std-widgets.slint";
 import { StateLayerBase } from "../components/state-layer-base.slint";
-import {Palette, FontSettings} from "../styling.slint";
+import { FontSettings} from "../styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
-// import {Icons} from ""
 import { DivaModElement } from "../diva-types.slint";
-import { ModLogic } from "../applogic.slint";
+import { ModLogic, WindowLogic } from "../applogic.slint";
 
+
+export enum MoveBtnType{
+    start, normal, end
+}
+
+export component MoveBtns {
+    in property <int> idx;
+    in property <MoveBtnType> type;
+    in property <bool> alt;
+
+    Rectangle {
+        border-color: Palette.border;
+        border-radius: 12px;
+        HorizontalLayout {
+            Rectangle {
+                up-ta := TouchArea {
+                    enabled: type == MoveBtnType.start ? false : true;
+                    pointer-event(e) => {
+                        if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                            if e.modifiers.alt {
+                                ModLogic.move-mod-up(idx, 5);
+                            } else if e.modifiers.alt && e.modifiers.shift {
+                                ModLogic.move-mod-up(idx, 10);
+                            } else if e.modifiers.shift {
+                                ModLogic.move-mod-up(idx, -1);
+                            } else {
+                                ModLogic.move-mod-up(idx, 1);
+                            }
+                        }
+                    }
+                }
+
+                background: alt ? Palette.alternate-background : Palette.control-background;
+                Image {
+                    height: 20px;
+                    source: @image-url("../assets/up-long-solid.svg");
+                    colorize: Palette.control-foreground;
+                }
+            }
+
+            Rectangle {
+                background: alt ? Palette.alternate-background : Palette.control-background;
+                TouchArea {
+                    enabled: type == MoveBtnType.end ? false : true;
+                    pointer-event(e) => {
+                        if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                            if e.modifiers.alt {
+                                ModLogic.move-mod-down(idx, 5);
+                            } else if e.modifiers.alt && e.modifiers.shift {
+                                ModLogic.move-mod-down(idx, 10);
+                            } else if e.modifiers.shift {
+                                ModLogic.move-mod-down(idx, -1);
+                            } else {
+                                ModLogic.move-mod-down(idx, 1);
+                            }
+                        }
+                    }
+                }
+
+                Image {
+                    height: 20px;
+                    source: @image-url("../assets/down-long-solid.svg");
+                    colorize: Palette.control-foreground;
+                }
+            }
+        }
+    }
+}
 
 export component ModTableRow inherits Rectangle {
     in property <bool> selected;
     in property <bool> even;
-    callback pointer-event(/* event */ PointerEvent, /* absolute mouse position */ Point);
+    in property <[TableColumn]> columns;
+    in property <DivaModElement> module;
+    in property <int> idx;
+    in property <MoveBtnType> list-position;
+    in-out property <bool> should-move: false;
+    out property <length> m-offset;
 
+    callback pointer-event(/* event */ PointerEvent, /* absolute mouse position */ Point, Point);
+    callback moved(/* Mouse Pos */Point, /* Abs Mouse Pos */ Point);
     min-width: layout.min-width;
     min-height: max(24px, layout.min-height);
-    background: root.even ? Palette.control-background : transparent;
+    background: root.even ? Palette.control-background : Palette.background;
+
+    accessible-role: table;
 
     layout := HorizontalLayout {
         @children
+        toggle-cell := TableViewCell {
+            horizontal-stretch: columns[0].horizontal-stretch;
+            min-width: max(columns[0].min-width, columns[0].width);
+            preferred-width: self.min-width;
+            max-width: (1 < columns.length && columns[0].width >= 1px) ? max(columns[0].min-width, columns[0].width) : 100000px;
+            Rectangle {
+                mod-toggle := Switch {
+                    checked: module.enabled;
+                    toggled => {
+                        ModLogic.toggle-mod(module);
+                    }
+                }
+            }
+        }
+
+        // change priority
+        priority-cell := TableViewCell {
+            horizontal-stretch: columns[1].horizontal-stretch;
+            min-width: max(columns[1].min-width, columns[1].width);
+            preferred-width: self.min-width;
+            max-width: (1 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
+            MoveBtns {
+                idx: idx;
+                alt: mod(idx, 2) == 0;
+                type: list-position;
+            }
+        }
+
+        // name
+        name-cell := TableViewCell {
+            horizontal-stretch: columns[2].horizontal-stretch;
+            min-width: max(columns[2].min-width, columns[2].width);
+            preferred-width: self.min-width;
+            max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
+
+            moved => {
+                root.moved({ x: self.mouse-x, y: self.mouse-y }, { x: self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y });
+            }
+
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down {
+                    m-offset = self.mouse-y;
+                }
+                root.pointer-event(e, { x:self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y },{ x: self.mouse-x, y: self.mouse-y });
+            }
+
+            Rectangle {
+                name-text := Text {
+                    width: 100%;
+                    height: 100%;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    horizontal-alignment: left;
+                    text: module.name;
+                    font-weight: FontSettings.body.font-weight;
+                    font-size: FontSettings.body.font-size;
+                    color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
+                }
+            }
+        }
+
+        // author
+        author-cell := TableViewCell {
+            horizontal-stretch: columns[3].horizontal-stretch;
+            min-width: max(columns[3].min-width, columns[3].width);
+            preferred-width: self.min-width;
+            max-width: (1 < columns.length && columns[3].width >= 1px) ? max(columns[3].min-width, columns[3].width) : 100000px;
+
+            moved => {
+                root.moved({ x: self.mouse-x, y: self.mouse-y }, { x: self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y });
+            }
+
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down {
+                    m-offset = self.mouse-y;
+                }
+                root.pointer-event(e, { x:self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y },{ x: self.mouse-x, y: self.mouse-y });
+            }
+            Rectangle {
+                bytes-text := Text {
+                    width: 100%;
+                    height: 100%;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    horizontal-alignment: left;
+                    text: module.author;
+                    font-weight: FontSettings.body.font-weight;
+                    font-size: FontSettings.body.font-size;
+                    color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
+                }
+            }
+        }
+
+        // version
+        version-cell := TableViewCell {
+
+            moved => {
+                root.moved({ x: self.mouse-x, y: self.mouse-y }, { x: self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y });
+            }
+
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down {
+                    m-offset = self.mouse-y;
+                }
+                root.pointer-event(e, { x: self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y },{ x: self.mouse-x, y: self.mouse-y });
+            }
+            horizontal-stretch: columns[4].horizontal-stretch;
+            min-width: max(columns[4].min-width, columns[4].width);
+            preferred-width: self.min-width;
+            max-width: (1 < columns.length && columns[4].width >= 1px) ? max(columns[4].min-width, columns[4].width) : 100000px;
+            // width: root.column_sizes[1];
+            Rectangle {
+                mod-ver := Text {
+                    width: 100%;
+                    height: 100%;
+                    overflow: elide;
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                    text: module.version;
+                    font-weight: FontSettings.body.font-weight;
+                    font-size: FontSettings.body.font-size;
+                    color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
+                }
+            }
+        }
+
+        // description
+        description-cell := TableViewCell {
+            horizontal-stretch: columns[5].horizontal-stretch;
+            min-width: max(columns[5].min-width, columns[5].width);
+            preferred-width: self.min-width;
+            max-width: (1 < columns.length && columns[5].width >= 1px) ? max(columns[5].min-width, columns[5].width) : 100000px;
+
+            moved => {
+                root.moved({ x: self.mouse-x, y: self.mouse-y }, { x: self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y });
+            }
+
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down {
+                    m-offset = self.mouse-y;
+                }
+                root.pointer-event(e, { x: self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y },{ x: self.mouse-x, y: self.mouse-y });
+            }
+            Rectangle {
+                mod-desc := Text {
+                    width: 100%;
+                    height: 100%;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    text: module.description;
+                    horizontal-alignment: left;
+                    font-weight: FontSettings.body.font-weight;
+                    font-size: FontSettings.body.font-size;
+                    color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
+                }
+            }
+        }
     }
 
     StateLayerBase {
@@ -35,8 +268,12 @@ export component ModTable {
     callback row-pointer-event(int/* row-index */, PointerEvent/* event */, Point/* absolute mouse position */);
     callback current-row-changed(int/* current-row */);
     callback sort-ascending(/* column-index */ int);
+    // unused
     callback sort-descending(/* column-index */ int);
+    // unused
     callback mod-toggled(int, DivaModElement);
+
+    callback open-ctx-menu(DivaModElement, int, Point);
 
     private property <length> min-header-height: 32px;
     private property <length> item-height: scroll-view.viewport-height / mods.length;
@@ -74,18 +311,18 @@ export component ModTable {
         root.current-sort-column = index;
     }
 
-    min-width: 400px;
+    min-width: 300px;
     min-height: 200px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
     accessible-role: table;
-    forward-focus: focus-scope;
+    // forward-focus: focus-scope;
 
     VerticalLayout {
         Rectangle {
             clip: true;
             vertical-stretch: 0;
-            min-height: root.min-header-height;
+            height: root.min-header-height;
             background: Palette.control-background;
 
             header-layout := HorizontalLayout {
@@ -124,170 +361,95 @@ export component ModTable {
 
         }
 
-        scroll-view := ListView {
-            for module[idx] in root.mods: ModTableRow {
+        scroll-view := ScrollView {
+            viewport-height: 45px * mods.length;
+            viewport-y: 0;
+            changed height => {
+                if self.viewport-y != 0 {
+                    self.viewport-y = clamp(self.viewport-y, (self.height - self.viewport-height), 0);
+                }
+            }
 
+            for module[idx] in root.mods: ModTableRow {
+                module: module;
+                idx: idx;
                 selected: idx == root.current-row;
                 even: mod(idx, 2) == 0;
+                y: self.height * idx;
+                height: max(45px, item-height);
+                list-position: idx == 0 ? start : idx == mods.length - 1 ? end : normal;
+                columns: columns;
+                moved(mouse, pos) => {
 
-                pointer-event(pe, pos) => {
+                    if self.should-move {
+                        self.y += mouse.y - (self.height / 2);
+                        if scroll-view.viewport-height > scroll-view.height {
+                            if self.y - abs(scroll-view.viewport-y) < 20px {
+                                scroll-view.viewport-y += abs(self.y - abs(scroll-view.viewport-y)) / 2;
+                                scroll-view.viewport-y = clamp(scroll-view.viewport-y, (scroll-view.height - scroll-view.viewport-height), 0);
+                                // self.y += abs(self.y - abs(scroll-view.viewport-y)) / 2;
+                            }
+                            if ((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height)) < 20px {
+                                scroll-view.viewport-y -= abs((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height));
+                                scroll-view.viewport-y = clamp(scroll-view.viewport-y, (scroll-view.height - scroll-view.viewport-height), 0);
+                                // self.y += abs((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height));
+                            }
+                        }
+                        self.y = clamp(self.y, min(0px, abs(scroll-view.viewport-y)), scroll-view.viewport-height - self.height);
+                        i-shadow-mod.y = self.y;
+                    }
+                }
+
+                pointer-event(pe, pos, mouse) => {
                     root.row-pointer-event(idx, pe, {
                         x: pos.x - root.absolute-position.x,
                         y: pos.y - root.absolute-position.y,
                     });
-                }
-                // toggle box
-                TableViewCell {
-                    horizontal-stretch: columns[0].horizontal-stretch;
-                    min-width: max(columns[0].min-width, columns[0].width);
-                    preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[0].width >= 1px) ? max(columns[0].min-width, columns[0].width) : 100000px;
-                    Rectangle {
-                        mod-toggle := CheckBox {
-                            checked: module.enabled;
-                            toggled => {
-                                mod-toggled(idx, module);
-                            }
+                    if pe.kind == PointerEventKind.down {
+                        if pe.button == PointerEventButton.left {
+                            self.should-move = true;
+                            self.y += mouse.y - (self.height / 2);
+                            self.opacity = 0;
+                            self.y = clamp(self.y, min(0px, abs(scroll-view.viewport-y)), scroll-view.viewport-height - self.height);
+                            i-shadow-mod.module = module;
+                            i-shadow-mod.y = self.y;
+                            i-shadow-mod.even = self.even;
+                            i-shadow-mod.idx = idx;
+                            i-shadow-mod.list-position = self.list-position;
+                            i-shadow-mod.visible = true;
+                            debug("VH: " + scroll-view.viewport-height / 1px);
+                            debug("VH: " + scroll-view.height / 1px);
+                        } else if pe.button == PointerEventButton.right {
+                            open-ctx-menu(self.module, idx, {
+                                x: pos.x - root.absolute-position.x,
+                                y: pos.y,
+                            });
                         }
                     }
-                }
-
-                // change priority
-                TableViewCell {
-                    horizontal-stretch: columns[1].horizontal-stretch;
-                    min-width: max(columns[1].min-width, columns[1].width);
-                    preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
-                    Rectangle {
-                        HorizontalLayout {
-                            Button {
-                                enabled: idx != 0;
-                                primary: mod(idx, 2) == 0;
-                                icon: @image-url("../assets/up-long-solid.svg");
-                                clicked => {
-                                    ModLogic.move-mod-up(idx);
-                                }
-                            }
-
-                            Button {
-                                enabled: idx != (mods.length - 1);
-                                primary: mod(idx, 2) == 0;
-                                icon: @image-url("../assets/down-long-solid.svg");
-                                clicked => {
-                                    ModLogic.move-mod-down(idx);
-                                }
-                            }
-                        }
+                    if pe.kind == PointerEventKind.up && pe.button == PointerEventButton.left {
+                        self.should-move = true;
+                        i-shadow-mod.visible = false;
+                        ModLogic.set-priority(module, idx, max(0, round((self.y / 1px) / (self.height / 1px))));
+                        self.y = max(0px, round((self.y / 1px) / (self.height / 1px)) * self.height);
+                        self.opacity = 1;
                     }
                 }
+                states [
+                    active when !self.should-move: {
+                    // animate background: ;
+                        // this would be pretty cool to have instead of it just snappin into place on release
 
-                // name
-                TableViewCell {
-                    horizontal-stretch: columns[2].horizontal-stretch;
-                    min-width: max(columns[2].min-width, columns[2].width);
-                    preferred-width: self.min-width;
-                    max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
-                    // width: root.column_sizes[0];
-                    Rectangle {
-                        name-text := Text {
-                            width: 100%;
-                            height: 100%;
-                            overflow: elide;
-                            vertical-alignment: center;
-                            text: module.name;
-                            font-weight: FontSettings.body.font-weight;
-                            font-size: FontSettings.body.font-size;
-                            color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
-
-                            states [
-                                selected when idx == root.current-row: {
-                                    name-text.color: Palette.accent-background;
-                                }
-                            ]
-                        }
                     }
-                }
+                ]
+            }
 
-                // author
-                TableViewCell {
-                    horizontal-stretch: columns[3].horizontal-stretch;
-                    min-width: max(columns[3].min-width, columns[3].width);
-                    preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[3].width >= 1px) ? max(columns[3].min-width, columns[3].width) : 100000px;
-                    // width: root.column_sizes[1];
-                    Rectangle {
-                        bytes-text := Text {
-                            width: 100%;
-                            height: 100%;
-                            overflow: elide;
-                            vertical-alignment: center;
-                            text: module.author;
-                            font-weight: FontSettings.body.font-weight;
-                            font-size: FontSettings.body.font-size;
-                            color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
-
-                            states [
-                                selected when idx == root.current-row: {
-                                    bytes-text.color: Palette.accent-background;
-                                }
-                            ]
-                        }
-                    }
-                }
-
-                // version
-                TableViewCell {
-                    horizontal-stretch: columns[4].horizontal-stretch;
-                    min-width: max(columns[4].min-width, columns[4].width);
-                    preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[4].width >= 1px) ? max(columns[4].min-width, columns[4].width) : 100000px;
-                    // width: root.column_sizes[1];
-                    Rectangle {
-                        mod-ver := Text {
-                            width: 100%;
-                            height: 100%;
-                            overflow: elide;
-                            vertical-alignment: center;
-                            text: module.version;
-                            font-weight: FontSettings.body.font-weight;
-                            font-size: FontSettings.body.font-size;
-                            color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
-
-                            states [
-                                selected when idx == root.current-row: {
-                                    mod-ver.color: Palette.accent-background;
-                                }
-                            ]
-                        }
-                    }
-                }
-
-                // description
-                TableViewCell {
-                    horizontal-stretch: columns[5].horizontal-stretch;
-                    min-width: max(columns[5].min-width, columns[5].width);
-                    preferred-width: self.min-width;
-                    max-width: (1 < columns.length && columns[5].width >= 1px) ? max(columns[5].min-width, columns[5].width) : 100000px;
-
-                    Rectangle {
-                        mod-desc := Text {
-                            width: 100%;
-                            height: 100%;
-                            overflow: elide;
-                            vertical-alignment: center;
-                            text: module.description;
-                            font-weight: FontSettings.body.font-weight;
-                            font-size: FontSettings.body.font-size;
-                            color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
-
-                            states [
-                                selected when idx == root.current-row: {
-                                    mod-desc.color: Palette.accent-background;
-                                }
-                            ]
-                        }
-                    }
-                }
+            i-shadow-mod := ModTableRow {
+                idx: 1;
+                visible: false;
+                list-position: normal;
+                columns: columns;
+                height: max(45px, item-height);
+                opacity: 0.75;
             }
         }
     }

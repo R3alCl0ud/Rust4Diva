@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
@@ -15,22 +16,14 @@ use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
-use tokio::time::timeout;
 use toml::de::Error;
 
 use crate::config::write_config;
-use crate::diva::{get_diva_folder, get_temp_folder};
+use crate::diva::{get_diva_folder, get_temp_folder, open_error_window};
 use crate::modpacks::ModPackMod;
 use crate::slint_generatedApp::App;
+use crate::{ConfirmDelete, DivaModElement, EditModDialog, ModLogic, WindowLogic, DIVA_DIR};
 use crate::{DivaData, Download, DIVA_CFG, DML_CFG, MODS};
-use crate::{DivaModElement, ModLogic, DIVA_DIR};
-
-cfg_if::cfg_if! {
-    if #[cfg(windows)] {
-        use winreg::enums::*;
-        use winreg::RegKey;
-    }
-}
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
@@ -145,7 +138,7 @@ impl DivaModElement {
     }
 }
 
-pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32, Download)>) {
+pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32, Download)>) {
     let ui_toggle_handle = ui.as_weak();
     let ui_load_handle = ui.as_weak();
     let ui_progress_handle = ui.as_weak();
@@ -153,6 +146,9 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
     let ui_file_picker_handle = ui.as_weak();
     let ui_mod_up_handle = ui.as_weak();
     let ui_mod_down_handle = ui.as_weak();
+    let ui_priority_handle = ui.as_weak();
+    let ui_scheme_handle = ui.as_weak();
+    let ui_edit_handle = ui.as_weak();
 
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
@@ -163,7 +159,8 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             let _ = set_mods_table(&mods, ui_load_handle.clone());
         }
         Err(e) => {
-            eprintln!("{e}");
+            open_error_window(e.to_string());
+            // eprintln!("{e}");
         }
     });
 
@@ -175,11 +172,8 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                 println!("{}", buf.display());
                 // fs::write(buf,
                 if let Err(e) = save_mod_config(buf, &mut m.config.clone()) {
-                    let msg = format!("Unable to save modpack: \n{}", e.to_string());
-                    ui_toggle_handle
-                        .upgrade()
-                        .unwrap()
-                        .invoke_open_error_dialog(msg.into());
+                    let msg = format!("Unable to save mod config: \n{}", e.to_string());
+                    open_error_window(msg);
                 }
             }
         }
@@ -187,13 +181,24 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
         let _ = set_mods_table(&mods, ui_toggle_handle.clone());
     });
 
-    ui.global::<ModLogic>().on_move_mod_up(move |idx| {
+    ui.global::<ModLogic>().on_move_mod_up(move |idx, amt| {
         let ui_mod_up_handle = ui_mod_up_handle.clone();
         if idx < 1 {
             return;
         }
         if let Ok(mut gcfg) = DIVA_CFG.lock() {
-            gcfg.priority.swap(idx as usize, (idx - 1) as usize);
+            if amt == 1 {
+                gcfg.priority.swap(idx as usize, (idx - 1) as usize);
+            } else {
+                let m = gcfg.priority.remove(idx as usize);
+                let len = gcfg.priority.len().clone();
+                if amt == -1 {
+                    gcfg.priority.insert(0, m);
+                } else {
+                    gcfg.priority
+                        .insert((idx - amt).clamp(0, (len - 1) as i32) as usize, m);
+                }
+            }
             let lcfg = gcfg.clone();
             tokio::spawn(async move {
                 match write_config(lcfg).await {
@@ -204,24 +209,18 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                         {
                             let msg =
                                 format!("Unable to save priority to disk: \n{}", e.to_string());
-                            ui_mod_up_handle
-                                .upgrade()
-                                .unwrap()
-                                .invoke_open_error_dialog(msg.into());
+                            open_error_window(msg);
                         }
                     }
                     Err(e) => {
                         let msg = format!("Unable to save priority to disk: \n{}", e.to_string());
-                        ui_mod_up_handle
-                            .upgrade()
-                            .unwrap()
-                            .invoke_open_error_dialog(msg.into());
+                        open_error_window(msg);
                     }
                 }
             });
         }
     });
-    ui.global::<ModLogic>().on_move_mod_down(move |idx| {
+    ui.global::<ModLogic>().on_move_mod_down(move |idx, amt| {
         let ui_mod_down_handle = ui_mod_down_handle.clone();
         if idx < 0 {
             return;
@@ -230,7 +229,18 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
             if idx >= (gcfg.priority.len() - 1) as i32 {
                 return;
             }
-            gcfg.priority.swap(idx as usize, (idx + 1) as usize);
+            if amt == 1 {
+                gcfg.priority.swap(idx as usize, (idx + 1) as usize);
+            } else {
+                let m = gcfg.priority.remove(idx as usize);
+                let len = gcfg.priority.len().clone();
+                if amt == -1 {
+                    gcfg.priority.push(m);
+                } else {
+                    gcfg.priority
+                        .insert((idx + amt).clamp(0, (len - 1) as i32) as usize, m);
+                }
+            }
             let lcfg = gcfg.clone();
             tokio::spawn(async move {
                 match write_config(lcfg).await {
@@ -241,18 +251,12 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                         {
                             let msg =
                                 format!("Unable to save priority to disk: \n{}", e.to_string());
-                            ui_mod_down_handle
-                                .upgrade()
-                                .unwrap()
-                                .invoke_open_error_dialog(msg.into());
+                            open_error_window(msg);
                         }
                     }
                     Err(e) => {
                         let msg = format!("Unable to save priority to disk: \n{}", e.to_string());
-                        ui_mod_down_handle
-                            .upgrade()
-                            .unwrap()
-                            .invoke_open_error_dialog(msg.into());
+                        open_error_window(msg);
                     }
                 }
             });
@@ -277,10 +281,119 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32
                     }
                     Err(e) => {
                         eprintln!("{}", e);
+                        open_error_window(e.to_string());
                     }
                 }
             }
         });
+    });
+
+    ui.global::<ModLogic>()
+        .on_set_priority(move |_module, old, new| {
+            if let Ok(mut cfg) = DIVA_CFG.lock() {
+                let item = cfg.priority.remove(old as usize);
+                let new = max(0, min(new as usize, cfg.priority.len()));
+                cfg.priority.insert(new, item);
+                let lcfg = cfg.clone();
+                let ui_priority_handle = ui_priority_handle.clone();
+                tokio::spawn(async move {
+                    match write_config(lcfg).await {
+                        Ok(_) => {
+                            // let gmods = MODS.lock().unwrap();
+                            if let Err(e) =
+                                set_mods_table(&get_mods_in_order(), ui_priority_handle.clone())
+                            {
+                                let msg =
+                                    format!("Unable to save priority to disk: \n{}", e.to_string());
+                                open_error_window(msg);
+                            }
+                        }
+                        Err(e) => {
+                            let msg =
+                                format!("Unable to save priority to disk: \n{}", e.to_string());
+                            open_error_window(msg);
+                        }
+                    }
+                });
+            }
+        });
+
+    ui.global::<WindowLogic>()
+        .on_open_mod_editor(move |module, _idx| {
+            let ui_edit_handle = ui_edit_handle.clone();
+            let editdialog = EditModDialog::new().unwrap();
+            let current_scheme = ui_scheme_handle.upgrade().unwrap().get_color_scheme();
+            editdialog.invoke_set_color_scheme(current_scheme);
+            println!("{module:?}");
+            editdialog.set_name(module.name);
+            if let Ok(cfg_str) = fs::read_to_string(PathBuf::from(module.path.to_string())) {
+                editdialog.set_module(cfg_str.into());
+            }
+            let weak = editdialog.as_weak();
+            editdialog.on_cancel(move || {
+                weak.upgrade().unwrap().hide().unwrap();
+            });
+            let weak = editdialog.as_weak();
+            editdialog.on_apply(move || {
+                let ui = weak.upgrade().unwrap();
+                let m = ui.get_module().to_string();
+                match toml::from_str::<DivaModConfig>(m.as_str()) {
+                    Ok(mut cfg) => {
+                        if let Err(e) =
+                            save_mod_config(PathBuf::from(module.path.to_string()), &mut cfg)
+                        {
+                            open_error_window(e.to_string());
+                        } else {
+                            if let Ok(_) = load_mods() {
+                                let _ =
+                                    set_mods_table(&get_mods_in_order(), ui_edit_handle.clone());
+                                ui.hide().unwrap();
+                            }
+                        }
+                        // weak.upgrade()
+                    }
+                    Err(e) => open_error_window(e.to_string()),
+                }
+            });
+
+            editdialog.show().unwrap();
+        });
+
+    // ui.global::<ModLogic>().i
+    let weak = ui.as_weak();
+    ui.global::<ModLogic>().on_delete_mod(move |module| {
+        let ui_weak = weak.clone();
+        let ui = weak.upgrade().unwrap();
+        let confirm = ConfirmDelete::new().unwrap();
+        confirm.invoke_set_color_scheme(ui.get_color_scheme());
+        confirm.set_item(module.name);
+        let cweak = confirm.as_weak();
+        confirm.on_close(move || {
+            cweak.unwrap().hide().unwrap();
+        });
+        let cweak = confirm.as_weak();
+
+        confirm.on_confirm(move || {
+            cweak.unwrap().hide().unwrap();
+            let mut buf = PathBuf::from(module.path.to_string());
+            buf.pop();
+            if let Ok(buf) = buf.canonicalize() {
+                if buf.eq(&PathBuf::from("/").canonicalize().unwrap()) {
+                    return;
+                }
+                match fs::remove_dir_all(buf) {
+                    Ok(_) => {
+                        if let Ok(_) = load_mods() {
+                            if let Err(e) = set_mods_table(&get_mods_in_order(), ui_weak.clone()) {
+                                open_error_window(e.to_string());
+                            }
+                        }
+                    }
+                    Err(e) => open_error_window(e.to_string()),
+                }
+            }
+        });
+        confirm.show().unwrap();
     });
 
     let _ = spawn_download_listener(dl_rx, dl_ui_tx, ui_download_handle);
@@ -303,7 +416,9 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
         match fs::create_dir(mods_folder) {
             Ok(_) => {}
             Err(e) => {
-                eprintln!("Unable to create default mods folder: {}", e);
+                let msg = format!("Unable to create default mods folder: {}", e);
+                eprintln!("{msg}");
+                open_error_window(msg);
             }
         }
         return mods;
@@ -417,6 +532,7 @@ pub fn check_archive_valid_structure(archive: File, name: String) -> bool {
         }
         Err(e) => {
             eprintln!("{}", e);
+            open_error_window(e.to_string());
             false
         }
     };
@@ -479,7 +595,7 @@ pub fn spawn_download_listener(
                                 let p = prog_tx.try_send((index.clone(), prog as f32));
                                 match p {
                                     Ok(_) => {}
-                                    Err(e) => {
+                                    Err(_e) => {
                                         // eprintln!("{}", e);
                                     }
                                 }
@@ -494,6 +610,7 @@ pub fn spawn_download_listener(
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("{}", e);
+                            open_error_window(e.to_string());
                             let _ = ui_download_handle.upgrade_in_event_loop(move |ui| {
                                 let downloads = ui.get_downloads_list();
                                 if let Some(downloads) =
@@ -529,38 +646,35 @@ pub fn spawn_download_listener(
                                 }
                                 Err(e) => {
                                     eprintln!("Failed to extract the mod file:\n{}", e);
-                                    let _ = ui_download_handle.clone().upgrade_in_event_loop(
-                                        move |ui| {
-                                            let msg = format!(
-                                                "Failed to extract the mod file: \n{}",
-                                                e.to_string()
-                                            );
-                                            ui.invoke_open_error_dialog(msg.into());
-                                        },
+                                    // let _ = ui_download_handle.clone().upgrade_in_event_loop(
+                                    //     move |ui| {
+                                    let msg = format!(
+                                        "Failed to extract the mod file: \n{}",
+                                        e.to_string()
                                     );
+                                    // ui.invoke_open_error_dialog(msg.into());
+                                    // },
+                                    // );
+                                    open_error_window(msg);
                                 }
                             }
                         }
                         Err(e) => {
                             eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                            let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
-                                let msg = format!(
-                                    "Something went wrong while saving the file to disk: \n{}",
-                                    e.to_string()
-                                );
-                                ui.invoke_open_error_dialog(msg.into());
-                            });
-                        }
-                    },
-                    Err(e) => {
-                        eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                        let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
                             let msg = format!(
                                 "Something went wrong while saving the file to disk: \n{}",
                                 e.to_string()
                             );
-                            ui.invoke_open_error_dialog(msg.into());
-                        });
+                            open_error_window(msg);
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Something went wrong while saving the file to disk \n{}", e);
+                        let msg = format!(
+                            "Something went wrong while saving the file to disk: \n{}",
+                            e.to_string()
+                        );
+                        open_error_window(msg);
                     }
                 }
             }
@@ -571,12 +685,18 @@ pub fn spawn_download_listener(
 
 pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Weak<App>) {
     tokio::spawn(async move {
-        let wait_time = tokio::time::Duration::from_millis(500);
+        let wait_time = tokio::time::Duration::from_millis(50);
         while !prog_rx.is_closed() {
-            // await seems to cause it to hang for quite a while
-            // prog_rx.
+            /*
+            await recv causes thread to hang until download is finished
+            so we are try_recv'ing instead
+            but we can't do this without a timeout so it's be moved to wait
+            a little bit before trying again
+            Try_recv without the timeout causes preformance issues on the host's PC
+
+            Time wasted trying to make await work = 3 hours
+            */
             if let Ok((index, chunk_size)) = prog_rx.try_recv() {
-                // println!("prog recieved {chunk_size}");
                 match ui_weak.upgrade_in_event_loop(move |ui| {
                     let downloads = ui.get_downloads_list();
                     if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>()
@@ -622,14 +742,36 @@ pub fn load_mods() -> std::io::Result<()> {
     let mods = load_mods_from_dir(buf.display().to_string());
     let mut dmods = MODS.lock().unwrap();
     let mut mod_map = HashMap::new();
-    for m in mods {
+    for mut m in mods {
         let n = m.dir_name().unwrap_or(m.config.name.clone());
+
+        // Will make the mod's name default to the folder name if the field is blank for some reason
+        if m.config.name.is_empty() {
+            m.config.name = n.clone();
+        }
+
         mod_map.insert(n.clone(), m.clone());
         if !gconf.priority.contains(&n) {
             gconf.priority.push(n);
         }
     }
     *dmods = mod_map.clone();
+    if mod_map.len() != gconf.priority.len() {
+        let mut mods: Vec<DivaMod> = vec![];
+        for p in gconf.priority.clone() {
+            match dmods.get(&p) {
+                Some(m) => {
+                    mods.push(m.clone());
+                }
+                None => {}
+            }
+        }
+        let mut prio = vec![];
+        for m in mods {
+            prio.push(m.dir_name().unwrap_or(m.config.name.clone()));
+        }
+        gconf.priority = prio.clone();
+    }
     Ok(())
 }
 
@@ -646,4 +788,15 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
         }
     }
     mods
+}
+
+pub fn dml_is_installed() -> bool {
+    return match get_diva_folder() {
+        Some(dir) => {
+            let mut buf = PathBuf::from(dir);
+            buf.push("dinput8.dll");
+            buf.exists()
+        }
+        None => false,
+    };
 }

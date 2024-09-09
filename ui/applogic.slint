@@ -1,13 +1,28 @@
 import { DivaModElement, ModPackElement } from "diva-types.slint";
 
+export global WindowLogic {
+    callback open-settings();
+    callback open-delete-dialog(string);
+    callback open-about-window();
+    callback open-mod-editor(DivaModElement, int);
+}
+
 export global ModpackLogic {
+    callback apply-modpack([DivaModElement]);
     callback create-new-pack(string);
     callback delete-modpack(string);
+    callback change-modpack(string);
+    callback save-modpack(string, [DivaModElement]);
+    callback remove-mod-from-pack(DivaModElement, string);
+    callback add-mod-to-pack(DivaModElement, string);
 }
 
 export global ModLogic {
     callback toggle-mod(DivaModElement);
-    callback move-mod-up(int);
-    callback move-mod-down(int);
-
+    callback move-mod-up(int, int);
+    callback move-mod-down(int, int);
+    callback load-mods();
+    callback mod-toggled(int, DivaModElement);
+    callback set-priority(DivaModElement, int, int);
+    callback delete-mod(DivaModElement);
 }

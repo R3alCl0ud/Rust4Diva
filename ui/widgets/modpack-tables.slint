@@ -1,6 +1,6 @@
-import { ListView, VerticalBox, ProgressIndicator,CheckBox  } from "std-widgets.slint";
+import { ListView, VerticalBox, ProgressIndicator,CheckBox,Palette  } from "std-widgets.slint";
 import { StateLayerBase } from "../components/state-layer-base.slint";
-import {Palette, FontSettings} from "../styling.slint";
+import { FontSettings} from "../styling.slint";
 import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
 // import {Icons} from ""
 import {DivaModElement} from "../diva-types.slint";
@@ -55,7 +55,7 @@ export component ModPickTable {
     }
 
     min-width: 400px;
-    min-height: 200px;
+    min-height: 300px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
     accessible-role: table;
@@ -155,7 +155,7 @@ export component ModPickTable {
                             checked: module.enabled;
                             text: module.enabled ? "Yah" : "Nah";
                             toggled => {
-                                debug("this is a test");
+                                
                                 mod-toggled(idx, module);
                             }
                         }
@@ -307,7 +307,6 @@ export component PackTable {
                             checked: module.enabled;
                             text: module.enabled ? "Yah" : "Nah";
                             toggled => {
-                                debug("this is a test");
                                 mod-toggled(idx, module);
                             }
                         }

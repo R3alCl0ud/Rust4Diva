@@ -10,6 +10,7 @@ use sonic_rs::{Error, JsonContainerTrait, Value};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 
+use crate::diva::open_error_window;
 use crate::{App, DivaData, Download};
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
@@ -18,7 +19,6 @@ const GB_DIVA_ID: i32 = 16522;
 
 const GB_MOD_INFO: &str = "/Core/Item/Data";
 const GB_MOD_SEARCH: &str = "apiv9/Util/Game/Submissions";
-
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GbModDownload {
@@ -46,11 +46,13 @@ pub struct GbModDownload {
     pub(crate) analysis_state: String,
     #[serde(rename(serialize = "_sAnalysisResult", deserialize = "_sAnalysisResult"))]
     pub(crate) analysis_result: String,
-    #[serde(rename(serialize = "_sAnalysisResultCode", deserialize = "_sAnalysisResultCode"))]
+    #[serde(rename(
+        serialize = "_sAnalysisResultCode",
+        deserialize = "_sAnalysisResultCode"
+    ))]
     pub(crate) analysis_result_code: String,
     #[serde(rename(serialize = "_bContainsExe", deserialize = "_bContainsExe"))]
     pub(crate) contains_exe: bool,
-
 }
 
 #[derive(Clone, Debug)]
@@ -80,15 +82,24 @@ pub struct GBSearch {
     has_files: bool,
     #[serde(rename(serialize = "_aSubmitter", deserialize = "_aSubmitter"))]
     submitter: GbSubmitter,
-    #[serde(rename(serialize = "_tsDateUpdated", deserialize = "_tsDateUpdated"), default)]
+    #[serde(
+        rename(serialize = "_tsDateUpdated", deserialize = "_tsDateUpdated"),
+        default
+    )]
     date_updated: u64,
     #[serde(rename(serialize = "_bIsNsfw", deserialize = "_bIsNsfw"))]
     is_nsfw: bool,
     #[serde(rename(serialize = "_sInitialVisibility", deserialize = "_sInitialVisibility"))]
     initial_visibility: String,
-    #[serde(rename(serialize = "_nLikeCount", deserialize = "_nLikeCount"), default)]
+    #[serde(
+        rename(serialize = "_nLikeCount", deserialize = "_nLikeCount"),
+        default
+    )]
     like_count: i32,
-    #[serde(rename(serialize = "_nPostCount", deserialize = "_nPostCount"), default)]
+    #[serde(
+        rename(serialize = "_nPostCount", deserialize = "_nPostCount"),
+        default
+    )]
     post_count: i32,
     #[serde(rename(serialize = "_bWasFeatured", deserialize = "_bWasFeatured"))]
     was_featured: bool,
@@ -148,41 +159,49 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     // let mut mods: Vec<GBMod> = Vec::new();
     let mut easy = Easy::new();
     let mut the_mod = None;
-    easy.url(format!("{}{}?itemid={}&itemtype=Mod&fields=name,Files().aFiles()", GB_API_DOMAIN, GB_MOD_INFO, &mod_id).as_str()).unwrap();
+    easy.url(
+        format!(
+            "{}{}?itemid={}&itemtype=Mod&fields=name,Files().aFiles()",
+            GB_API_DOMAIN, GB_MOD_INFO, &mod_id
+        )
+        .as_str(),
+    )
+    .unwrap();
     {
         let mut transfer = easy.transfer();
-        transfer.write_function(|data| {
-            let mut data_json: String = String::new();
-            for line in data.lines() {
-                data_json.push_str(line.unwrap().as_str());
-            }
-            // println!("{:#}", data_json);
-            let res: Result<sonic_rs::Value, Error> = sonic_rs::from_str(data_json.as_str());
-            let mut dl_files: Vec<GbModDownload> = Vec::new();
-            if let Ok(mod_data) = res {
-                let info_mods = mod_data[1].clone().into_object();
-                // make sure we've actually got a proper response data
-                if let Some(info_mods) = info_mods {
-                    for (_key, value) in info_mods.iter() {
-                        let dl_file: GbModDownload = sonic_rs::from_value(value).unwrap();
-                        dl_files.push(dl_file);
-                    }
-                    the_mod = Some(GBMod {
-                        name: mod_data[0].to_string(),
-                        files: dl_files,
-                        text: mod_data[2].to_string(),
-                    });
+        transfer
+            .write_function(|data| {
+                let mut data_json: String = String::new();
+                for line in data.lines() {
+                    data_json.push_str(line.unwrap().as_str());
                 }
-            }
+                // println!("{:#}", data_json);
+                let res: Result<sonic_rs::Value, Error> = sonic_rs::from_str(data_json.as_str());
+                let mut dl_files: Vec<GbModDownload> = Vec::new();
+                if let Ok(mod_data) = res {
+                    let info_mods = mod_data[1].clone().into_object();
+                    // make sure we've actually got a proper response data
+                    if let Some(info_mods) = info_mods {
+                        for (_key, value) in info_mods.iter() {
+                            let dl_file: GbModDownload = sonic_rs::from_value(value).unwrap();
+                            dl_files.push(dl_file);
+                        }
+                        the_mod = Some(GBMod {
+                            name: mod_data[0].to_string(),
+                            files: dl_files,
+                            text: mod_data[2].to_string(),
+                        });
+                    }
+                }
 
-            return Ok(data.len());
-        }).expect("TODO: panic message");
+                return Ok(data.len());
+            })
+            .expect("TODO: panic message");
         transfer.perform().unwrap();
     }
     easy.perform().unwrap();
     return the_mod;
 }
-
 
 pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     // check if this is a proper dmm 1 click url
@@ -202,14 +221,23 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     });
 }
 
-pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, Download)>, url_rx: Receiver<String>) {
+pub async fn init(
+    ui: &App,
+    diva_arc: Arc<Mutex<DivaData>>,
+    dl_tx: Sender<(i32, Download)>,
+    url_rx: Receiver<String>,
+) {
     let file_arc: Arc<Mutex<Vec<GbModDownload>>> = Arc::new(Mutex::new(Vec::new()));
 
     let search_diva = Arc::clone(&diva_arc);
     let ui_search_handle = ui.as_weak();
     ui.on_search_gb(move |search| {
         // println!("Searching for {}", search);
-        search_mods(search.parse().unwrap(), &search_diva, ui_search_handle.clone());
+        search_mods(
+            search.parse().unwrap(),
+            &search_diva,
+            ui_search_handle.clone(),
+        );
     });
 
     let file_diva = Arc::clone(&diva_arc);
@@ -241,23 +269,40 @@ pub async fn init(ui: &App, diva_arc: Arc<Mutex<DivaData>>, dl_tx: Sender<(i32, 
 
     let oneclick_diva = Arc::clone(&diva_arc);
     let ui_oneclick_handle = ui.as_weak();
-    let _ = handle_dmm_oneclick(url_rx, oneclick_diva, ui_oneclick_handle, oneclick_tx.clone());
+    let _ = handle_dmm_oneclick(
+        url_rx,
+        oneclick_diva,
+        ui_oneclick_handle,
+        oneclick_tx.clone(),
+    );
 }
-pub fn search_mods(search: String, search_diva: &Arc<Mutex<DivaData>>, ui_search_handle: Weak<App>) {
+pub fn search_mods(
+    search: String,
+    search_diva: &Arc<Mutex<DivaData>>,
+    ui_search_handle: Weak<App>,
+) {
     let search_diva = Arc::clone(search_diva);
-    ui_search_handle.upgrade_in_event_loop(move |ui| {
-        ui.set_s_prog_vis(true);
-    }).expect("TODO: panic message");
+    ui_search_handle
+        .upgrade_in_event_loop(move |ui| {
+            ui.set_s_prog_vis(true);
+        })
+        .expect("TODO: panic message");
 
     tokio::spawn(async move {
         let client = reqwest::Client::new();
-        let req = client.get(format!("{}/{}", GB_DOMAIN, GB_MOD_SEARCH))
-            .query(&[("_idGameRow", GB_DIVA_ID.to_string()), ("_sName", search), ("_nPerpage", "50".to_string())]);
+        let req = client
+            .get(format!("{}/{}", GB_DOMAIN, GB_MOD_SEARCH))
+            .query(&[
+                ("_idGameRow", GB_DIVA_ID.to_string()),
+                ("_sName", search),
+                ("_nPerpage", "50".to_string()),
+            ]);
         match req.send().await {
             Ok(res) => {
                 match res.text().await {
                     Ok(res_as_text) => {
-                        let results: Result<Value, Error> = sonic_rs::from_str(res_as_text.as_str());
+                        let results: Result<Value, Error> =
+                            sonic_rs::from_str(res_as_text.as_str());
                         match results {
                             Ok(val) => {
                                 // println!("THIS IS THE VALUE PRINT\n{:?}", val);
@@ -272,53 +317,75 @@ pub fn search_mods(search: String, search_diva: &Arc<Mutex<DivaData>>, ui_search
                                             Err(e) => {
                                                 println!("{:?}", sonic_rs::to_string(item));
                                                 eprintln!("{}", e);
+                                                open_error_window(e.to_string());
                                             }
                                         }
                                     }
                                     let mut diva = search_diva.lock().await;
                                     diva.search_results = search_results.clone();
-                                    ui_search_handle.upgrade_in_event_loop(move |ui| {
-                                        let model_vec: VecModel<ModelRc<StandardListViewItem>> = VecModel::default();
-                                        for item in search_results {
-                                            let items: Rc<VecModel<StandardListViewItem>> = Rc::new(VecModel::default());
-                                            let name = StandardListViewItem::from(item.name.as_str());
-                                            let category = StandardListViewItem::from(item.model_name.as_str());
-                                            let author = StandardListViewItem::from(item.submitter.name.as_str());
-                                            items.push(name);
-                                            items.push(author);
-                                            items.push(category);
-                                            model_vec.push(items.into());
-                                        }
-                                        let model = ModelRc::new(model_vec);
-                                        ui.set_search_results(model);
-                                    }).expect("crashed bitch");
+                                    ui_search_handle
+                                        .upgrade_in_event_loop(move |ui| {
+                                            let model_vec: VecModel<ModelRc<StandardListViewItem>> =
+                                                VecModel::default();
+                                            for item in search_results {
+                                                let items: Rc<VecModel<StandardListViewItem>> =
+                                                    Rc::new(VecModel::default());
+                                                let name =
+                                                    StandardListViewItem::from(item.name.as_str());
+                                                let category = StandardListViewItem::from(
+                                                    item.model_name.as_str(),
+                                                );
+                                                let author = StandardListViewItem::from(
+                                                    item.submitter.name.as_str(),
+                                                );
+                                                items.push(name);
+                                                items.push(author);
+                                                items.push(category);
+                                                model_vec.push(items.into());
+                                            }
+                                            let model = ModelRc::new(model_vec);
+                                            ui.set_search_results(model);
+                                        })
+                                        .expect("crashed bitch");
                                 }
                             }
-                            Err(_) => {}
+                            Err(e) => {
+                                open_error_window(e.to_string());
+                            }
                         }
                     }
                     Err(e) => {
                         eprintln!("{}", e);
+                        open_error_window(e.to_string());
                     }
                 }
             }
             Err(e) => {
                 eprintln!("{}", e);
+                open_error_window(e.to_string());
             }
         }
-        ui_search_handle.upgrade_in_event_loop(move |ui| {
-            ui.set_s_prog_vis(false);
-        }).expect("Something got borked @ gba 313");
+        ui_search_handle
+            .upgrade_in_event_loop(move |ui| {
+                ui.set_s_prog_vis(false);
+            })
+            .expect("Something got borked @ gba 313");
     });
 }
 
-
-pub fn get_mod_files(mod_row: i32, file_diva: &Arc<Mutex<DivaData>>, files: &Arc<Mutex<Vec<GbModDownload>>>, ui_file_handle: Weak<App>) {
+pub fn get_mod_files(
+    mod_row: i32,
+    file_diva: &Arc<Mutex<DivaData>>,
+    files: &Arc<Mutex<Vec<GbModDownload>>>,
+    ui_file_handle: Weak<App>,
+) {
     let file_diva = Arc::clone(file_diva);
     let files = files.clone();
-    ui_file_handle.upgrade_in_event_loop(move |ui| {
-        ui.set_s_prog_vis(true);
-    }).expect("gba 323");
+    ui_file_handle
+        .upgrade_in_event_loop(move |ui| {
+            ui.set_s_prog_vis(true);
+        })
+        .expect("gba 323");
     tokio::spawn(async move {
         let mut diva = file_diva.lock().await;
         if mod_row < (diva.search_results.len() as i32) && diva.search_results.len() != 0 {
@@ -330,13 +397,14 @@ pub fn get_mod_files(mod_row: i32, file_diva: &Arc<Mutex<DivaData>>, files: &Arc
                     // files.c
                     *files = gb.clone();
                 }
-                ui_file_handle.upgrade_in_event_loop(move |ui| {
-                    ui.set_s_prog_vis(false);
-                }).expect("Failed to update progress");
+                ui_file_handle
+                    .upgrade_in_event_loop(move |ui| {
+                        ui.set_s_prog_vis(false);
+                    })
+                    .expect("Failed to update progress");
                 // return early, we don't need to fetch from gb since we already have them loaded
                 return;
             }
-
 
             let gb_module = fetch_mod_data(module.id.to_string().as_str());
             if let Some(gb) = gb_module {
@@ -346,33 +414,41 @@ pub fn get_mod_files(mod_row: i32, file_diva: &Arc<Mutex<DivaData>>, files: &Arc
                 *files = gb.files.clone();
             }
         }
-        ui_file_handle.upgrade_in_event_loop(move |ui| {
-            ui.set_s_prog_vis(false);
-        }).expect("TODO: panic message");
+        ui_file_handle
+            .upgrade_in_event_loop(move |ui| {
+                ui.set_s_prog_vis(false);
+            })
+            .expect("TODO: panic message");
     });
 }
 
 pub fn set_files_list(ui_handle: Weak<App>, files: &Vec<GbModDownload>) {
     let files = files.clone();
-    ui_handle.upgrade_in_event_loop(move |ui| {
-        let model_vec = VecModel::default();
-        for item in files {
-            model_vec.push(Download {
-                id: item.id as i32,
-                url: SharedString::from(item.download_url),
-                name: SharedString::from(item.file),
-                size: item.filesize as i32,
-                progress: 0.0,
-                failed: false
-            });
-        }
-        let model = ModelRc::new(model_vec);
-        ui.set_file_results(model);
-    }).expect("TODO: panic message");
+    ui_handle
+        .upgrade_in_event_loop(move |ui| {
+            let model_vec = VecModel::default();
+            for item in files {
+                model_vec.push(Download {
+                    id: item.id as i32,
+                    url: SharedString::from(item.download_url),
+                    name: SharedString::from(item.file),
+                    size: item.filesize as i32,
+                    progress: 0.0,
+                    failed: false,
+                });
+            }
+            let model = ModelRc::new(model_vec);
+            ui.set_file_results(model);
+        })
+        .expect("TODO: panic message");
 }
 
-
-pub fn handle_dmm_oneclick(mut url_rx: Receiver<String>, _diva_arc: Arc<Mutex<DivaData>>, ui_handle: Weak<App>, sender: Sender<(i32, Download)>) -> tokio::task::JoinHandle<()> {
+pub fn handle_dmm_oneclick(
+    mut url_rx: Receiver<String>,
+    _diva_arc: Arc<Mutex<DivaData>>,
+    ui_handle: Weak<App>,
+    sender: Sender<(i32, Download)>,
+) -> tokio::task::JoinHandle<()> {
     return tokio::spawn(async move {
         while !url_rx.is_closed() {
             match url_rx.recv().await {
@@ -385,14 +461,18 @@ pub fn handle_dmm_oneclick(mut url_rx: Receiver<String>, _diva_arc: Arc<Mutex<Di
                             // let mut file_iter = ;
                             println!("Mod: {}", mod_info.name);
                             let files = mod_info.files.clone();
-                            let files = files.iter().cloned().find(|file| file.id.to_string() == oneclick.file_id);
+                            let files = files
+                                .iter()
+                                .cloned()
+                                .find(|file| file.id.to_string() == oneclick.file_id);
 
                             if let Some(file) = files {
                                 println!("Found the right file: {}", file.file);
                                 let ui_sender = sender.clone();
                                 let _ = ui_handle.upgrade_in_event_loop(move |ui| {
                                     let downloads = ui.get_downloads_list();
-                                    let dc = downloads.as_any().downcast_ref::<VecModel<Download>>();
+                                    let dc =
+                                        downloads.as_any().downcast_ref::<VecModel<Download>>();
                                     match dc {
                                         Some(downloads) => {
                                             println!("Pushing");
@@ -403,7 +483,7 @@ pub fn handle_dmm_oneclick(mut url_rx: Receiver<String>, _diva_arc: Arc<Mutex<Di
                                                 progress: 0.0,
                                                 size: file.filesize as i32,
                                                 url: SharedString::from(&file.download_url),
-                                                failed: false
+                                                failed: false,
                                             };
                                             downloads.push(download.clone());
                                             match ui_sender.try_send((cur_len as i32, download)) {

@@ -4,11 +4,11 @@ A Fast cross-platform mod manager written in rust for the steam version of Hatsu
 
 Toggle mods
 
-![Main Screen of R4D](assets/main-lo.png)
+![Main Screen of R4D](assets/screenshots/r4d-main-dark.png)
 
 Get new mods online directly in the app
 
-![Online Search and DL Screen](assets/search-lo.png)
+![Online Search and DL Screen](assets/screenshots/r4d-search-light.png)
 
 # Planned Features / To-Do List
 - [ ] Mod pack presets for easy switching between incompatible mods
@@ -21,12 +21,16 @@ Get new mods online directly in the app
 - [x] Windows Support
   - [x] Finding the Diva Folder
   - [x] Oneclick URL Handling
+  - [ ] Signed binary
+  - [ ] Icon set on executable
 - [x] MacOS Support
   - [x] ~~Literally just finding someone with a mac to test this~~ 
     - Thank you @zachw000
     - This was only tested on MacOS on Arm though, you can't even install Mega Mix plus using the regular version of steam though.
   - [ ] Url handling
     - Not sure how this works on MacOS
+  - [ ] Rebuilt Distributable
+    - I personally will be unable to sign this since I don't have a mac nor do I want to pay the $100 a year or whatever it is to apple for the privledge
 - [x] Commission a proper logo/icon
   - Logo is being made, just waiting now, Ty Nezuko
 

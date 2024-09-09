@@ -1,9 +1,11 @@
 use keyvalues_parser::Vdf;
+use slint_interpreter::invoke_from_event_loop;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::DIVA_CFG;
+use crate::{ErrorMessageWindow, DIVA_CFG};
+use slint::ComponentHandle;
 
 cfg_if::cfg_if! {
     if #[cfg(windows)] {
@@ -58,12 +60,12 @@ pub fn get_temp_folder() -> Option<String> {
 }
 
 pub fn get_steam_folder() -> Option<String> {
-    println!("Attempting to find the Steam folder");
-    if let Ok(cfg) = DIVA_CFG.lock() {
+    if let Ok(cfg) = DIVA_CFG.try_lock() {
         if !cfg.steam_dir.is_empty() && PathBuf::from(cfg.steam_dir.clone()).exists() {
             return Some(cfg.steam_dir.clone());
         }
     }
+    println!("Attempting to find the Steam folder");
     return match env::consts::OS {
         "linux" => {
             let mut binding = dirs::home_dir().unwrap();
@@ -121,7 +123,18 @@ pub fn get_steam_folder() -> Option<String> {
 }
 
 pub fn get_diva_folder() -> Option<String> {
-    println!("Looking for the mods folder");
+    if let Ok(cfg) = DIVA_CFG.try_lock() {
+        let mut buf = PathBuf::from(cfg.diva_dir.clone());
+        if !cfg.diva_dir.is_empty() && buf.exists() {
+            buf.push("DivaMegaMix.exe");
+            if buf.exists() {
+                buf.pop();
+                return Some(cfg.diva_dir.clone());
+            }
+        }
+    }
+
+    println!("Looking for Project Diva folder");
     match get_steam_folder() {
         Some(steam_folder) => {
             let mut path = "".to_owned();
@@ -226,3 +239,20 @@ pub static MIKU_ART: &'static str = r#"
 　　🟦　　　🟦　　　🟦　　　🟦　　　　　　🟦　　　　　　🟦🟦🟦🟦🟦　　　　　　　　　🟦　　　
 　　🟦　　🟦　　　　🟦　　　🟦🟦🟦🟦🟦🟦🟦🟦　　　　　　　　　　🟦🟦　　　　　　🟦🟦　　　　
 　　🟦　🟦　　　🟦🟦　　　　🟦　　　　　　🟦　　　　　　　　　　　　　　　　　🟦🟦　　　　　"#;
+
+pub fn open_error_window(message: String) {
+    // tokio::spawn(async move {
+    let _ = invoke_from_event_loop(move || match ErrorMessageWindow::new() {
+        Ok(error) => {
+            error.set_msg(message.into());
+            let close_handle = error.as_weak();
+            error.on_close(move || {
+                close_handle.upgrade().unwrap().hide().unwrap();
+            });
+            error.show().unwrap();
+        }
+        Err(e) => {
+            eprintln!("{e}");
+        }
+    });
+}

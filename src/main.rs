@@ -1,17 +1,16 @@
 #![windows_subsystem = "windows"]
 
-
 use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, LazyLock};
 
 use modmanagement::get_mods_in_order;
-use slint::{SharedString, VecModel};
+use slint::private_unstable_api::re_exports::ColorScheme;
 use slint_interpreter::ComponentHandle;
 use tokio::sync::Mutex;
 
-use crate::config::{load_diva_config, write_config, DivaConfig};
-use crate::diva::{create_tmp_if_not, get_diva_folder, MIKU_ART};
+use crate::config::{load_diva_config, DivaConfig};
+use crate::diva::{create_tmp_if_not, get_diva_folder, open_error_window, MIKU_ART};
 use crate::gamebanana_async::{parse_dmm_url, GBSearch, GbModDownload};
 use crate::modmanagement::{
     load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
@@ -21,6 +20,7 @@ use crate::oneclick::{spawn_listener, try_send_mmdl};
 
 mod config;
 mod diva;
+mod firstlaunch;
 mod gamebanana_async;
 mod modmanagement;
 mod modpacks;
@@ -32,11 +32,9 @@ slint::include_modules!();
 pub struct DivaData {
     mods: Vec<DivaMod>,
     search_results: Vec<GBSearch>,
-    mods_directory: String,
     diva_directory: String,
     dml: Option<DivaModLoader>,
     mod_files: HashMap<u64, Vec<GbModDownload>>,
-    mod_packs: HashMap<String, ModPack>,
     config: DivaConfig,
 }
 
@@ -106,11 +104,8 @@ async fn main() {
     match spawn_listener(url_tx.clone(), app_weak.clone()).await {
         Ok(_) => {}
         Err(e) => {
-            let msg = format!(
-                "Unable start listener: \n{}",
-                e.to_string()
-            );
-            app_weak.clone().upgrade().unwrap().invoke_open_error_dialog(msg.into());
+            let msg = format!("Unable start listener: \n{}", e.to_string());
+            open_error_window(msg);
         }
     }
 
@@ -120,9 +115,13 @@ async fn main() {
         diva_state.config = cfg.clone();
         let mut gcfg = DIVA_CFG.lock().expect("msg");
         *gcfg = cfg.clone();
+        if gcfg.dark_mode {
+            app.invoke_set_color_scheme(ColorScheme::Dark);
+        }
+        if !gcfg.dark_mode {
+            app.invoke_set_color_scheme(ColorScheme::Light);
+        }
     }
-
-    // let diva_dir = get_diva_folder();
 
     if let Some(diva_dir) = get_diva_folder() {
         diva_state.diva_directory = diva_dir;
@@ -136,8 +135,6 @@ async fn main() {
         diva_state.dml = Some(DivaModLoader::new());
     }
 
-    // diva_state.mods = load_mods(&diva_state);
-
     let _ = load_mods();
     let _ = set_mods_table(&get_mods_in_order(), app_weak.clone());
 
@@ -146,24 +143,30 @@ async fn main() {
         app.set_dml_enabled(dml.enabled);
     }
 
+    app.set_r4d_version(env!("CARGO_PKG_VERSION").into());
+
     let diva_arc = Arc::new(Mutex::new(diva_state));
     modmanagement::init(&app, Arc::clone(&diva_arc), dl_rx).await;
     gamebanana_async::init(&app, Arc::clone(&diva_arc), dl_tx, url_rx).await;
     modpacks::init(&app, Arc::clone(&diva_arc)).await;
-
+    config::init_ui(&app).await;
+    
     println!("Does the app run?");
-
+    
     if let Some(url) = dmm_url {
         println!("We have a url to handle");
         match url_tx.clone().send(url).await {
             Ok(_) => {}
             Err(e) => {
-                eprintln!("{}", e);
+                // eprintln!("{}", e);
+                open_error_window(e.to_string());
             }
         }
     }
-
-    app.run().expect("Welp, gui thread paniced");
+    
+    app.show().expect("Window should have opened");
+    let _ = firstlaunch::init(&app).await;
+    slint::run_event_loop().unwrap();
     println!("OMG Migu says \"goodbye\"");
     // Ok(())
 }
@@ -173,11 +176,9 @@ impl DivaData {
         Self {
             mods: Vec::new(),
             search_results: Vec::new(),
-            mods_directory: "".to_string(),
             diva_directory: "".to_string(),
             dml: None,
             mod_files: HashMap::new(),
-            mod_packs: Default::default(),
             config: DivaConfig::new(),
         }
     }
