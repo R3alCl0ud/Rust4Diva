@@ -191,10 +191,12 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i3
                 gcfg.priority.swap(idx as usize, (idx - 1) as usize);
             } else {
                 let m = gcfg.priority.remove(idx as usize);
+                let len = gcfg.priority.len().clone();
                 if amt == -1 {
                     gcfg.priority.insert(0, m);
                 } else {
-                    gcfg.priority.insert(max((idx - amt) as usize, 0), m);
+                    gcfg.priority
+                        .insert((idx - amt).clamp(0, (len - 1) as i32) as usize, m);
                 }
             }
             let lcfg = gcfg.clone();
@@ -231,12 +233,12 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i3
                 gcfg.priority.swap(idx as usize, (idx + 1) as usize);
             } else {
                 let m = gcfg.priority.remove(idx as usize);
+                let len = gcfg.priority.len().clone();
                 if amt == -1 {
                     gcfg.priority.push(m);
                 } else {
-                    let len = gcfg.priority.len();
                     gcfg.priority
-                        .insert(min((idx + amt) as usize, max(len - 1, 0)), m)
+                        .insert((idx + amt).clamp(0, (len - 1) as i32) as usize, m);
                 }
             }
             let lcfg = gcfg.clone();
@@ -357,7 +359,7 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i3
             editdialog.show().unwrap();
         });
 
-        // ui.global::<ModLogic>().i
+    // ui.global::<ModLogic>().i
     let weak = ui.as_weak();
     ui.global::<ModLogic>().on_delete_mod(move |module| {
         let ui_weak = weak.clone();
