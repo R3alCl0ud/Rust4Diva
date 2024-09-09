@@ -25,13 +25,6 @@ use crate::slint_generatedApp::App;
 use crate::{ConfirmDelete, DivaModElement, EditModDialog, ModLogic, WindowLogic, DIVA_DIR};
 use crate::{DivaData, Download, DIVA_CFG, DML_CFG, MODS};
 
-cfg_if::cfg_if! {
-    if #[cfg(windows)] {
-        use winreg::enums::*;
-        use winreg::RegKey;
-    }
-}
-
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
     pub enabled: bool,
