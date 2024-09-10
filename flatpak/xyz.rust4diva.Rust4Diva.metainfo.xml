@@ -62,6 +62,34 @@
   </screenshots>
 
   <releases>
+    <release date="2024-09-10" version="0.3.1">
+      <description>
+        <p>Hotfix for windowing issues</p>
+        <p>0.3.0 Changes:</p>
+        <ul>
+          <li>Drag'n'Drop to change mod priority</li>
+          <li>In App Mod config editor</li>
+          <li>There is now a button to delete an installed mod (There is a confirmation Dialog)</li>
+          <li>Added a first time setup screen (this will be displayed to existing users on first
+            launch of the update)</li>
+          <li>QoL Change: Hold modifier keys to change how far a mod is moved when using the priority buttons</li>
+          <li>QoL: Dark Mode Toggle</li>
+        </ul>
+
+        <p>First Time Setup:</p>
+        <ul>
+
+          <li>On first run a window will be displayed confirming some settings</li>
+          <li>There is an option to import from DMM (Diva Mod Manager)</li>
+          <li>DMM loadouts are imported as modpacks and the last activated loadout is used as the
+            global priority</li>
+        </ul>
+        <p>Bug Fixes: </p>
+        <ul>
+          <li>Missing Icon on windows build</li>
+        </ul>
+      </description>
+    </release>
     <release date="2024-09-10" version="0.3.0">
       <description>
         <p>New Features:</p>
