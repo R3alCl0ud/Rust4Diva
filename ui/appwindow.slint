@@ -6,7 +6,7 @@ import { ModTable } from "widgets/mod-table.slint";
 import { DivaModElement, ModPackElement } from "diva-types.slint";
 import { ModPickTable, PackTable } from "widgets/modpack-tables.slint";
 import { TextEntryDialog } from "widgets/text-entry-dialog.slint";
-import { ModpackLogic, ModLogic, WindowLogic } from "applogic.slint";
+import { ModpackLogic, ModLogic, WindowLogic, DivaLogic } from "applogic.slint";
 import { InfoDialog } from "widgets/info-dialog.slint";
 import { TextBox } from "widgets/text-box.slint";
 import { DeletePackDialog } from "widgets/delete-pack-dialog.slint";
@@ -23,7 +23,7 @@ import { EditModDialog } from "subwindows/editmod.slint";
 import { ConfirmDelete } from "dialogs/confirmdelete.slint";
 
 export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack }
-export { WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic, ConfirmDelete }
+export { WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic, ConfirmDelete, DivaLogic }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -81,7 +81,6 @@ export component App inherits Window {
 
     callback load-mods <=> mgmt-tab.clicked;
     callback toggle-mod(int);
-    callback toggle-dml();
     callback search-gb(string);
     callback list-files(int);
     callback download-file(Download, int);
@@ -157,7 +156,7 @@ export component App inherits Window {
                         checked: dml-enabled;
                         toggled => {
                             dml-enabled = !dml-enabled;
-                            toggle-dml();
+                            DivaLogic.toggle-dml();
                         }
                     }
 

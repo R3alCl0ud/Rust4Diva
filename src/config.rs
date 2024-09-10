@@ -9,10 +9,12 @@ use slint::ComponentHandle;
 use tokio::fs;
 
 use crate::diva::{get_diva_folder, get_steam_folder, open_error_window};
-use crate::main;
 use crate::slint_generatedApp::App;
+use crate::{main, DML_CFG};
 
-use crate::{diva::get_config_dir, SettingsLogic, SettingsWindow, WindowLogic, DIVA_CFG};
+use crate::{
+    diva::get_config_dir, DivaLogic, SettingsLogic, SettingsWindow, WindowLogic, DIVA_CFG,
+};
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct DivaConfig {
@@ -31,6 +33,8 @@ pub struct DivaConfig {
     pub dark_mode: bool,
     #[serde(default = "yes")]
     pub first_run: bool,
+    #[serde(default)]
+    pub dml_version: String,
 }
 
 fn yes() -> bool {
@@ -48,6 +52,7 @@ impl DivaConfig {
             aft_mode: false,
             dark_mode: true,
             first_run: true,
+            dml_version: "".to_owned(),
         }
     }
 }
@@ -101,6 +106,26 @@ pub async fn init_ui(diva_ui: &App) {
     let main_close_handle = main_ui_handle.clone();
     // let settings_open:Mutex<Option<Weak<SettingsWindow>>> = Mutex::new(None);
     // let
+    let weak = diva_ui.as_weak();
+    diva_ui.global::<DivaLogic>().on_toggle_dml(move || {
+        let weak = weak.clone();
+        if let Ok(mut dml) = DML_CFG.try_lock() {
+            dml.enabled = !dml.enabled;
+            if let Ok(dml_str) = toml::to_string_pretty(&dml.clone()) {
+                if let Some(diva_dir) = get_diva_folder() {
+                    let mut buf = PathBuf::from(diva_dir);
+                    buf.push("config.toml");
+                    match std::fs::write(buf, dml_str) {
+                        Ok(_) => {
+                            weak.upgrade().unwrap().set_dml_enabled(dml.enabled.clone());
+                        }
+                        Err(e) => open_error_window(e.to_string()),
+                    }
+                }
+            }
+        }
+    });
+
     diva_ui.global::<WindowLogic>().on_open_settings(move || {
         if let Ok(mut open) = SETTINGS_OPEN.try_lock() {
             if !open.clone() {

@@ -29,3 +29,5 @@ flatpak/rust4diva-sources.json
 linux/
 
 aur/
+
+ghtoken.txt

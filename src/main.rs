@@ -109,11 +109,9 @@ async fn main() {
     let (dl_tx, dl_rx) = tokio::sync::mpsc::channel::<(i32, Download)>(2048);
     app.window().on_close_requested(move || {
         std::process::exit(0);
-        // slint::CloseRequestResponse::HideWindow
     });
     let app_weak = app.as_weak();
 
-    // rx.try_recv();
     match spawn_listener(url_tx.clone(), app_weak.clone()).await {
         Ok(_) => {}
         Err(e) => {

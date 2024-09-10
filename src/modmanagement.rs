@@ -1,28 +1,31 @@
 use std::cmp::{max, min};
 use std::collections::HashMap;
+use std::error::Error;
 use std::ffi::OsStr;
-use std::fs;
 use std::fs::File;
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
+use std::{fs, io};
 
 use compress_tools::{list_archive_files, uncompress_archive, Ownership};
 use curl::easy::Easy;
+use reqwest::header::{self, AUTHORIZATION};
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
-use toml::de::Error;
 
 use crate::config::write_config;
 use crate::diva::{get_diva_folder, get_temp_folder, open_error_window};
 use crate::modpacks::ModPackMod;
 use crate::slint_generatedApp::App;
-use crate::{ConfirmDelete, DivaModElement, EditModDialog, ModLogic, WindowLogic, DIVA_DIR};
+use crate::{
+    ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, WindowLogic, DIVA_DIR,
+};
 use crate::{DivaData, Download, DIVA_CFG, DML_CFG, MODS};
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -162,6 +165,22 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i3
             open_error_window(e.to_string());
             // eprintln!("{e}");
         }
+    });
+
+    let weak = ui.as_weak();
+    ui.global::<DivaLogic>().on_download_dml(move || {
+        let weak = weak.clone();
+        tokio::spawn(async move {
+            if let Ok(release) = get_latest_dml().await {
+                {
+                    if let Ok(cfg) = DIVA_CFG.try_lock() {
+                        if cfg.dml_version != release.name {
+                            println!("Downloading new version of DML");
+                        }
+                    }
+                }
+            }
+        });
     });
 
     ui.global::<ModLogic>().on_toggle_mod(move |module| {
@@ -544,8 +563,7 @@ pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
     if !buf.exists() {
         return None;
     }
-    let res: Result<DivaModLoader, Error> =
-        toml::from_str(fs::read_to_string(buf).unwrap().as_str());
+    let res = toml::from_str::<DivaModLoader>(fs::read_to_string(buf).unwrap().as_str());
     let mut loader: Option<DivaModLoader> = None;
     match res {
         Ok(diva_ml) => {
@@ -799,4 +817,58 @@ pub fn dml_is_installed() -> bool {
         }
         None => false,
     };
+}
+
+static GH_TOKEN: &'static str = include_str!("../ghtoken.txt");
+static DML_LATEST_RELEASE: &'static str =
+    "https://api.github.com/repos/blueskythlikesclouds/DivaModLoader/releases/latest";
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct GhRelease {
+    name: String,
+    assets: Vec<GhReleaseAsset>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct GhReleaseAsset {
+    name: String,
+    browser_download_url: String,
+}
+
+pub async fn download_latest_dml(release: GhRelease) -> Result<PathBuf, Box<dyn Error>> {
+    if let Some(asset) = release.assets.first() {
+        if let Some(temp) = get_temp_folder() {
+            let mut buf = PathBuf::from(temp);
+            buf.push(asset.name.clone());
+            let bytes = reqwest::get(asset.browser_download_url.clone())
+                .await?
+                .bytes()
+                .await?;
+            match tokio::fs::write(buf.clone(), bytes).await {
+                Ok(_) => todo!(),
+                Err(e) => Err(e.into()),
+            }
+        } else {
+            Err(Box::new(io::Error::new(
+                ErrorKind::NotFound,
+                "Unable to get temp folder",
+            )))
+        }
+    } else {
+        Err(Box::new(io::Error::new(
+            ErrorKind::NotFound,
+            "No Assets found",
+        )))
+    }
+
+    // Ok(PathBuf::new())
+}
+
+pub async fn get_latest_dml() -> Result<GhRelease, Box<dyn Error>> {
+    let mut headers = header::HeaderMap::new();
+    headers.insert(AUTHORIZATION, GH_TOKEN.parse().unwrap());
+    let builder = reqwest::ClientBuilder::new().default_headers(headers);
+    let client = builder.build()?;
+    let text = client.get(DML_LATEST_RELEASE).send().await?.text().await?;
+    Ok(sonic_rs::from_str::<GhRelease>(&text)?)
 }

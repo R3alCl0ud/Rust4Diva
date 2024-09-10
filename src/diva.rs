@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 use crate::{ErrorMessageWindow, DIVA_CFG, MAIN_UI_WEAK};
-use slint::{CloseRequestResponse, ComponentHandle};
+use slint::ComponentHandle;
 
 cfg_if::cfg_if! {
     if #[cfg(windows)] {

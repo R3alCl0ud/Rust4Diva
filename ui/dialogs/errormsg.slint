@@ -6,7 +6,7 @@ import { PopupBorder, Popup } from "../components/popup.slint";
 export component ErrorMessageWindow inherits Dialog {
     in property <string> msg;
     min-height: 150px;
-    max-width: 300px;
+    min-width: 400px;
     title: "Rust4Diva Error";
     GridBox {
         Row {

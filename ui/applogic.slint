@@ -1,5 +1,11 @@
 import { DivaModElement, ModPackElement } from "diva-types.slint";
 
+
+export global DivaLogic {
+    callback toggle-dml();
+    callback download-dml();
+}
+
 export global WindowLogic {
     callback open-settings();
     callback open-delete-dialog(string);
