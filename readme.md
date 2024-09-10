@@ -48,6 +48,33 @@ Get new mods online directly in the app
 }
 ```
 
+# Build Instructions
+
+## Linux
+install libarchive from package manager
+```
+git clone https://github.com/R3alCl0ud/Rust4Diva.git
+cd Rust4Diva
+SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 cargo build
+```
+
+## Windows
+install vcpkg<br>
+install libarchive using vcpkg (Note, build will fail if the path to vcpkg has a space in it)
+```
+SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 cargo build
+```
+
+## Mac OS
+install brew<br>
+install git<br>
+```
+brew install libarchive
+brew install rustup
+git clone https://github.com/R3alCl0ud/Rust4Diva.git
+cd Rust4Diva
+PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig" SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 cargo build
+```
 
 # License
 Code: GPL-3.0 unless specified

@@ -1,5 +1,6 @@
 use std::io::ErrorKind;
 use std::path::PathBuf;
+use std::sync::Mutex;
 
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
@@ -8,6 +9,7 @@ use slint::ComponentHandle;
 use tokio::fs;
 
 use crate::diva::{get_diva_folder, get_steam_folder, open_error_window};
+use crate::main;
 use crate::slint_generatedApp::App;
 
 use crate::{diva::get_config_dir, SettingsLogic, SettingsWindow, WindowLogic, DIVA_CFG};
@@ -90,114 +92,148 @@ pub async fn write_config(cfg: DivaConfig) -> std::io::Result<()> {
         Err(e) => Err(std::io::Error::new(ErrorKind::Other, e.to_string())),
     };
 }
+pub static SETTINGS_OPEN: Mutex<bool> = Mutex::new(false);
 
 pub async fn init_ui(diva_ui: &App) {
     let _ui_diva_dir_handle = diva_ui.as_weak();
     let main_ui_handle = diva_ui.as_weak();
     let scheme_handle = diva_ui.as_weak();
+    let main_close_handle = main_ui_handle.clone();
+    // let settings_open:Mutex<Option<Weak<SettingsWindow>>> = Mutex::new(None);
+    // let
     diva_ui.global::<WindowLogic>().on_open_settings(move || {
-        let current_scheme = scheme_handle.upgrade().unwrap().get_color_scheme();
-        let settings = SettingsWindow::new().unwrap();
-        let steam_dir = get_steam_folder().unwrap_or("Not Set".to_string());
-        let diva_dir = get_diva_folder().unwrap_or("Not Set".to_string());
-        settings.set_steam_dir(steam_dir.into());
-        settings.set_diva_dir(diva_dir.into());
-        settings.invoke_set_color_scheme(current_scheme);
+        if let Ok(mut open) = SETTINGS_OPEN.try_lock() {
+            if !open.clone() {
+                *open = true;
+                let current_scheme = scheme_handle.upgrade().unwrap().get_color_scheme();
+                let steam_dir = get_steam_folder().unwrap_or("Not Set".to_string());
+                let diva_dir = get_diva_folder().unwrap_or("Not Set".to_string());
+                let settings = SettingsWindow::new().unwrap();
+                // let settings = settings_weak.unwrap();
 
-        let cancel_handle = settings.as_weak();
-        settings.on_cancel(move || {
-            cancel_handle.upgrade().unwrap().hide().unwrap();
-        });
-
-        settings.show().unwrap();
-        // settings.on
-        let steam_handle = settings.as_weak();
-        settings
-            .global::<SettingsLogic>()
-            .on_open_steam_picker(move |s| {
-                let steam_handle = steam_handle.clone();
-                let picker = AsyncFileDialog::new().set_directory(PathBuf::from(s.to_string()));
-                tokio::spawn(async move {
-                    match picker.pick_folder().await {
-                        Some(dir) => {
-                            println!("{}", dir.path().display().to_string());
-                            let _ = steam_handle.upgrade_in_event_loop(move |ui| {
-                                ui.set_steam_dir(dir.path().display().to_string().into());
-                            });
-                        }
-                        None => {}
+                settings.set_steam_dir(steam_dir.into());
+                settings.set_diva_dir(diva_dir.into());
+                settings.invoke_set_color_scheme(current_scheme);
+                let main_ui = main_close_handle.unwrap();
+                let close_handle = settings.as_weak();
+                main_ui.on_close_windows(move || {
+                    if let Some(ui) = close_handle.upgrade() {
+                        ui.hide().unwrap();
                     }
                 });
-            });
 
-        let diva_dir_handle = settings.as_weak();
-
-        settings
-            .global::<SettingsLogic>()
-            .on_open_diva_picker(move |s| {
-                let diva_dir_handle = diva_dir_handle.clone();
-                let picker = AsyncFileDialog::new().set_directory(PathBuf::from(s.to_string()));
-                tokio::spawn(async move {
-                    match picker.pick_folder().await {
-                        Some(dir) => {
-                            println!("{}", dir.path().display().to_string());
-                            let _ = diva_dir_handle.upgrade_in_event_loop(move |ui| {
-                                ui.set_diva_dir(dir.path().display().to_string().into());
-                            });
-                        }
-                        None => {}
+                let cancel_handle = settings.as_weak();
+                settings.on_cancel(move || {
+                    cancel_handle.upgrade().unwrap().hide().unwrap();
+                    if let Ok(mut open) = SETTINGS_OPEN.try_lock() {
+                        *open = false;
                     }
                 });
-            });
 
-        let apply_handle = settings.as_weak();
-        let color_handle = main_ui_handle.clone();
-        settings
-            .global::<SettingsLogic>()
-            .on_apply_settings(move |settings| {
-                let color_handle = color_handle.clone();
-                let apply_handle = apply_handle.clone();
-                if let Ok(mut cfg) = DIVA_CFG.lock() {
-                    if PathBuf::from(settings.diva_dir.to_string()).exists() {
-                        cfg.diva_dir = settings.diva_dir.to_string().clone();
-                    }
-                    if PathBuf::from(settings.steam_dir.to_string()).exists() {
-                        cfg.steam_dir = settings.steam_dir.to_string().clone();
-                    }
-                    if PathBuf::from(settings.aft_dir.to_string()).exists() {
-                        cfg.aft_dir = settings.aft_dir.to_string().clone();
-                    }
-                    cfg.aft_mode = settings.aft_mode;
-                    cfg.dark_mode = settings.dark_mode;
+                settings.show().unwrap();
+                // settings.on
+                let steam_handle = settings.as_weak();
+                settings
+                    .global::<SettingsLogic>()
+                    .on_open_steam_picker(move |s| {
+                        let steam_handle = steam_handle.clone();
+                        let picker =
+                            AsyncFileDialog::new().set_directory(PathBuf::from(s.to_string()));
+                        tokio::spawn(async move {
+                            match picker.pick_folder().await {
+                                Some(dir) => {
+                                    println!("{}", dir.path().display().to_string());
+                                    let _ = steam_handle.upgrade_in_event_loop(move |ui| {
+                                        ui.set_steam_dir(dir.path().display().to_string().into());
+                                    });
+                                }
+                                None => {}
+                            }
+                        });
+                    });
 
-                    let cfg = cfg.clone();
-                    tokio::spawn(async move {
-                        let cfg = cfg.clone();
-                        match write_config(cfg.clone()).await {
-                            Ok(_) => {
-                                println!("Config successfully updated");
-                                let _ = apply_handle.upgrade_in_event_loop(move |ui| {
-                                    if cfg.dark_mode {
-                                        ui.invoke_set_color_scheme(ColorScheme::Dark);
-                                    } else {
-                                        ui.invoke_set_color_scheme(ColorScheme::Light);
-                                    }
-                                });
-                                let _ = color_handle.upgrade_in_event_loop(move |ui| {
-                                    if cfg.dark_mode {
-                                        ui.invoke_set_color_scheme(ColorScheme::Dark);
-                                    } else {
-                                        ui.invoke_set_color_scheme(ColorScheme::Light);
-                                    }
-                                });
+                let diva_dir_handle = settings.as_weak();
+
+                settings
+                    .global::<SettingsLogic>()
+                    .on_open_diva_picker(move |s| {
+                        let diva_dir_handle = diva_dir_handle.clone();
+                        let picker =
+                            AsyncFileDialog::new().set_directory(PathBuf::from(s.to_string()));
+                        tokio::spawn(async move {
+                            match picker.pick_folder().await {
+                                Some(dir) => {
+                                    println!("{}", dir.path().display().to_string());
+                                    let _ = diva_dir_handle.upgrade_in_event_loop(move |ui| {
+                                        ui.set_diva_dir(dir.path().display().to_string().into());
+                                    });
+                                }
+                                None => {}
                             }
-                            Err(e) => {
-                                eprintln!("{e}");
-                                open_error_window(e.to_string());
+                        });
+                    });
+
+                let apply_handle = settings.as_weak();
+                let color_handle = main_ui_handle.clone();
+                settings
+                    .global::<SettingsLogic>()
+                    .on_apply_settings(move |settings| {
+                        let color_handle = color_handle.clone();
+                        let apply_handle = apply_handle.clone();
+                        if let Ok(mut cfg) = DIVA_CFG.lock() {
+                            if let Ok(e) = PathBuf::from(settings.diva_dir.to_string()).try_exists()
+                            {
+                                if e {
+                                    cfg.diva_dir = settings.diva_dir.to_string().clone();
+                                } else {
+                                    open_error_window("Invalid Project Diva Directory".to_string());
+                                    return;
+                                }
+                            } else {
+                                open_error_window("Invalid Project Diva Directory".to_string());
+                                return;
                             }
+                            if PathBuf::from(settings.steam_dir.to_string()).exists() {
+                                cfg.steam_dir = settings.steam_dir.to_string().clone();
+                            } else {
+                                // open_error_window("Invalid Steam")
+                            }
+                            if PathBuf::from(settings.aft_dir.to_string()).exists() {
+                                cfg.aft_dir = settings.aft_dir.to_string().clone();
+                            }
+                            cfg.aft_mode = settings.aft_mode;
+                            cfg.dark_mode = settings.dark_mode;
+
+                            let cfg = cfg.clone();
+                            tokio::spawn(async move {
+                                let cfg = cfg.clone();
+                                match write_config(cfg.clone()).await {
+                                    Ok(_) => {
+                                        println!("Config successfully updated");
+                                        let _ = apply_handle.upgrade_in_event_loop(move |ui| {
+                                            if cfg.dark_mode {
+                                                ui.invoke_set_color_scheme(ColorScheme::Dark);
+                                            } else {
+                                                ui.invoke_set_color_scheme(ColorScheme::Light);
+                                            }
+                                        });
+                                        let _ = color_handle.upgrade_in_event_loop(move |ui| {
+                                            if cfg.dark_mode {
+                                                ui.invoke_set_color_scheme(ColorScheme::Dark);
+                                            } else {
+                                                ui.invoke_set_color_scheme(ColorScheme::Light);
+                                            }
+                                        });
+                                    }
+                                    Err(e) => {
+                                        eprintln!("{e}");
+                                        open_error_window(e.to_string());
+                                    }
+                                }
+                            });
                         }
                     });
-                }
-            });
+            }
+        }
     });
 }

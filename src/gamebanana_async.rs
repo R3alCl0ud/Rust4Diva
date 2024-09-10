@@ -101,7 +101,7 @@ pub struct GBSearch {
         default
     )]
     post_count: i32,
-    #[serde(rename(serialize = "_bWasFeatured", deserialize = "_bWasFeatured"))]
+    #[serde(rename(serialize = "_bWasFeatured", deserialize = "_bWasFeatured"), default)]
     was_featured: bool,
     #[serde(rename(serialize = "_nViewCount", deserialize = "_nViewCount"))]
     view_count: i32,

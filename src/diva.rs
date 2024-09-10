@@ -4,8 +4,8 @@ use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::{ErrorMessageWindow, DIVA_CFG};
-use slint::ComponentHandle;
+use crate::{ErrorMessageWindow, DIVA_CFG, MAIN_UI_WEAK};
+use slint::{CloseRequestResponse, ComponentHandle};
 
 cfg_if::cfg_if! {
     if #[cfg(windows)] {
@@ -242,14 +242,25 @@ pub static MIKU_ART: &'static str = r#"
 
 pub fn open_error_window(message: String) {
     // tokio::spawn(async move {
+    println!("{message}");
     let _ = invoke_from_event_loop(move || match ErrorMessageWindow::new() {
-        Ok(error) => {
-            error.set_msg(message.into());
-            let close_handle = error.as_weak();
-            error.on_close(move || {
-                close_handle.upgrade().unwrap().hide().unwrap();
-            });
-            error.show().unwrap();
+        Ok(error_win) => {
+            if let Ok(opt) = MAIN_UI_WEAK.try_lock() {
+                if let Some(main_ui_weak) = opt.clone() {
+                    if let Some(main_ui) = main_ui_weak.upgrade() {
+                        let error_weak = error_win.as_weak();
+                        main_ui.on_close_windows(move || {
+                            error_weak.unwrap().hide().unwrap();
+                        });
+                    }
+                    error_win.set_msg(message.into());
+                    let close_handle = error_win.as_weak();
+                    error_win.on_close(move || {
+                        close_handle.upgrade().unwrap().hide().unwrap();
+                    });
+                    error_win.show().unwrap();
+                }
+            }
         }
         Err(e) => {
             eprintln!("{e}");

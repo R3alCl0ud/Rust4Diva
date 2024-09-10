@@ -72,6 +72,9 @@ export component SettingsWindow inherits Dialog {
                 open-picker => {
                     SettingsLogic.open-steam-picker(steam-dir);
                 }
+                edited(t) => {
+                    steam-dir = t;
+                }
             }
         }
 
@@ -87,6 +90,9 @@ export component SettingsWindow inherits Dialog {
                 default-path: diva-dir;
                 open-picker => {
                     SettingsLogic.open-diva-picker(diva-dir);
+                }
+                edited(t) => {
+                    diva-dir = t;
                 }
             }
         }
@@ -104,6 +110,7 @@ export component SettingsWindow inherits Dialog {
                 open-picker => {
                     SettingsLogic.open-aft-picker(aft-dir);
                 }
+                edited(t) => {}
             }
         }
 
@@ -121,8 +128,8 @@ export component SettingsWindow inherits Dialog {
                 clicked => {
                     SettingsLogic.apply-settings({
                         aft-mode: aft-mode.checked,
-                        steam-dir: steam-loc.default-path,
-                        diva-dir: diva-loc.default-path,
+                        steam-dir: steam-dir,
+                        diva-dir: diva-dir,
                         aft-dir: aft-loc.default-path,
                         dark-mode: dark-mode.checked
                     });

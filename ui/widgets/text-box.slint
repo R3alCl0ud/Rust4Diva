@@ -118,6 +118,7 @@ export component LineEditBase inherits Rectangle {
 
 export component FilePathEdit {
     callback accepted(string);
+    callback edited(/* text */ string);
     callback open-picker();
     in-out property <string> default-path;
 
@@ -168,6 +169,9 @@ export component FilePathEdit {
                 enabled: root.enabled;
                 accepted => {
                     accepted(self.text);
+                }
+                edited(t) => {
+                    root.edited(t);
                 }
             }
 

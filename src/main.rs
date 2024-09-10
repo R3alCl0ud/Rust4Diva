@@ -18,6 +18,8 @@ use crate::modmanagement::{
 use crate::modpacks::ModPack;
 use crate::oneclick::{spawn_listener, try_send_mmdl};
 
+use slint::Weak;
+
 mod config;
 mod diva;
 mod firstlaunch;
@@ -66,6 +68,8 @@ pub static DML_CFG: LazyLock<std::sync::Mutex<DivaModLoader>> = LazyLock::new(||
     std::sync::Mutex::new(cfg.unwrap_or(DivaModLoader::new()))
 });
 
+pub static MAIN_UI_WEAK: std::sync::Mutex<Option<Weak<App>>> = std::sync::Mutex::new(None);
+
 #[tokio::main]
 async fn main() {
     println!("Starting Rust4Diva Slint Edition");
@@ -97,8 +101,17 @@ async fn main() {
     let app = App::new().unwrap();
     let app_weak = app.as_weak();
 
+    if let Ok(mut weak_opt) = MAIN_UI_WEAK.try_lock() {
+        *weak_opt = Some(app_weak.clone());
+    }
+
     let (url_tx, url_rx) = tokio::sync::mpsc::channel(2048);
     let (dl_tx, dl_rx) = tokio::sync::mpsc::channel::<(i32, Download)>(2048);
+    app.window().on_close_requested(move || {
+        std::process::exit(0);
+        // slint::CloseRequestResponse::HideWindow
+    });
+    let app_weak = app.as_weak();
 
     // rx.try_recv();
     match spawn_listener(url_tx.clone(), app_weak.clone()).await {
@@ -150,9 +163,9 @@ async fn main() {
     gamebanana_async::init(&app, Arc::clone(&diva_arc), dl_tx, url_rx).await;
     modpacks::init(&app, Arc::clone(&diva_arc)).await;
     config::init_ui(&app).await;
-    
+
     println!("Does the app run?");
-    
+
     if let Some(url) = dmm_url {
         println!("We have a url to handle");
         match url_tx.clone().send(url).await {
@@ -163,7 +176,7 @@ async fn main() {
             }
         }
     }
-    
+
     app.show().expect("Window should have opened");
     let _ = firstlaunch::init(&app).await;
     slint::run_event_loop().unwrap();

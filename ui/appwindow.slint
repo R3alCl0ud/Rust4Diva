@@ -92,6 +92,8 @@ export component App inherits Window {
     callback save-modpack(string, [DivaModElement]);
     callback apply-modpack([DivaModElement]);
 
+    callback close-windows();
+
     public function set-color-scheme(scheme: ColorScheme) {
         Palette.color-scheme = scheme;
     }
