@@ -5,7 +5,7 @@ Name "Rust4Diva"
 Icon "..\assets\rust4diva.ico"
 
 ; The setup filename
-OutFile "Rust4Diva v0.3.0 installer.exe"
+OutFile "Rust4Diva v0.3.1 installer.exe"
 
 ; The default installation directory
 InstallDir $PROGRAMFILES64\Rust4Diva
