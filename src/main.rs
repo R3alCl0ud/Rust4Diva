@@ -2,9 +2,10 @@
 
 use std::collections::HashMap;
 use std::env;
+use std::error::Error;
 use std::sync::{Arc, LazyLock};
 
-use modmanagement::get_mods_in_order;
+use modmanagement::{get_mods_in_order, is_dml_installed};
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint_interpreter::ComponentHandle;
 use tokio::sync::Mutex;
@@ -71,7 +72,7 @@ pub static DML_CFG: LazyLock<std::sync::Mutex<DivaModLoader>> = LazyLock::new(||
 pub static MAIN_UI_WEAK: std::sync::Mutex<Option<Weak<App>>> = std::sync::Mutex::new(None);
 
 #[tokio::main]
-async fn main() {
+async fn main() -> std::result::Result<(), Box<dyn Error>> {
     println!("Starting Rust4Diva Slint Edition");
     println!("{}", MIKU_ART);
     let args = env::args();
@@ -85,7 +86,7 @@ async fn main() {
                 dmm_url = Some(arg.clone());
                 match try_send_mmdl(arg.clone()).await {
                     Ok(_) => {
-                        return;
+                        return Ok(());
                     }
                     Err(e) => {
                         eprintln!("Unable to send to existing rust4diva instance, will handle here instead\n{}", e);
@@ -98,7 +99,7 @@ async fn main() {
     }
     create_tmp_if_not().expect("Failed to create temp directory, now we are panicking");
 
-    let app = App::new().unwrap();
+    let app = App::new()?;
     let app_weak = app.as_weak();
 
     if let Ok(mut weak_opt) = MAIN_UI_WEAK.try_lock() {
@@ -124,7 +125,9 @@ async fn main() {
 
     if let Ok(cfg) = load_diva_config().await {
         diva_state.config = cfg.clone();
-        let mut gcfg = DIVA_CFG.lock().expect("Config should not have panic already");
+        let mut gcfg = DIVA_CFG
+            .lock()
+            .expect("Config should not have panic already");
         *gcfg = cfg.clone();
         if gcfg.dark_mode {
             app.invoke_set_color_scheme(ColorScheme::Dark);
@@ -137,8 +140,11 @@ async fn main() {
 
     if let Some(diva_dir) = get_diva_folder() {
         diva_state.diva_directory = diva_dir;
-        let mut dir = DIVA_DIR.lock().expect("fuck");
+        let mut dir = DIVA_DIR.lock()?;
         *dir = diva_state.diva_directory.clone();
+        if !is_dml_installed() {
+            app.invoke_ask_install_dml();
+        }
     }
 
     diva_state.dml = load_diva_ml_config(&diva_state.diva_directory.as_str());
@@ -147,11 +153,12 @@ async fn main() {
         diva_state.dml = Some(DivaModLoader::new());
     }
 
+
+
     let _ = load_mods();
     let _ = set_mods_table(&get_mods_in_order(), app_weak.clone());
 
     if let Some(dml) = &diva_state.dml {
-
         app.set_dml_enabled(dml.enabled);
     }
 
@@ -178,9 +185,9 @@ async fn main() {
 
     app.show().expect("Window should have opened");
     let _ = firstlaunch::init(&app).await;
-    slint::run_event_loop().unwrap();
+    slint::run_event_loop()?;
     println!("OMG Migu says \"goodbye\"");
-    // Ok(())
+    Ok(())
 }
 
 impl DivaData {

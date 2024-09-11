@@ -857,7 +857,7 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
     mods
 }
 
-pub fn dml_is_installed() -> bool {
+pub fn is_dml_installed() -> bool {
     return match get_diva_folder() {
         Some(dir) => {
             let mut buf = PathBuf::from(dir);
