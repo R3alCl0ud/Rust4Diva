@@ -124,7 +124,7 @@ async fn main() {
 
     if let Ok(cfg) = load_diva_config().await {
         diva_state.config = cfg.clone();
-        let mut gcfg = DIVA_CFG.lock().expect("msg");
+        let mut gcfg = DIVA_CFG.lock().expect("Config should not have panic already");
         *gcfg = cfg.clone();
         if gcfg.dark_mode {
             app.invoke_set_color_scheme(ColorScheme::Dark);
@@ -132,6 +132,7 @@ async fn main() {
         if !gcfg.dark_mode {
             app.invoke_set_color_scheme(ColorScheme::Light);
         }
+        app.set_dml_version(cfg.dml_version.clone().into());
     }
 
     if let Some(diva_dir) = get_diva_folder() {
@@ -150,7 +151,7 @@ async fn main() {
     let _ = set_mods_table(&get_mods_in_order(), app_weak.clone());
 
     if let Some(dml) = &diva_state.dml {
-        app.set_dml_version(dml.version.clone().into());
+
         app.set_dml_enabled(dml.enabled);
     }
 

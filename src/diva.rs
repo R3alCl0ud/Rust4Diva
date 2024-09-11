@@ -227,6 +227,22 @@ pub async fn get_config_dir() -> std::io::Result<PathBuf> {
     }
 }
 
+pub fn get_config_dir_sync() -> std::io::Result<PathBuf> {
+    match dirs::config_dir() {
+        Some(mut buf) => {
+            buf.push("rust4diva");
+            if !buf.exists() {
+                fs::create_dir(buf.clone())?;
+            }
+            Ok(buf.clone())
+        }
+        None => Err(Error::new(
+            ErrorKind::NotFound,
+            "Unable to get config directory",
+        )),
+    }
+}
+
 pub static MIKU_ART: &'static str = r#"
 　　🟦　　　　　　　　　　　　　　🟦　　　　　　　　　🟦🟦🟦　　　　　　　　　　　🟦　　　　
 　　🟦　　🟦🟦🟦🟦🟦🟦　　🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦　　　　　　🟦🟦🟦🟦　　　　　　　🟦🟦🟦🟦🟦🟦

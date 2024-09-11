@@ -51,7 +51,7 @@ Get new mods online directly in the app
 # Build Instructions
 
 ## Linux
-install libarchive from package manager
+install libarchive & git & rust (rustup recommended) from package manager
 ```
 git clone https://github.com/R3alCl0ud/Rust4Diva.git
 cd Rust4Diva

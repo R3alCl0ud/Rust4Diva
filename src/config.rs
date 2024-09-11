@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -8,7 +9,8 @@ use slint::private_unstable_api::re_exports::ColorScheme;
 use slint::ComponentHandle;
 use tokio::fs;
 
-use crate::diva::{get_diva_folder, get_steam_folder, open_error_window};
+use crate::diva::{get_config_dir_sync, get_diva_folder, get_steam_folder, open_error_window};
+use crate::modmanagement::DivaModLoader;
 use crate::slint_generatedApp::App;
 use crate::{main, DML_CFG};
 
@@ -86,8 +88,15 @@ pub async fn load_diva_config() -> std::io::Result<DivaConfig> {
     Ok(DivaConfig::new())
 }
 
+pub fn write_config_sync(cfg: DivaConfig) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let mut target = get_config_dir_sync()?;
+    target.push("rust4diva.toml");
+    let cfg_str = toml::to_string(&cfg)?;
+    Ok(std::fs::write(target, cfg_str)?)
+}
+
 pub async fn write_config(cfg: DivaConfig) -> std::io::Result<()> {
-    let mut cfg_dir = get_config_dir().await?;
+    let mut cfg_dir = get_config_dir_sync()?;
     cfg_dir.push("rust4diva.toml");
     return match toml::to_string(&cfg) {
         Ok(cfg_str) => {
@@ -97,6 +106,22 @@ pub async fn write_config(cfg: DivaConfig) -> std::io::Result<()> {
         Err(e) => Err(std::io::Error::new(ErrorKind::Other, e.to_string())),
     };
 }
+
+pub fn write_dml_config(dml: DivaModLoader) -> Result<(), Box<dyn Error + Send + Sync>> {
+    if let Some(diva_dir) = get_diva_folder() {
+        let mut target = PathBuf::from(diva_dir);
+        target.push("config.toml");
+        return match toml::to_string(&dml) {
+            Ok(cfg_str) => Ok(std::fs::write(target, cfg_str)?),
+            Err(e) => Err(std::io::Error::new(ErrorKind::Other, e.to_string()).into()),
+        };
+    }
+    Err(Box::new(std::io::Error::new(
+        ErrorKind::NotFound,
+        "Unable to get diva directory",
+    )))
+}
+
 pub static SETTINGS_OPEN: Mutex<bool> = Mutex::new(false);
 
 pub async fn init_ui(diva_ui: &App) {

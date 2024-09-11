@@ -8,7 +8,7 @@ use std::vec;
 use tokio::fs;
 use tokio::sync::Mutex;
 
-use crate::config::write_config;
+use crate::config::{write_config, write_dml_config};
 use crate::diva::{get_config_dir, get_diva_folder, open_error_window};
 use crate::modmanagement::DivaMod;
 use crate::slint_generatedApp::App;
@@ -59,6 +59,18 @@ impl ModPackMod {
             version: SharedString::from(""),
             path: self.path.clone().into(),
         }
+    }
+
+    pub fn dir_name(self: &Self) -> Option<String> {
+        let mut buf = PathBuf::from(self.path.to_string().clone());
+        buf.pop();
+        if buf.exists() {
+            return match buf.file_name() {
+                Some(s) => Some(s.to_str().unwrap().to_string()),
+                None => None,
+            };
+        }
+        None
     }
 }
 
@@ -418,4 +430,26 @@ pub async fn save_modpack(pack: ModPack) -> std::io::Result<()> {
         }
         Err(e) => Err(e.into()),
     }
+}
+
+pub async fn apply_mod_priority() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if let Ok(cfg) = DIVA_CFG.try_lock() {
+        let mut prio = vec![];
+        if cfg.applied_pack != "".to_owned() {
+            if let Ok(packs) = MOD_PACKS.try_lock() {
+                if let Some(current_pack) = packs.get(&cfg.applied_pack) {
+                    for m in current_pack.clone().mods {
+                        prio.push(m.clone().dir_name().unwrap_or(m.name));
+                    }
+                }
+            }
+        } else {
+            prio = cfg.priority.clone();
+        }
+        if let Ok(mut dml) = DML_CFG.try_lock() {
+            dml.priority = prio;
+            return Ok(write_dml_config(dml.clone())?);
+        }
+    }
+    Ok(())
 }

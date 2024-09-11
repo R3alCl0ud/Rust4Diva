@@ -19,9 +19,9 @@ use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 
-use crate::config::write_config;
+use crate::config::{write_config, write_config_sync};
 use crate::diva::{get_diva_folder, get_temp_folder, open_error_window};
-use crate::modpacks::ModPackMod;
+use crate::modpacks::{apply_mod_priority, ModPackMod};
 use crate::slint_generatedApp::App;
 use crate::{
     ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, WindowLogic, DIVA_DIR,
@@ -56,13 +56,13 @@ pub struct DivaMod {
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModLoader {
     #[serde(default)]
-    pub(crate) enabled: bool,
+    pub enabled: bool,
     #[serde(default)]
-    pub(crate) console: bool,
+    pub console: bool,
     #[serde(default)]
-    pub(crate) mods: String,
+    pub mods: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub(crate) version: String,
+    pub version: String,
     ///
     /// This field tells dml what order to load mods in.
     ///
@@ -71,7 +71,7 @@ pub struct DivaModLoader {
     /// The items are the name of the folder that the mod is stored in.
     ///
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub(crate) priority: Vec<String>,
+    pub priority: Vec<String>,
 }
 
 impl DivaModLoader {
@@ -171,13 +171,62 @@ pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i3
     ui.global::<DivaLogic>().on_download_dml(move || {
         let weak = weak.clone();
         tokio::spawn(async move {
-            if let Ok(release) = get_latest_dml().await {
-                {
-                    if let Ok(cfg) = DIVA_CFG.try_lock() {
-                        if cfg.dml_version != release.name {
-                            println!("Downloading new version of DML");
+            match get_latest_dml().await {
+                Ok(release) => {
+                    let release = release.clone();
+                    let mut version_opt = None;
+                    {
+                        if let Ok(cfg) = DIVA_CFG.try_lock() {
+                            version_opt = Some(cfg.dml_version.clone());
                         }
                     }
+                    if version_opt.is_some_and(|v| v != release.name) {
+                        if let Some(asset) = release.assets.first() {
+                            println!("Downloading New DML Version");
+                            match download_dml(asset.clone()).await {
+                                Ok(source) => {
+                                    if source.exists() {
+                                        println!("Extracting DML");
+                                        if let Some(diva_dir) = get_diva_folder() {
+                                            let dest = PathBuf::from(diva_dir);
+                                            match compress_tools::uncompress_archive(
+                                                File::open(source).unwrap(),
+                                                dest.as_path(),
+                                                Ownership::Ignore,
+                                            ) {
+                                                Ok(_) => {
+                                                    if let Ok(mut cfg) = DIVA_CFG.try_lock() {
+                                                        cfg.dml_version = release.name.clone();
+                                                        let cfg = cfg.clone();
+                                                        if let Err(e) = write_config_sync(cfg) {
+                                                            open_error_window(e.to_string());
+                                                            return;
+                                                        }
+                                                    }
+                                                    sleep(Duration::from_millis(50));
+                                                    let _ = apply_mod_priority().await;
+                                                    let _ = weak.upgrade_in_event_loop(move |ui| {
+                                                        ui.set_dml_version(
+                                                            release.name.clone().into(),
+                                                        );
+                                                    });
+                                                }
+                                                Err(e) => {
+                                                    open_error_window(e.to_string());
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    open_error_window(e.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    open_error_window(e.to_string());
                 }
             }
         });
@@ -819,7 +868,7 @@ pub fn dml_is_installed() -> bool {
     };
 }
 
-static GH_TOKEN: &'static str = include_str!("../ghtoken.txt");
+
 static DML_LATEST_RELEASE: &'static str =
     "https://api.github.com/repos/blueskythlikesclouds/DivaModLoader/releases/latest";
 
@@ -829,45 +878,42 @@ pub struct GhRelease {
     assets: Vec<GhReleaseAsset>,
 }
 
+unsafe impl Send for GhRelease {}
+
 #[derive(Clone, Deserialize, Serialize)]
 pub struct GhReleaseAsset {
     name: String,
     browser_download_url: String,
 }
 
-pub async fn download_latest_dml(release: GhRelease) -> Result<PathBuf, Box<dyn Error>> {
-    if let Some(asset) = release.assets.first() {
-        if let Some(temp) = get_temp_folder() {
-            let mut buf = PathBuf::from(temp);
-            buf.push(asset.name.clone());
-            let bytes = reqwest::get(asset.browser_download_url.clone())
-                .await?
-                .bytes()
-                .await?;
-            match tokio::fs::write(buf.clone(), bytes).await {
-                Ok(_) => todo!(),
-                Err(e) => Err(e.into()),
-            }
-        } else {
-            Err(Box::new(io::Error::new(
-                ErrorKind::NotFound,
-                "Unable to get temp folder",
-            )))
+pub async fn download_dml(asset: GhReleaseAsset) -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
+    if let Some(temp) = get_temp_folder() {
+        let mut buf = PathBuf::from(temp);
+        buf.push(asset.name.clone());
+        let bytes = reqwest::get(asset.browser_download_url.clone())
+            .await?
+            .bytes()
+            .await?;
+        match tokio::fs::write(buf.clone(), bytes).await {
+            Ok(_) => Ok(buf),
+            Err(e) => Err(e.into()),
         }
     } else {
         Err(Box::new(io::Error::new(
             ErrorKind::NotFound,
-            "No Assets found",
+            "Unable to get temp folder",
         )))
     }
-
     // Ok(PathBuf::new())
 }
 
-pub async fn get_latest_dml() -> Result<GhRelease, Box<dyn Error>> {
-    let mut headers = header::HeaderMap::new();
-    headers.insert(AUTHORIZATION, GH_TOKEN.parse().unwrap());
-    let builder = reqwest::ClientBuilder::new().default_headers(headers);
+pub async fn get_latest_dml() -> Result<GhRelease, Box<dyn Error + Send + Sync>> {
+    let builder = reqwest::ClientBuilder::new()
+        .user_agent(concat!(
+            env!("CARGO_PKG_NAME"),
+            ":",
+            env!("CARGO_PKG_VERSION")
+        ));
     let client = builder.build()?;
     let text = client.get(DML_LATEST_RELEASE).send().await?.text().await?;
     Ok(sonic_rs::from_str::<GhRelease>(&text)?)

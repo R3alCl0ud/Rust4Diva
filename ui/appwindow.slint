@@ -162,6 +162,9 @@ export component App inherits Window {
 
                     Button {
                         text: "Update DML";
+                        clicked => {
+                            DivaLogic.download-dml();
+                        }
                     }
                 }
 
