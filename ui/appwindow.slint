@@ -59,21 +59,21 @@ export component App inherits Window {
     in property <[int]> fs: [1, 2, 3];
 
     in property <[[StandardListViewItem]]> search-results: [];
-    in property <[GbPreviewData]> s-results:[];
-
     in property <[Download]> file-results: [];
     in property <[{key: int, value: Download}]> downloads-map;
     in-out property <[Download]> downloads-list: [];
     in property <[[StandardListViewItem]]> stuff: [];
-
     in property <string> dml-version: "";
     in property <string> r4d-version: "";
     in-out property <bool> dml-enabled: false;
     in-out property <string> selected-search: "";
     in-out property <string> selected-file: "";
-
     in-out property <int> temp-pos;
+
+    in property <[GbPreviewData]> s-results:[];
     in property <bool> s-prog-vis: false;
+    in property <int> n-results: 0;
+    in-out property <int> s-page: 0;
 
     in-out property <bool> pack-modified: false;
     out property <ColorScheme> color-scheme: Palette.color-scheme;
@@ -217,6 +217,7 @@ export component App inherits Window {
                     width: 100%;
                     results: s-results;
                     loading: s-prog-vis;
+                    n-results: n-results;
                 }
             }
 

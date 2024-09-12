@@ -250,17 +250,17 @@ pub async fn init(ui: &App, dl_tx: Sender<(i32, Download)>, url_rx: Receiver<Str
     let search_res: Arc<std::sync::Mutex<HashMap<i32, GBSearch>>> =
         Arc::new(std::sync::Mutex::new(HashMap::new()));
 
-    ui.global::<GameBananaLogic>().on_search(move |search| {
-        let ui_search_handle = ui_search_handle.clone();
-        let ui_result_handle = ui_search_handle.clone();
-        ui_search_handle.unwrap().set_s_prog_vis(true);
-        tokio::spawn(async move {
-            match search_gb(search.to_string()).await {
-                Ok(res) => {
-                    let _ = ui_result_handle.upgrade_in_event_loop(move |ui| {
-                        let mut items = vec![];
-                        for i in res.records.clone() {
-                            if i.has_files {
+    ui.global::<GameBananaLogic>()
+        .on_search(move |search, page| {
+            let ui_search_handle = ui_search_handle.clone();
+            let ui_result_handle = ui_search_handle.clone();
+            ui_search_handle.unwrap().set_s_prog_vis(true);
+            tokio::spawn(async move {
+                match search_gb(search.to_string(), page.clone()).await {
+                    Ok(res) => {
+                        let _ = ui_result_handle.upgrade_in_event_loop(move |ui| {
+                            let mut items = vec![];
+                            for i in res.records.clone() {
                                 items.push(GbPreviewData {
                                     author: i.submitter.name.into(),
                                     id: i.id as i32,
@@ -270,23 +270,38 @@ pub async fn init(ui: &App, dl_tx: Sender<(i32, Download)>, url_rx: Receiver<Str
                                     updated: "Never".into(),
                                 });
                             }
-                        }
-                        ui.set_s_results(ModelRc::new(VecModel::from(items.clone())));
-                        ui.set_s_prog_vis(false);
-                        for i in res.records.clone() {
-                            if i.has_files {
+                            if page == 1 {
+                                ui.set_s_results(ModelRc::new(VecModel::from(items.clone())));
+                                ui.set_n_results(res.metadata.record_count);
+                            } else {
+                                let model = ui.get_s_results();
+                                let results = match model
+                                    .as_any()
+                                    .downcast_ref::<VecModel<GbPreviewData>>()
+                                {
+                                    Some(vec) => vec,
+                                    None => {
+                                        ui.set_s_prog_vis(false);
+                                        return;
+                                    }
+                                };
+                                for i in items {
+                                    results.push(i);
+                                }
+                            }
+                            ui.set_s_prog_vis(false);
+                            for i in res.records.clone() {
                                 let weak = ui.as_weak();
                                 tokio::spawn(async move {
                                     get_preview_image(weak.clone(), i.clone()).await;
                                 });
                             }
-                        }
-                    });
+                        });
+                    }
+                    Err(e) => open_error_window(e.to_string()),
                 }
-                Err(e) => open_error_window(e.to_string()),
-            }
+            });
         });
-    });
 
     // let ui_file_handle = ui.as_weak();
     ui.on_list_files(move |_mod_row| {
@@ -499,11 +514,14 @@ pub async fn get_preview_image(weak: Weak<App>, item: GBSearch) {
     }
 }
 
-pub async fn search_gb(search: String) -> Result<GbSearchResults, Box<dyn Error + Send + Sync>> {
+pub async fn search_gb(
+    search: String,
+    page: i32,
+) -> Result<GbSearchResults, Box<dyn Error + Send + Sync>> {
     let client = reqwest::Client::new();
     let req = client
         .get(format!("{GB_DOMAIN}/{GB_MOD_SEARCH}"))
-        .query(&[("_sName", search), ("_nPerpage", "50".to_string())]);
+        .query(&[("_sName", search), ("_nPage", page.to_string())]);
     // req.
     let res = req.send().await?.text().await?;
     Ok(sonic_rs::from_str::<GbSearchResults>(&res)?)

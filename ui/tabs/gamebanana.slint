@@ -1,11 +1,14 @@
 import { GbPreviewData, GbPreviewCard, GbPreviewLine} from "../widgets/gb-search-card.slint";
-import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch } from "std-widgets.slint";
+import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch, Button } from "std-widgets.slint";
 import { GameBananaLogic } from "../applogic.slint";
 
 
 export component GameBanana {
 
+    out property <string> s-term;
     in property <bool> loading: false;
+    in property <int> n-results: 0;
+    in-out property <int> page: 0;
     out property <int> x-displays: 4;
     in property <[GbPreviewData]> results: [
         {
@@ -67,11 +70,13 @@ export component GameBanana {
                 font-size: 16px;
             }
 
-            LineEdit {
+            s-box := LineEdit {
                 col: 1;
                 colspan: 4;
                 accepted(search) => {
-                    GameBananaLogic.search(search);
+                    page = 1;
+                    s-term = search;
+                    GameBananaLogic.search(s-term, page);
                 }
             }
 
@@ -103,6 +108,29 @@ export component GameBanana {
                         idx: idx;
                     }
                 }
+            }
+        }
+
+        Row {
+            Button {
+                col: 2;
+                colspan: 3;
+                icon: @image-url("../assets/down-long-solid.svg");
+                colorize-icon: true;
+                text: "Load More";
+                enabled: n-results > results.length && !loading;
+                clicked => {
+                    if !loading {
+                        page += 1;
+                        GameBananaLogic.search(s-term, page);
+                    }
+                }
+            }
+
+            Text {
+                col: 6;
+                text: "Results: " + results.length + "/" + n-results;
+                vertical-alignment: center;
             }
         }
     }
