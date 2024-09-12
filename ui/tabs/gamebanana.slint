@@ -5,6 +5,7 @@ import { GameBananaLogic } from "../applogic.slint";
 
 export component GameBanana {
 
+    in property <bool> loading: false;
     out property <int> x-displays: 4;
     in property <[GbPreviewData]> results: [
         {
@@ -76,7 +77,7 @@ export component GameBanana {
 
             ProgressIndicator {
                 col: 5;
-                indeterminate: false;
+                indeterminate: loading;
             }
 
             grid-list := Switch {
