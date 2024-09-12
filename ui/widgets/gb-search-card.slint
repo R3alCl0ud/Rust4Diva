@@ -15,7 +15,7 @@ export component GbPreviewLine {
     in property <GbPreviewData> data;
     in property <int> idx;
     Rectangle {
-        background: mod(2, idx) == 0 ? Palette.background : Palette.alternate-background;
+        background: mod(idx, 2) == 0 ? Palette.background : Palette.alternate-background;
         GridLayout {
             Row {
                 Image {
