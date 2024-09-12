@@ -12,7 +12,7 @@ use tokio::fs;
 use crate::diva::{get_config_dir_sync, get_diva_folder, get_steam_folder, open_error_window};
 use crate::modmanagement::DivaModLoader;
 use crate::slint_generatedApp::App;
-use crate::{main, DML_CFG};
+use crate::DML_CFG;
 
 use crate::{
     diva::get_config_dir, DivaLogic, SettingsLogic, SettingsWindow, WindowLogic, DIVA_CFG,

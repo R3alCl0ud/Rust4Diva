@@ -1,0 +1,108 @@
+import { GbPreviewData, GbPreviewCard, GbPreviewLine} from "../widgets/gb-search-card.slint";
+import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch } from "std-widgets.slint";
+import { GameBananaLogic } from "../applogic.slint";
+
+
+export component GameBanana {
+
+    out property <int> x-displays: 4;
+    in property <[GbPreviewData]> results: [
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack",
+            author: "Onneb",
+            item-type:"Mod"
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack2",
+            author: "Onneb",
+            item-type:"Mod"
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack3",
+            author: "Onneb",
+            item-type:"Mod"
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack4",
+            author: "Onneb",
+            item-type:"Mod"
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack5",
+            author: "Onneb",
+            item-type:"Mod"
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack6",
+            author: "Onneb",
+            item-type:"Mod"
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack7",
+            author: "Onneb",
+            item-type:"Mod"
+        },
+    ];
+    init => {
+        debug(results.length);
+        x-displays = root.width / 245px;
+    }
+
+    changed width => {
+        x-displays = root.width / 245px;
+    }
+    GridBox {
+        Row {
+            Text {
+                vertical-alignment: center;
+                text: "Search:";
+                font-size: 16px;
+            }
+
+            LineEdit {
+                col: 1;
+                colspan: 4;
+                accepted(search) => {
+                    GameBananaLogic.search(search);
+                }
+            }
+
+            ProgressIndicator {
+                col: 5;
+                indeterminate: false;
+            }
+
+            grid-list := Switch {
+                col: 6;
+                checked: true;
+            }
+        }
+
+        Row {
+            Rectangle {
+                colspan: 7;
+                if grid-list.checked: ListView {
+                    padding-bottom: 2px;
+                    for idy in results.length / x-displays + 1: HorizontalBox {
+                        for idx in min(results.length - x-displays * idy, x-displays): GbPreviewCard {
+                            data: results[idy * x-displays + idx];
+                        }
+                    }
+                }
+                if !grid-list.checked: ListView {
+                    for result[idx] in results: GbPreviewLine { 
+                        data: result;
+                        idx: idx;
+                    }
+                }
+            }
+        }
+    }
+}

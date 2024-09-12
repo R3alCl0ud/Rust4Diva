@@ -153,8 +153,6 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         diva_state.dml = Some(DivaModLoader::new());
     }
 
-
-
     let _ = load_mods();
     let _ = set_mods_table(&get_mods_in_order(), app_weak.clone());
 
@@ -165,9 +163,9 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     app.set_r4d_version(env!("CARGO_PKG_VERSION").into());
 
     let diva_arc = Arc::new(Mutex::new(diva_state));
-    modmanagement::init(&app, Arc::clone(&diva_arc), dl_rx).await;
-    gamebanana_async::init(&app, Arc::clone(&diva_arc), dl_tx, url_rx).await;
-    modpacks::init(&app, Arc::clone(&diva_arc)).await;
+    modmanagement::init(&app, dl_rx).await;
+    gamebanana_async::init(&app, dl_tx, url_rx).await;
+    modpacks::init(&app).await;
     config::init_ui(&app).await;
 
     println!("Does the app run?");

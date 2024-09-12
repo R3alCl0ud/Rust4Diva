@@ -104,7 +104,7 @@ impl ModPack {
     }
 }
 
-pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>) {
+pub async fn init(ui: &App) {
     let ui_add_mod_handle = ui.as_weak();
     let ui_remove_mod_handle = ui.as_weak();
     let ui_change_handle = ui.as_weak();

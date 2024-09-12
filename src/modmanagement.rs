@@ -5,19 +5,16 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 use std::{fs, io};
 
 use compress_tools::{list_archive_files, uncompress_archive, Ownership};
 use curl::easy::Easy;
-use reqwest::header::{self, AUTHORIZATION};
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::Mutex;
 
 use crate::config::{write_config, write_config_sync};
 use crate::diva::{get_diva_folder, get_temp_folder, open_error_window};
@@ -26,7 +23,7 @@ use crate::slint_generatedApp::App;
 use crate::{
     ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, WindowLogic, DIVA_DIR,
 };
-use crate::{DivaData, Download, DIVA_CFG, DML_CFG, MODS};
+use crate::{ Download, DIVA_CFG, DML_CFG, MODS};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
@@ -141,7 +138,7 @@ impl DivaModElement {
     }
 }
 
-pub async fn init(ui: &App, _diva_arc: Arc<Mutex<DivaData>>, dl_rx: Receiver<(i32, Download)>) {
+pub async fn init(ui: &App, dl_rx: Receiver<(i32, Download)>) {
     let ui_toggle_handle = ui.as_weak();
     let ui_load_handle = ui.as_weak();
     let ui_progress_handle = ui.as_weak();

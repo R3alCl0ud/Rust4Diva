@@ -1,24 +1,27 @@
+use std::collections::HashMap;
+use std::error::Error;
 use std::io::BufRead;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use curl::easy::Easy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use slint::{ComponentHandle, Model, ModelRc, SharedString, StandardListViewItem, VecModel, Weak};
-use sonic_rs::{Error, JsonContainerTrait, Value};
+use slint::{
+    ComponentHandle, Image, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel,
+    Weak,
+};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
 
 use crate::diva::open_error_window;
-use crate::{App, DivaData, Download};
+use crate::{App, DivaData, Download, GameBananaLogic, GbPreviewData};
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
 const GB_DOMAIN: &str = "https://gamebanana.com";
 const GB_DIVA_ID: i32 = 16522;
 
 const GB_MOD_INFO: &str = "/Core/Item/Data";
-const GB_MOD_SEARCH: &str = "apiv9/Util/Game/Submissions";
+const GB_MOD_SEARCH: &str = "apiv11/Game/16522/Subfeed";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GbModDownload {
@@ -87,7 +90,7 @@ pub struct GBSearch {
         default
     )]
     date_updated: u64,
-    #[serde(rename(serialize = "_bIsNsfw", deserialize = "_bIsNsfw"))]
+    #[serde(rename(serialize = "_bIsNsfw", deserialize = "_bIsNsfw"), default)]
     is_nsfw: bool,
     #[serde(rename(serialize = "_sInitialVisibility", deserialize = "_sInitialVisibility"))]
     initial_visibility: String,
@@ -101,7 +104,10 @@ pub struct GBSearch {
         default
     )]
     post_count: i32,
-    #[serde(rename(serialize = "_bWasFeatured", deserialize = "_bWasFeatured"), default)]
+    #[serde(
+        rename(serialize = "_bWasFeatured", deserialize = "_bWasFeatured"),
+        default
+    )]
     was_featured: bool,
     #[serde(rename(serialize = "_nViewCount", deserialize = "_nViewCount"))]
     view_count: i32,
@@ -144,9 +150,25 @@ pub struct GbPreviewImage {
 
 #[derive(Clone, Debug)]
 pub struct GbDmmItem {
-    pub(crate) item_id: String,
-    pub(crate) itemtype: String,
-    pub(crate) file_id: String,
+    pub item_id: String,
+    pub itemtype: String,
+    pub file_id: String,
+}
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GbSearchResults {
+    #[serde(rename(serialize = "_aMetadata", deserialize = "_aMetadata"))]
+    metadata: GbMetadata,
+    #[serde(rename(serialize = "_aRecords", deserialize = "_aRecords"))]
+    records: Vec<GBSearch>,
+}
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GbMetadata {
+    #[serde(rename(serialize = "_nRecordCount", deserialize = "_nRecordCount"))]
+    record_count: i32,
+    #[serde(rename(serialize = "_nPerpage", deserialize = "_nPerpage"))]
+    perpage: i32,
+    #[serde(rename(serialize = "_bIsComplete", deserialize = "_bIsComplete"))]
+    is_complete: bool,
 }
 
 pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
@@ -176,14 +198,14 @@ pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
                     data_json.push_str(line.unwrap().as_str());
                 }
                 // println!("{:#}", data_json);
-                let res: Result<sonic_rs::Value, Error> = sonic_rs::from_str(data_json.as_str());
+                let res = sonic_rs::from_str::<sonic_rs::Value>(data_json.as_str());
                 let mut dl_files: Vec<GbModDownload> = Vec::new();
                 if let Ok(mod_data) = res {
                     let info_mods = mod_data[1].clone().into_object();
                     // make sure we've actually got a proper response data
                     if let Some(info_mods) = info_mods {
                         for (_key, value) in info_mods.iter() {
-                            let dl_file: GbModDownload = sonic_rs::from_value(value).unwrap();
+                            let dl_file = sonic_rs::from_value::<GbModDownload>(value).unwrap();
                             dl_files.push(dl_file);
                         }
                         the_mod = Some(GBMod {
@@ -221,30 +243,54 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     });
 }
 
-pub async fn init(
-    ui: &App,
-    diva_arc: Arc<Mutex<DivaData>>,
-    dl_tx: Sender<(i32, Download)>,
-    url_rx: Receiver<String>,
-) {
+pub async fn init(ui: &App, dl_tx: Sender<(i32, Download)>, url_rx: Receiver<String>) {
+    let ui_search_handle = ui.as_weak();
     let file_arc: Arc<Mutex<Vec<GbModDownload>>> = Arc::new(Mutex::new(Vec::new()));
 
-    let search_diva = Arc::clone(&diva_arc);
-    let ui_search_handle = ui.as_weak();
-    ui.on_search_gb(move |search| {
-        // println!("Searching for {}", search);
-        search_mods(
-            search.parse().unwrap(),
-            &search_diva,
-            ui_search_handle.clone(),
-        );
+    let search_res: Arc<std::sync::Mutex<HashMap<i32, GBSearch>>> =
+        Arc::new(std::sync::Mutex::new(HashMap::new()));
+
+    ui.global::<GameBananaLogic>().on_search(move |search| {
+        let ui_search_handle = ui_search_handle.clone();
+        let ui_result_handle = ui_search_handle.clone();
+        ui_search_handle.unwrap().set_s_prog_vis(true);
+        tokio::spawn(async move {
+            match search_gb(search.to_string()).await {
+                Ok(res) => {
+                    let _ = ui_result_handle.upgrade_in_event_loop(move |ui| {
+                        let mut items = vec![];
+                        for i in res.records.clone() {
+                            if i.has_files {
+                                items.push(GbPreviewData {
+                                    author: i.submitter.name.into(),
+                                    id: i.id as i32,
+                                    image: slint::Image::default(),
+                                    item_type: i.model_name.into(),
+                                    name: i.name.into(),
+                                    updated: "Never".into(),
+                                });
+                            }
+                        }
+                        ui.set_s_results(ModelRc::new(VecModel::from(items.clone())));
+                        ui.set_s_prog_vis(false);
+                        for i in res.records.clone() {
+                            if i.has_files {
+                                let weak = ui.as_weak();
+                                tokio::spawn(async move {
+                                    get_preview_image(weak.clone(), i.clone()).await;
+                                });
+                            }
+                        }
+                    });
+                }
+                Err(e) => open_error_window(e.to_string()),
+            }
+        });
     });
 
-    let file_diva = Arc::clone(&diva_arc);
-    let ui_file_handle = ui.as_weak();
-    let list_files = Arc::clone(&file_arc);
-    ui.on_list_files(move |mod_row| {
-        get_mod_files(mod_row, &file_diva, &list_files, ui_file_handle.clone());
+    // let ui_file_handle = ui.as_weak();
+    ui.on_list_files(move |_mod_row| {
+        // get_mod_files(mod_row, &file_diva, &list_files, ui_file_handle.clone());
     });
 
     let ui_download_handle = ui.as_weak();
@@ -266,111 +312,8 @@ pub async fn init(
         });
         let _ = dl_tx.clone().try_send((file_row, file));
     });
-
-    let oneclick_diva = Arc::clone(&diva_arc);
     let ui_oneclick_handle = ui.as_weak();
-    let _ = handle_dmm_oneclick(
-        url_rx,
-        oneclick_diva,
-        ui_oneclick_handle,
-        oneclick_tx.clone(),
-    );
-}
-pub fn search_mods(
-    search: String,
-    search_diva: &Arc<Mutex<DivaData>>,
-    ui_search_handle: Weak<App>,
-) {
-    let search_diva = Arc::clone(search_diva);
-    ui_search_handle
-        .upgrade_in_event_loop(move |ui| {
-            ui.set_s_prog_vis(true);
-        })
-        .expect("TODO: panic message");
-
-    tokio::spawn(async move {
-        let client = reqwest::Client::new();
-        let req = client
-            .get(format!("{}/{}", GB_DOMAIN, GB_MOD_SEARCH))
-            .query(&[
-                ("_idGameRow", GB_DIVA_ID.to_string()),
-                ("_sName", search),
-                ("_nPerpage", "50".to_string()),
-            ]);
-        match req.send().await {
-            Ok(res) => {
-                match res.text().await {
-                    Ok(res_as_text) => {
-                        let results: Result<Value, Error> =
-                            sonic_rs::from_str(res_as_text.as_str());
-                        match results {
-                            Ok(val) => {
-                                // println!("THIS IS THE VALUE PRINT\n{:?}", val);
-                                if let Some(vals) = val.as_array() {
-                                    let mut search_results = Vec::new();
-                                    for item in vals.iter() {
-                                        match sonic_rs::from_value::<GBSearch>(item) {
-                                            // if let Ok(search_item) =  {
-                                            Ok(search_item) => {
-                                                search_results.push(search_item);
-                                            }
-                                            Err(e) => {
-                                                println!("{:?}", sonic_rs::to_string(item));
-                                                eprintln!("{}", e);
-                                                open_error_window(e.to_string());
-                                            }
-                                        }
-                                    }
-                                    let mut diva = search_diva.lock().await;
-                                    diva.search_results = search_results.clone();
-                                    ui_search_handle
-                                        .upgrade_in_event_loop(move |ui| {
-                                            let model_vec: VecModel<ModelRc<StandardListViewItem>> =
-                                                VecModel::default();
-                                            for item in search_results {
-                                                let items: Rc<VecModel<StandardListViewItem>> =
-                                                    Rc::new(VecModel::default());
-                                                let name =
-                                                    StandardListViewItem::from(item.name.as_str());
-                                                let category = StandardListViewItem::from(
-                                                    item.model_name.as_str(),
-                                                );
-                                                let author = StandardListViewItem::from(
-                                                    item.submitter.name.as_str(),
-                                                );
-                                                items.push(name);
-                                                items.push(author);
-                                                items.push(category);
-                                                model_vec.push(items.into());
-                                            }
-                                            let model = ModelRc::new(model_vec);
-                                            ui.set_search_results(model);
-                                        })
-                                        .expect("crashed bitch");
-                                }
-                            }
-                            Err(e) => {
-                                open_error_window(e.to_string());
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        open_error_window(e.to_string());
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("{}", e);
-                open_error_window(e.to_string());
-            }
-        }
-        ui_search_handle
-            .upgrade_in_event_loop(move |ui| {
-                ui.set_s_prog_vis(false);
-            })
-            .expect("Something got borked @ gba 313");
-    });
+    let _ = handle_dmm_oneclick(url_rx, ui_oneclick_handle, oneclick_tx.clone());
 }
 
 pub fn get_mod_files(
@@ -445,7 +388,6 @@ pub fn set_files_list(ui_handle: Weak<App>, files: &Vec<GbModDownload>) {
 
 pub fn handle_dmm_oneclick(
     mut url_rx: Receiver<String>,
-    _diva_arc: Arc<Mutex<DivaData>>,
     ui_handle: Weak<App>,
     sender: Sender<(i32, Download)>,
 ) -> tokio::task::JoinHandle<()> {
@@ -509,4 +451,60 @@ pub fn handle_dmm_oneclick(
         }
         println!("Oneclick receiver closed");
     });
+}
+
+pub async fn get_preview_image(weak: Weak<App>, item: GBSearch) {
+    if let Some(preview) = item.preview_media.images.first() {
+        let client = reqwest::Client::new();
+        let req = client.get(format!("{}/{}", preview.base_url, preview.file));
+        if let Ok(res) = req.send().await {
+            if let Ok(bytes) = res.bytes().await {
+                let image = match image::load_from_memory(&bytes) {
+                    Ok(image) => image,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        // open_error_window(e.to_string());
+                        return;
+                    }
+                };
+                let image = image
+                    .resize(220 as u32, 124 as u32, image::imageops::FilterType::Nearest)
+                    .into_rgba8();
+                let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+                    image.as_raw(),
+                    image.width(),
+                    image.height(),
+                );
+                let _ = weak.upgrade_in_event_loop(move |ui| {
+                    let image = slint::Image::from_rgba8(buffer);
+                    let model = ui.get_s_results();
+                    let results = match model.as_any().downcast_ref::<VecModel<GbPreviewData>>() {
+                        Some(results) => results,
+                        None => {
+                            return;
+                        }
+                    };
+                    for i in 0..results.row_count() {
+                        let mut row = results.row_data(i).unwrap();
+                        if row.id == item.id as i32 {
+                            row.image = image;
+                            results.set_row_data(i, row);
+                            return;
+                        }
+                    }
+                });
+            }
+        }
+        //.get(format!("{GB_API_DOMAIN}/{GB_MOD_INFO}")).query(&[("itemid", item.id), ("fields", "Files().aFiles()")]);
+    }
+}
+
+pub async fn search_gb(search: String) -> Result<GbSearchResults, Box<dyn Error + Send + Sync>> {
+    let client = reqwest::Client::new();
+    let req = client
+        .get(format!("{GB_DOMAIN}/{GB_MOD_SEARCH}"))
+        .query(&[("_sName", search), ("_nPerpage", "50".to_string())]);
+    // req.
+    let res = req.send().await?.text().await?;
+    Ok(sonic_rs::from_str::<GbSearchResults>(&res)?)
 }

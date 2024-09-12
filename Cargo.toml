@@ -30,6 +30,7 @@ futures-util = "0.3.30"
 cfg-if = "1.0.0"
 rfd = "0.14.1"
 filenamify = "0.1.2"
+image = "0.25.2"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52.0"

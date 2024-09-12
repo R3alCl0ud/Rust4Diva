@@ -1,0 +1,116 @@
+import { VerticalBox, Palette, Button } from "std-widgets.slint";
+import { GameBananaLogic } from "../applogic.slint";
+
+export struct GbPreviewData {
+    name: string,
+    author: string,
+    updated: string,
+    item-type: string,
+    id: int,
+    image: image,
+}
+
+
+export component GbPreviewLine {
+    in property <GbPreviewData> data;
+    in property <int> idx;
+    Rectangle {
+        GridLayout {
+            Row {
+                Image {
+                    source: data.image;
+                    height: 62px;
+                    width: 110px;
+                }
+
+                Text {
+                    text: data.name;
+                    font-size: 20px;
+                    wrap: TextWrap.word-wrap;
+                    horizontal-alignment: center;
+                    overflow: TextOverflow.elide;
+                }
+
+                Text {
+                    horizontal-alignment: center;
+                    font-size: 14px;
+                    overflow: TextOverflow.elide;
+                    wrap: TextWrap.word-wrap;
+                    text: "Author: " + data.author;
+                }
+
+                Text {
+                    wrap: TextWrap.word-wrap;
+                    overflow: TextOverflow.elide;
+                    horizontal-alignment: center;
+                    font-size: 14px;
+                    text: "Type: " + data.item-type;
+                }
+
+                Button {
+                    text: "Check Files";
+                    primary: true;
+                    clicked => {
+                        debug(root.width);
+                        GameBananaLogic.list-files(data.id);
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component GbPreviewCard {
+    in property <GbPreviewData> data: {
+        image: @image-url("../assets/test-preview.jpg"),
+        name:"Onneb's Song Pack",
+        author: "Onneb",
+        item-type:"Mod"
+    };
+    height: 270px;
+    width: 236px;
+    Rectangle {
+        border-width: 1px;
+        border-radius: 5px;
+        border-color: Palette.border;
+        background: Palette.alternate-background;
+        VerticalBox {
+            alignment: start;
+            Image {
+                source: data.image;
+                height: 124px;
+                width: 220px;
+            }
+
+            Text {
+                text: data.name;
+                overflow: TextOverflow.elide;
+                font-size: 20px;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                horizontal-alignment: center;
+                overflow: TextOverflow.elide;
+                font-size: 14px;
+                text: "Author: " + data.author;
+            }
+
+            Text {
+                horizontal-alignment: center;
+                overflow: TextOverflow.elide;
+                font-size: 14px;
+                text: "Type: " + data.item-type;
+            }
+
+            Button {
+                text: "Check Files";
+                primary: true;
+                clicked => {
+                    debug(root.width);
+                    GameBananaLogic.list-files(data.id);
+                }
+            }
+        }
+    }
+}
