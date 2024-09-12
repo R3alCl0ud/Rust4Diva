@@ -91,14 +91,14 @@ export component GameBanana {
                 colspan: 7;
                 if grid-list.checked: ListView {
                     padding-bottom: 2px;
-                    for idy in results.length / x-displays + 1: HorizontalBox {
+                    for idy in results.length / x-displays + (mod(results.length, x-displays) == 0 ? 0 : 1): HorizontalBox {
                         for idx in min(results.length - x-displays * idy, x-displays): GbPreviewCard {
                             data: results[idy * x-displays + idx];
                         }
                     }
                 }
                 if !grid-list.checked: ListView {
-                    for result[idx] in results: GbPreviewLine { 
+                    for result[idx] in results: GbPreviewLine {
                         data: result;
                         idx: idx;
                     }
