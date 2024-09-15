@@ -1,14 +1,6 @@
 import { VerticalBox, Palette, Button } from "std-widgets.slint";
 import { GameBananaLogic } from "../applogic.slint";
-
-export struct GbPreviewData {
-    name: string,
-    author: string,
-    updated: string,
-    item-type: string,
-    id: int,
-    image: image,
-}
+import { GbPreviewData } from "../diva-types.slint";
 
 
 export component GbPreviewLine {
@@ -37,7 +29,7 @@ export component GbPreviewLine {
                     font-size: 14px;
                     overflow: TextOverflow.elide;
                     wrap: TextWrap.word-wrap;
-                    text: "Author: " + data.author;
+                    text: "Author: " + data.author.name;
                 }
 
                 Text {
@@ -52,8 +44,7 @@ export component GbPreviewLine {
                     text: "Check Files";
                     primary: true;
                     clicked => {
-                        debug(root.width);
-                        GameBananaLogic.list-files(data.id);
+                        GameBananaLogic.list-files(data);
                     }
                 }
             }
@@ -65,7 +56,7 @@ export component GbPreviewCard {
     in property <GbPreviewData> data: {
         image: @image-url("../assets/test-preview.jpg"),
         name:"Onneb's Song Pack",
-        author: "Onneb",
+        author: { name: "Onneb" },
         item-type:"Mod"
     };
     height: 270px;
@@ -94,7 +85,7 @@ export component GbPreviewCard {
                 horizontal-alignment: center;
                 overflow: TextOverflow.elide;
                 font-size: 14px;
-                text: "Author: " + data.author;
+                text: "Author: " + data.author.name;
             }
 
             Text {
@@ -108,8 +99,7 @@ export component GbPreviewCard {
                 text: "Check Files";
                 primary: true;
                 clicked => {
-                    debug(root.width);
-                    GameBananaLogic.list-files(data.id);
+                    GameBananaLogic.list-files(data);
                 }
             }
         }

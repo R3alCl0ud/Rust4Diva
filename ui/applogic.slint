@@ -1,4 +1,4 @@
-import { DivaModElement, ModPackElement } from "diva-types.slint";
+import { DivaModElement, ModPackElement, GbPreviewData } from "diva-types.slint";
 
 
 export global DivaLogic {
@@ -8,7 +8,7 @@ export global DivaLogic {
 
 export global GameBananaLogic {
     callback search(string, int);
-    callback list-files(int);
+    callback list-files(GbPreviewData);
 }
 
 export global WindowLogic {

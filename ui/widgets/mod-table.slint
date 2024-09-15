@@ -356,9 +356,6 @@ export component ModTable {
                     }
                 }
             }
-
-            // padding: 5px;
-
         }
 
         scroll-view := ScrollView {
@@ -417,8 +414,6 @@ export component ModTable {
                             i-shadow-mod.idx = idx;
                             i-shadow-mod.list-position = self.list-position;
                             i-shadow-mod.visible = true;
-                            debug("VH: " + scroll-view.viewport-height / 1px);
-                            debug("VH: " + scroll-view.height / 1px);
                         } else if pe.button == PointerEventButton.right {
                             open-ctx-menu(self.module, idx, {
                                 x: pos.x - root.absolute-position.x,

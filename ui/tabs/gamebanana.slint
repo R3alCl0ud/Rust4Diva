@@ -1,6 +1,7 @@
-import { GbPreviewData, GbPreviewCard, GbPreviewLine} from "../widgets/gb-search-card.slint";
-import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch, Button } from "std-widgets.slint";
+import { GbPreviewCard, GbPreviewLine} from "../widgets/gb-search-card.slint";
+import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch, Button, ComboBox } from "std-widgets.slint";
 import { GameBananaLogic } from "../applogic.slint";
+import { GbPreviewData, GbSearchSort } from "../diva-types.slint";
 
 
 export component GameBanana {
@@ -14,48 +15,47 @@ export component GameBanana {
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack",
-            author: "Onneb",
+            author:  { name: "Onneb" },
             item-type:"Mod"
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack2",
-            author: "Onneb",
+            author:  { name: "Onneb" },
             item-type:"Mod"
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack3",
-            author: "Onneb",
+            author:  { name: "Onneb" },
             item-type:"Mod"
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack4",
-            author: "Onneb",
+            author: { name: "Onneb" },
             item-type:"Mod"
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack5",
-            author: "Onneb",
+            author:  { name: "Onneb" },
             item-type:"Mod"
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack6",
-            author: "Onneb",
+            author:  { name: "Onneb" },
             item-type:"Mod"
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack7",
-            author: "Onneb",
+            author: { name: "Onneb" },
             item-type:"Mod"
         },
     ];
     init => {
-        debug(results.length);
         x-displays = root.width / 245px;
     }
 
@@ -70,9 +70,14 @@ export component GameBanana {
                 font-size: 16px;
             }
 
+            ComboBox {
+                model: ["default", "new", "updated"];
+                current-index: 0;
+            }
+
             s-box := LineEdit {
-                col: 1;
-                colspan: 4;
+                col: 2;
+                colspan: 3;
                 accepted(search) => {
                     page = 1;
                     s-term = search;
@@ -92,13 +97,19 @@ export component GameBanana {
         }
 
         Row {
-            Rectangle {
+            card-view := Rectangle {
                 colspan: 7;
-                if grid-list.checked: ListView {
-                    padding-bottom: 2px;
-                    for idy in results.length / x-displays + (mod(results.length, x-displays) == 0 ? 0 : 1): HorizontalBox {
-                        for idx in min(results.length - x-displays * idy, x-displays): GbPreviewCard {
-                            data: results[idy * x-displays + idx];
+                if grid-list.checked: 
+                Rectangle {
+                    background: Palette.control-background;
+                    ListView {
+                        padding-bottom: 2px;
+                        for idy in results.length / x-displays + (mod(results.length, x-displays) == 0 ? 0 : 1): HorizontalBox {
+                            spacing: max(mod(root.width / x-displays, 245px),8px);
+                            padding-left: (card-view.width - ((236px + self.spacing) * x-displays - self.spacing)) / 2;
+                            for idx in min(results.length - x-displays * idy, x-displays): GbPreviewCard {
+                                data: results[idy * x-displays + idx];
+                            }
                         }
                     }
                 }
@@ -113,9 +124,9 @@ export component GameBanana {
 
         Row {
             Button {
-                col: 2;
-                colspan: 3;
-                icon: @image-url("../assets/down-long-solid.svg");
+                col: 1;
+                colspan: 5;
+                icon: @image-url("../assets/cloud-arrow-down-solid.svg");
                 colorize-icon: true;
                 text: "Load More";
                 enabled: n-results > results.length && !loading;

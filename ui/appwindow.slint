@@ -2,6 +2,8 @@ import { Palette, Button, VerticalBox, HorizontalBox, StandardTableView, TabWidg
 
 import { Palette as CosmicPalette } from "styling.slint";
 import { DivaModElement, ModPackElement } from "diva-types.slint";
+import { GbPreviewData } from "diva-types.slint";
+
 
 import { FileTable, Download } from "widgets/filetable.slint";
 import { ModTable } from "widgets/mod-table.slint";
@@ -11,7 +13,7 @@ import { InfoDialog } from "widgets/info-dialog.slint";
 import { TextBox } from "widgets/text-box.slint";
 import { DeletePackDialog } from "widgets/delete-pack-dialog.slint";
 import { ModCtxMenu } from "widgets/modctxmenu.slint";
-import { GbPreviewData, GbPreviewCard} from "widgets/gb-search-card.slint";
+import { GbPreviewCard } from "widgets/gb-search-card.slint";
 
 
 import { SettingsWindow, SettingsLogic } from "subwindows/settings.slint";
@@ -28,8 +30,9 @@ import { ErrorMessageWindow } from "dialogs/errormsg.slint";
 import { ConfirmDelete } from "dialogs/confirmdelete.slint";
 
 import { ModpackLogic, ModLogic, WindowLogic, DivaLogic, GameBananaLogic } from "applogic.slint";
+import { GbDetailsWindow } from "subwindows/gb-item.slint";
 
-export { GbPreviewData, GameBananaLogic }
+export { GbPreviewData, GameBananaLogic, GbDetailsWindow }
 export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack }
 export { WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic, ConfirmDelete, DivaLogic, Palette }
 
