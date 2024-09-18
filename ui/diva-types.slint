@@ -16,7 +16,8 @@ export struct ModPackElement {
 
 export struct SlGbSubmitter {
     name: string,
-    avatar_url: string}
+    avatar_url: string,
+}
 
 export struct GbPreviewData {
     name: string,
@@ -26,8 +27,20 @@ export struct GbPreviewData {
     id: int,
     image: image,
     image-url: string,
-    image-loaded: bool}
+    image-loaded: bool,
+    submitted: string,
+}
 
 export enum GbSearchSort {
     default, new, updated,
+}
+
+export struct Download {
+    id: int,
+    url: string,
+    name: string,
+    size: int,
+    progress: float,
+    failed: bool,
+    inprogress: bool,
 }

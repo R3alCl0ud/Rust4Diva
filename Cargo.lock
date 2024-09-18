@@ -4270,6 +4270,7 @@ name = "rust4diva"
 version = "0.4.0"
 dependencies = [
  "cfg-if",
+ "chrono",
  "compress-tools",
  "curl",
  "dirs",

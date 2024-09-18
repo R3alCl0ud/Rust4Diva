@@ -70,18 +70,27 @@ export component GameBanana {
                 font-size: 16px;
             }
 
-            ComboBox {
-                model: ["default", "new", "updated"];
-                current-index: 0;
-            }
-
             s-box := LineEdit {
-                col: 2;
+                // col: 1;
                 colspan: 3;
                 accepted(search) => {
                     page = 1;
                     s-term = search;
                     GameBananaLogic.search(s-term, page);
+                }
+            }
+
+            HorizontalLayout {
+                col: 4;
+                Text {
+                    vertical-alignment: center;
+                    text: "Sort: ";
+                    font-size: 16px;
+                }
+
+                ComboBox {
+                    model: ["default", "new", "updated"];
+                    current-index: 0;
                 }
             }
 

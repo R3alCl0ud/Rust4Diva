@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint::ComponentHandle;
 use tokio::fs;
+use tokio::sync::broadcast::Sender;
 
 use crate::diva::{get_config_dir_sync, get_diva_folder, get_steam_folder, open_error_window};
 use crate::modmanagement::DivaModLoader;
@@ -124,13 +125,13 @@ pub fn write_dml_config(dml: DivaModLoader) -> Result<(), Box<dyn Error + Send +
 
 pub static SETTINGS_OPEN: Mutex<bool> = Mutex::new(false);
 
-pub async fn init_ui(diva_ui: &App) {
+pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
     let _ui_diva_dir_handle = diva_ui.as_weak();
     let main_ui_handle = diva_ui.as_weak();
     let scheme_handle = diva_ui.as_weak();
     let main_close_handle = main_ui_handle.clone();
-    // let settings_open:Mutex<Option<Weak<SettingsWindow>>> = Mutex::new(None);
-    // let
+    let dark_tx = dark_tx.clone();
+
     let weak = diva_ui.as_weak();
     diva_ui.global::<DivaLogic>().on_toggle_dml(move || {
         let weak = weak.clone();
@@ -155,6 +156,7 @@ pub async fn init_ui(diva_ui: &App) {
         if let Ok(mut open) = SETTINGS_OPEN.try_lock() {
             if !open.clone() {
                 *open = true;
+                let dark_tx = dark_tx.clone();
                 let current_scheme = scheme_handle.upgrade().unwrap().get_color_scheme();
                 let steam_dir = get_steam_folder().unwrap_or("Not Set".to_string());
                 let diva_dir = get_diva_folder().unwrap_or("Not Set".to_string());
@@ -228,6 +230,7 @@ pub async fn init_ui(diva_ui: &App) {
                 settings
                     .global::<SettingsLogic>()
                     .on_apply_settings(move |settings| {
+                        let dark_tx = dark_tx.clone();
                         let color_handle = color_handle.clone();
                         let apply_handle = apply_handle.clone();
                         if let Ok(mut cfg) = DIVA_CFG.lock() {
@@ -273,6 +276,11 @@ pub async fn init_ui(diva_ui: &App) {
                                             } else {
                                                 ui.invoke_set_color_scheme(ColorScheme::Light);
                                             }
+                                        });
+                                        let _ = dark_tx.send(if cfg.dark_mode {
+                                            ColorScheme::Dark
+                                        } else {
+                                            ColorScheme::Light
                                         });
                                     }
                                     Err(e) => {

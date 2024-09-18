@@ -1,5 +1,5 @@
-import { Download, FileTable} from "../widgets/filetable.slint";
-import { GbPreviewData } from "../diva-types.slint";
+import { FileTable} from "../widgets/filetable.slint";
+import { Download, GbPreviewData } from "../diva-types.slint";
 import { GridBox, VerticalBox, Palette, ScrollView } from "std-widgets.slint";
 
 export component GbDetailsWindow inherits Dialog {
@@ -10,6 +10,7 @@ export component GbDetailsWindow inherits Dialog {
     in-out property <[Download]> files;
     in property <GbPreviewData> data;
     in property <string> description;
+    out property <bool> downloading: false;
     title: data.name;
     GridBox {
         Row {
@@ -67,7 +68,7 @@ export component GbDetailsWindow inherits Dialog {
         Row {
             FileTable {
                 colspan: 2;
-                columns: [{ title: "Name" }, { title: "Size" }, { title: "Progress" }];
+                columns: [{ title: "Name" }, { title: "Size" }, { title: "Progress" }, { title:"Download" }];
                 files: files;
             }
         }

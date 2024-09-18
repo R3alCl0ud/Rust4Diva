@@ -13,6 +13,7 @@ use compress_tools::{list_archive_files, uncompress_archive, Ownership};
 use curl::easy::Easy;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
+use slint::private_unstable_api::re_exports::ColorScheme;
 use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -23,7 +24,7 @@ use crate::slint_generatedApp::App;
 use crate::{
     ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, WindowLogic, DIVA_DIR,
 };
-use crate::{ Download, DIVA_CFG, DML_CFG, MODS};
+use crate::{Download, DIVA_CFG, DML_CFG, MODS};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
@@ -138,7 +139,11 @@ impl DivaModElement {
     }
 }
 
-pub async fn init(ui: &App, dl_rx: Receiver<(i32, Download)>) {
+pub async fn init(
+    ui: &App,
+    dl_rx: Receiver<(i32, Download)>,
+    dark_rx: tokio::sync::broadcast::Receiver<ColorScheme>,
+) {
     let ui_toggle_handle = ui.as_weak();
     let ui_load_handle = ui.as_weak();
     let ui_progress_handle = ui.as_weak();
@@ -865,7 +870,6 @@ pub fn is_dml_installed() -> bool {
     };
 }
 
-
 static DML_LATEST_RELEASE: &'static str =
     "https://api.github.com/repos/blueskythlikesclouds/DivaModLoader/releases/latest";
 
@@ -905,12 +909,11 @@ pub async fn download_dml(asset: GhReleaseAsset) -> Result<PathBuf, Box<dyn Erro
 }
 
 pub async fn get_latest_dml() -> Result<GhRelease, Box<dyn Error + Send + Sync>> {
-    let builder = reqwest::ClientBuilder::new()
-        .user_agent(concat!(
-            env!("CARGO_PKG_NAME"),
-            ":",
-            env!("CARGO_PKG_VERSION")
-        ));
+    let builder = reqwest::ClientBuilder::new().user_agent(concat!(
+        env!("CARGO_PKG_NAME"),
+        ":",
+        env!("CARGO_PKG_VERSION")
+    ));
     let client = builder.build()?;
     let text = client.get(DML_LATEST_RELEASE).send().await?.text().await?;
     Ok(sonic_rs::from_str::<GhRelease>(&text)?)

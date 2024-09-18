@@ -1,4 +1,4 @@
-import { VerticalBox, Palette, Button } from "std-widgets.slint";
+import { VerticalBox, Palette, Button, Spinner } from "std-widgets.slint";
 import { GameBananaLogic } from "../applogic.slint";
 import { GbPreviewData } from "../diva-types.slint";
 
@@ -68,10 +68,16 @@ export component GbPreviewCard {
         background: Palette.alternate-background;
         VerticalBox {
             alignment: start;
+            if  data.image-loaded: 
             Image {
                 source: data.image;
                 height: 124px;
                 width: 220px;
+            }
+            if !data.image-loaded: Spinner {
+                height: 124px;
+                width: 220px;
+                indeterminate: true;
             }
 
             Text {

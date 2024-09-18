@@ -88,6 +88,15 @@ export component TableViewCell inherits Rectangle {
     }
 }
 
+export component TableViewCellNoTouch inherits Rectangle {
+    clip: true;
+
+    HorizontalLayout {
+        padding: 8px;
+        @children
+    }
+}
+
 export component TableViewRow inherits Rectangle {
     in property <bool> selected;
     in property <bool> even;

@@ -8,11 +8,11 @@ use std::sync::{Arc, LazyLock};
 use modmanagement::{get_mods_in_order, is_dml_installed};
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint_interpreter::ComponentHandle;
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 
 use crate::config::{load_diva_config, DivaConfig};
 use crate::diva::{create_tmp_if_not, get_diva_folder, open_error_window, MIKU_ART};
-use crate::gamebanana_async::{parse_dmm_url, GBSearch, GbModDownload};
+use crate::gamebanana_async::parse_dmm_url;
 use crate::modmanagement::{
     load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
 };
@@ -34,10 +34,8 @@ slint::include_modules!();
 #[derive(Clone)]
 pub struct DivaData {
     mods: Vec<DivaMod>,
-    search_results: Vec<GBSearch>,
     diva_directory: String,
     dml: Option<DivaModLoader>,
-    mod_files: HashMap<u64, Vec<GbModDownload>>,
     config: DivaConfig,
 }
 
@@ -99,6 +97,8 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     }
     create_tmp_if_not().expect("Failed to create temp directory, now we are panicking");
 
+    let (dark_tx, dark_rx) = broadcast::channel::<ColorScheme>(200);
+
     let app = App::new()?;
     let app_weak = app.as_weak();
 
@@ -121,10 +121,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         }
     }
 
-    let mut diva_state = DivaData::new();
-
     if let Ok(cfg) = load_diva_config().await {
-        diva_state.config = cfg.clone();
         let mut gcfg = DIVA_CFG
             .lock()
             .expect("Config should not have panic already");
@@ -139,34 +136,26 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     }
 
     if let Some(diva_dir) = get_diva_folder() {
-        diva_state.diva_directory = diva_dir;
         let mut dir = DIVA_DIR.lock()?;
-        *dir = diva_state.diva_directory.clone();
+        *dir = diva_dir;
         if !is_dml_installed() {
             app.invoke_ask_install_dml();
         }
     }
 
-    diva_state.dml = load_diva_ml_config(&diva_state.diva_directory.as_str());
-
-    if diva_state.dml.is_none() {
-        diva_state.dml = Some(DivaModLoader::new());
-    }
-
     let _ = load_mods();
     let _ = set_mods_table(&get_mods_in_order(), app_weak.clone());
 
-    if let Some(dml) = &diva_state.dml {
+    if let Ok(dml) = DML_CFG.try_lock() {
         app.set_dml_enabled(dml.enabled);
     }
 
     app.set_r4d_version(env!("CARGO_PKG_VERSION").into());
 
-    let diva_arc = Arc::new(Mutex::new(diva_state));
-    modmanagement::init(&app, dl_rx).await;
-    gamebanana_async::init(&app, dl_tx, url_rx).await;
+    modmanagement::init(&app, dl_rx, dark_rx.resubscribe()).await;
+    gamebanana_async::init(&app, dl_tx, url_rx, dark_rx.resubscribe()).await;
     modpacks::init(&app).await;
-    config::init_ui(&app).await;
+    config::init_ui(&app, dark_tx).await;
 
     println!("Does the app run?");
 
@@ -175,7 +164,6 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         match url_tx.clone().send(url).await {
             Ok(_) => {}
             Err(e) => {
-                // eprintln!("{}", e);
                 open_error_window(e.to_string());
             }
         }
@@ -192,10 +180,8 @@ impl DivaData {
     fn new() -> Self {
         Self {
             mods: Vec::new(),
-            search_results: Vec::new(),
             diva_directory: "".to_string(),
             dml: None,
-            mod_files: HashMap::new(),
             config: DivaConfig::new(),
         }
     }

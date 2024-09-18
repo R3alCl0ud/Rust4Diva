@@ -1,25 +1,20 @@
-use std::collections::HashMap;
 use std::error::Error;
 use std::io::BufRead;
-use std::sync::Arc;
 
+use chrono::DateTime;
 use curl::easy::Easy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use slint::private_unstable_api::re_exports::ColorScheme;
+use tokio::sync::broadcast;
 // use slint::Pal
-use slint::{
-    ComponentHandle, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel, Weak,
-};
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::Mutex;
-
 use crate::diva::open_error_window;
 use crate::{
-    App, DivaData, Download, GameBananaLogic, GbDetailsWindow, GbPreviewData, Palette,
-    SlGbSubmitter, DIVA_CFG,
+    App, Download, GameBananaLogic, GbDetailsWindow, GbPreviewData, SlGbSubmitter, DIVA_CFG,
 };
+use slint::{ComponentHandle, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel, Weak};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
 const GB_DOMAIN: &str = "https://gamebanana.com";
@@ -71,15 +66,30 @@ impl From<GbModDownload> for Download {
             progress: 0.0,
             size: value.filesize as i32,
             url: value.download_url.into(),
+            inprogress: false,
         }
     }
 }
+
+// impl PartialEq<Download> for Download {
+//     fn eq(&self, other: &Download) -> bool {
+//         self.r#id == other.r#id
+//     }
+// }
+
+impl PartialEq<i32> for Download {
+    fn eq(&self, other: &i32) -> bool {
+        self.id == *other
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct GBMod {
     pub name: String,
     pub files: Vec<GbModDownload>,
     pub text: String,
 }
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GbMod {
     #[serde(rename(deserialize = "_sName"))]
@@ -107,13 +117,13 @@ pub struct GBSearch {
     #[serde(rename(deserialize = "_sProfileUrl"))]
     profile_url: String,
     #[serde(rename(deserialize = "_tsDateAdded"))]
-    date_added: u64,
+    date_added: i64,
     #[serde(rename(deserialize = "_bHasFiles"))]
     has_files: bool,
     #[serde(rename(deserialize = "_aSubmitter"))]
     submitter: GbSubmitter,
     #[serde(rename(deserialize = "_tsDateUpdated"), default)]
-    date_updated: u64,
+    date_updated: i64,
     #[serde(rename(deserialize = "_bIsNsfw"), default)]
     is_nsfw: bool,
     #[serde(rename(deserialize = "_sInitialVisibility"), default)]
@@ -131,6 +141,38 @@ pub struct GBSearch {
     #[serde(rename(deserialize = "_aPreviewMedia"))]
     preview_media: GbPreview,
 }
+
+impl From<GBSearch> for GbPreviewData {
+    fn from(value: GBSearch) -> Self {
+        let mut imgurl = "".to_owned();
+        if let Some(img) = value.preview_media.images.first() {
+            imgurl = format!("{}/{}", img.base_url, img.file);
+        }
+        let mut updated = "Never".to_owned();
+        if value.date_updated != 0 {
+            let date =
+                DateTime::<chrono::Utc>::from_timestamp(value.date_updated as i64, 0).unwrap();
+            updated = date.format("%d/%m/%Y %H:%M").to_string();
+        }
+        let mut added = "Never".to_owned();
+        if value.date_added != 0 {
+            let date = DateTime::<chrono::Utc>::from_timestamp(value.date_added as i64, 0).unwrap();
+            added = date.format("%d/%m/%Y %H:%M").to_string();
+        }
+        Self {
+            author: value.submitter.into(),
+            id: value.id as i32,
+            image: Default::default(),
+            item_type: value.model_name.into(),
+            name: value.name.into(),
+            updated: updated.into(),
+            image_url: imgurl.into(),
+            image_loaded: false,
+            submitted: added.into(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GbSubmitter {
     #[serde(rename(serialize = "_idRow", deserialize = "_idRow"))]
@@ -163,6 +205,7 @@ pub struct GbPreview {
     #[serde(rename(serialize = "_aImages", deserialize = "_aImages"), default)]
     images: Vec<GbPreviewImage>,
 }
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GbPreviewImage {
     #[serde(rename(serialize = "_sType", deserialize = "_sType"))]
@@ -179,6 +222,7 @@ pub struct GbDmmItem {
     pub itemtype: String,
     pub file_id: String,
 }
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GbSearchResults {
     #[serde(rename(serialize = "_aMetadata", deserialize = "_aMetadata"))]
@@ -186,6 +230,7 @@ pub struct GbSearchResults {
     #[serde(rename(serialize = "_aRecords", deserialize = "_aRecords"))]
     records: Vec<GBSearch>,
 }
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GbMetadata {
     #[serde(rename(serialize = "_nRecordCount", deserialize = "_nRecordCount"))]
@@ -268,12 +313,13 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     });
 }
 
-pub async fn init(ui: &App, dl_tx: Sender<(i32, Download)>, url_rx: Receiver<String>) {
+pub async fn init(
+    ui: &App,
+    dl_tx: Sender<(i32, Download)>,
+    url_rx: Receiver<String>,
+    dark_rx: broadcast::Receiver<ColorScheme>,
+) {
     let ui_search_handle = ui.as_weak();
-    let file_arc: Arc<Mutex<Vec<GbModDownload>>> = Arc::new(Mutex::new(Vec::new()));
-
-    let search_res: Arc<std::sync::Mutex<HashMap<i32, GBSearch>>> =
-        Arc::new(std::sync::Mutex::new(HashMap::new()));
 
     ui.global::<GameBananaLogic>()
         .on_search(move |search, page| {
@@ -286,21 +332,7 @@ pub async fn init(ui: &App, dl_tx: Sender<(i32, Download)>, url_rx: Receiver<Str
                         let _ = ui_result_handle.upgrade_in_event_loop(move |ui| {
                             let mut items = vec![];
                             for i in res.records.clone() {
-                                let mut imgurl = "".to_owned();
-                                if let Some(img) = i.preview_media.images.first() {
-                                    imgurl = format!("{}/{}", img.base_url, img.file);
-                                }
-
-                                items.push(GbPreviewData {
-                                    author: i.submitter.into(),
-                                    id: i.id as i32,
-                                    image: slint::Image::default(),
-                                    item_type: i.model_name.into(),
-                                    name: i.name.into(),
-                                    updated: "Never".into(),
-                                    image_url: imgurl.into(),
-                                    image_loaded: false,
-                                });
+                                items.push(i.into());
                             }
                             if page == 1 {
                                 ui.set_s_results(ModelRc::new(VecModel::from(items.clone())));
@@ -325,7 +357,7 @@ pub async fn init(ui: &App, dl_tx: Sender<(i32, Download)>, url_rx: Receiver<Str
                             for i in res.records.clone() {
                                 let weak = ui.as_weak();
                                 tokio::spawn(async move {
-                                    get_preview_image(weak.clone(), i.clone()).await;
+                                    get_and_set_preview_image(weak.clone(), i.clone()).await;
                                 });
                             }
                         });
@@ -386,6 +418,23 @@ pub async fn init(ui: &App, dl_tx: Sender<(i32, Download)>, url_rx: Receiver<Str
                 Err(e) => todo!(),
             }
         });
+
+        let deets_weak = deets.as_weak();
+        let deets_weak = deets.as_weak();
+        let mut scheme_rx = dark_rx.resubscribe();
+        let scheme_changer = tokio::spawn(async move {
+            while let Ok(scheme) = scheme_rx.recv().await {
+                let _ = deets_weak.upgrade_in_event_loop(move |deets| {
+                    deets.invoke_set_color_scheme(scheme);
+                });
+            }
+        });
+
+        deets.window().on_close_requested(move || {
+            scheme_changer.abort();
+            slint::CloseRequestResponse::HideWindow
+        });
+
         deets.show().unwrap();
     });
 
@@ -445,14 +494,16 @@ pub fn handle_dmm_oneclick(
                                         Some(downloads) => {
                                             println!("Pushing");
                                             let cur_len = downloads.iter().len();
-                                            let download = Download {
-                                                id: file.id as i32,
-                                                name: SharedString::from(&file.file),
-                                                progress: 0.0,
-                                                size: file.filesize as i32,
-                                                url: SharedString::from(&file.download_url),
-                                                failed: false,
-                                            };
+                                            // let download = Download {
+                                            //     id: file.id as i32,
+                                            //     name: SharedString::from(&file.file),
+                                            //     progress: 0.0,
+                                            //     size: file.filesize as i32,
+                                            //     url: SharedString::from(&file.download_url),
+                                            //     failed: false,
+                                            // };
+                                            let mut download: Download = file.into();
+                                            download.inprogress = true;
                                             downloads.push(download.clone());
                                             match ui_sender.try_send((cur_len as i32, download)) {
                                                 Ok(_) => {}
@@ -479,30 +530,32 @@ pub fn handle_dmm_oneclick(
     });
 }
 
-pub async fn get_preview_image(weak: Weak<App>, item: GBSearch) {
+pub async fn get_and_set_preview_image(weak: Weak<App>, item: GBSearch) {
+    let mut buffer = missing_image_buf();
     if let Some(preview) = item.preview_media.images.first() {
-        if let Ok(buffer) = get_image(format!("{}/{}", preview.base_url, preview.file)).await {
-            let _ = weak.upgrade_in_event_loop(move |ui| {
-                let image = slint::Image::from_rgba8(buffer);
-                let model = ui.get_s_results();
-                let results = match model.as_any().downcast_ref::<VecModel<GbPreviewData>>() {
-                    Some(results) => results,
-                    None => {
-                        return;
-                    }
-                };
-                for i in 0..results.row_count() {
-                    let mut row = results.row_data(i).unwrap();
-                    if row.id == item.id as i32 {
-                        row.image = image;
-                        row.image_loaded = true;
-                        results.set_row_data(i, row);
-                        return;
-                    }
-                }
-            });
+        if let Ok(buf) = get_image(format!("{}/{}", preview.base_url, preview.file)).await {
+            buffer = buf;
         }
     }
+    let _ = weak.upgrade_in_event_loop(move |ui| {
+        let image = slint::Image::from_rgba8(buffer);
+        let model = ui.get_s_results();
+        let results = match model.as_any().downcast_ref::<VecModel<GbPreviewData>>() {
+            Some(results) => results,
+            None => {
+                return;
+            }
+        };
+        for i in 0..results.row_count() {
+            let mut row = results.row_data(i).unwrap();
+            if row.id == item.id as i32 {
+                row.image = image;
+                row.image_loaded = true;
+                results.set_row_data(i, row);
+                return;
+            }
+        }
+    });
 }
 
 pub async fn get_image(
@@ -553,4 +606,17 @@ pub async fn fetch_mod_info(mod_id: i32) -> Result<GbMod, Box<dyn Error + Send +
             Err(e.into())
         }
     }
+}
+
+pub fn missing_image_buf() -> SharedPixelBuffer<Rgba8Pixel> {
+    let bytes = include_bytes!("../ui/assets/missing-image.png");
+    let image = image::load_from_memory(bytes).unwrap();
+    let image = image
+        .resize(440 as u32, 248 as u32, image::imageops::FilterType::Nearest)
+        .into_rgba8();
+    SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(image.as_raw(), image.width(), image.height())
+}
+
+pub fn missing_image() -> slint::Image {
+    slint::Image::from_rgba8(missing_image_buf())
 }

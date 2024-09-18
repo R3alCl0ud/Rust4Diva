@@ -257,7 +257,6 @@ pub static MIKU_ART: &'static str = r#"
 　　🟦　🟦　　　🟦🟦　　　　🟦　　　　　　🟦　　　　　　　　　　　　　　　　　🟦🟦　　　　　"#;
 
 pub fn open_error_window(message: String) {
-    // tokio::spawn(async move {
     println!("{message}");
     let _ = invoke_from_event_loop(move || match ErrorMessageWindow::new() {
         Ok(error_win) => {
