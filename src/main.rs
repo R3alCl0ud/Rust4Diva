@@ -3,16 +3,16 @@
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
-use std::sync::{Arc, LazyLock};
+use std::sync::{LazyLock, Mutex};
 
 use modmanagement::{get_mods_in_order, is_dml_installed};
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint_interpreter::ComponentHandle;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::broadcast;
 
 use crate::config::{load_diva_config, DivaConfig};
 use crate::diva::{create_tmp_if_not, get_diva_folder, open_error_window, MIKU_ART};
-use crate::gamebanana_async::parse_dmm_url;
+use crate::gamebanana::parse_dmm_url;
 use crate::modmanagement::{
     load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
 };
@@ -24,7 +24,7 @@ use slint::Weak;
 mod config;
 mod diva;
 mod firstlaunch;
-mod gamebanana_async;
+mod gamebanana;
 mod modmanagement;
 mod modpacks;
 mod oneclick;
@@ -39,35 +39,33 @@ pub struct DivaData {
     config: DivaConfig,
 }
 
-pub static MODS: LazyLock<std::sync::Mutex<HashMap<String, DivaMod>>> =
-    LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
-pub static DIVA_DIR: LazyLock<std::sync::Mutex<String>> = LazyLock::new(|| {
+pub static MODS: LazyLock<Mutex<HashMap<String, DivaMod>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+pub static DIVA_DIR: LazyLock<Mutex<String>> = LazyLock::new(|| {
     let mut str = String::new();
     if let Some(dir_str) = get_diva_folder() {
         str = dir_str;
     }
-    return std::sync::Mutex::new(str);
+    Mutex::new(str)
 });
-pub static MODS_DIR: LazyLock<std::sync::Mutex<String>> =
-    LazyLock::new(|| std::sync::Mutex::new("mods".to_string()));
+pub static MODS_DIR: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new("mods".to_string()));
 
 /// Global config object
-pub static DIVA_CFG: LazyLock<std::sync::Mutex<DivaConfig>> =
-    LazyLock::new(|| std::sync::Mutex::new(DivaConfig::new()));
+pub static DIVA_CFG: LazyLock<Mutex<DivaConfig>> = LazyLock::new(|| Mutex::new(DivaConfig::new()));
 
 /// Global HashMap of ModPacks key'd by modpack name
-pub static MOD_PACKS: LazyLock<std::sync::Mutex<HashMap<String, ModPack>>> =
-    LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
+pub static MOD_PACKS: LazyLock<Mutex<HashMap<String, ModPack>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
-pub static DML_CFG: LazyLock<std::sync::Mutex<DivaModLoader>> = LazyLock::new(|| {
+pub static DML_CFG: LazyLock<Mutex<DivaModLoader>> = LazyLock::new(|| {
     let mut cfg = None;
     if let Ok(dir) = DIVA_DIR.lock() {
         cfg = load_diva_ml_config(dir.as_str());
     }
-    std::sync::Mutex::new(cfg.unwrap_or(DivaModLoader::new()))
+    Mutex::new(cfg.unwrap_or(DivaModLoader::new()))
 });
 
-pub static MAIN_UI_WEAK: std::sync::Mutex<Option<Weak<App>>> = std::sync::Mutex::new(None);
+pub static MAIN_UI_WEAK: Mutex<Option<Weak<App>>> = Mutex::new(None);
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
@@ -153,7 +151,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     app.set_r4d_version(env!("CARGO_PKG_VERSION").into());
 
     modmanagement::init(&app, dl_rx, dark_rx.resubscribe()).await;
-    gamebanana_async::init(&app, dl_tx, url_rx, dark_rx.resubscribe()).await;
+    gamebanana::init(&app, dl_tx, url_rx, dark_rx.resubscribe()).await;
     modpacks::init(&app).await;
     config::init_ui(&app, dark_tx).await;
 

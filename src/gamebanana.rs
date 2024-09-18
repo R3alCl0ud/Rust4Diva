@@ -1,20 +1,26 @@
 use std::error::Error;
-use std::io::BufRead;
+use std::fs::File;
+use std::io::{BufRead, Write};
+use std::path::PathBuf;
 
 use chrono::DateTime;
 use curl::easy::Easy;
+use futures_util::StreamExt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use slint::private_unstable_api::re_exports::ColorScheme;
+use tokio::fs;
 use tokio::sync::broadcast;
+use tokio::time::sleep;
 // use slint::Pal
-use crate::diva::open_error_window;
+use crate::diva::{get_temp_folder, open_error_window};
+use crate::modmanagement::{get_mods_in_order, load_mods, set_mods_table, unpack_mod_path};
 use crate::{
     App, Download, GameBananaLogic, GbDetailsWindow, GbPreviewData, SlGbSubmitter, DIVA_CFG,
 };
 use slint::{ComponentHandle, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel, Weak};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 const GB_API_DOMAIN: &str = "https://api.gamebanana.com";
 const GB_DOMAIN: &str = "https://gamebanana.com";
@@ -63,7 +69,7 @@ impl From<GbModDownload> for Download {
             failed: false,
             id: value.id as i32,
             name: value.file.into(),
-            progress: 0.0,
+            progress: 0,
             size: value.filesize as i32,
             url: value.download_url.into(),
             inprogress: false,
@@ -369,7 +375,6 @@ pub async fn init(
 
     let weak = ui.as_weak();
     ui.global::<GameBananaLogic>().on_list_files(move |item| {
-        let weak = weak.clone();
         let deets = GbDetailsWindow::new().unwrap();
         if let Ok(cfg) = DIVA_CFG.try_lock() {
             deets.invoke_set_color_scheme(if cfg.dark_mode {
@@ -415,11 +420,111 @@ pub async fn init(
                         deets.set_description(module.text.replace("<br>", "\n").into());
                     });
                 }
-                Err(e) => todo!(),
+                Err(e) => open_error_window(e.to_string()),
             }
         });
 
+        let weak = weak.clone();
         let deets_weak = deets.as_weak();
+        deets
+            .global::<GameBananaLogic>()
+            .on_download(move |download| {
+                let weak = weak.clone();
+                println!("{}", download.url.to_string());
+                let deets = deets_weak.unwrap();
+                let model = deets.get_files();
+                let files = match model.as_any().downcast_ref::<VecModel<Download>>() {
+                    Some(vec) => vec,
+                    None => return,
+                };
+                if let Some(idx) = files.iter().position(|i| i.id == download.id) {
+                    let deets_weak = deets_weak.clone();
+                    let (tx, mut rx) = channel::<usize>(30000);
+                    let row = idx.clone();
+                    tokio::spawn(async move {
+                        let wait_time = tokio::time::Duration::from_millis(50);
+                        while !rx.is_closed() || !rx.is_empty() {
+                            if let Ok(len) = rx.try_recv() {
+                                let row = row.clone();
+                                let _ = deets_weak.upgrade_in_event_loop(move |deets| {
+                                    if let Some(mut dl) = deets.get_files().row_data(row) {
+                                        dl.progress += len as i32;
+                                        deets.get_files().set_row_data(row, dl);
+                                    }
+                                });
+                            } else {
+                                sleep(wait_time).await;
+                            }
+                        }
+                    });
+
+                    tokio::spawn(async move {
+                        let req = reqwest::get(download.url.to_string());
+                        let res = match req.await {
+                            Ok(res) => match res.error_for_status() {
+                                Ok(res) => res,
+                                Err(e) => {
+                                    open_error_window(e.to_string());
+                                    return;
+                                }
+                            },
+                            Err(e) => {
+                                open_error_window(e.to_string());
+                                return;
+                            }
+                        };
+                        println!("{}", res.status());
+                        let mut stream = res.bytes_stream();
+                        let mut bytes = vec![];
+                        let tx = tx;
+                        while let Some(chunk) = stream.next().await {
+                            match chunk {
+                                Ok(chunk) => {
+                                    let _ = tx.try_send(chunk.len());
+                                    bytes.push(chunk);
+                                }
+                                Err(e) => {
+                                    open_error_window(e.to_string());
+                                    return;
+                                }
+                            }
+                        }
+                        println!("Done, len: {}", bytes.len());
+                        if let Some(dir) = get_temp_folder() {
+                            let mut buf = PathBuf::from(dir);
+                            buf.push(download.name.to_string());
+                            match File::create(buf.clone()) {
+                                Ok(mut file) => {
+                                    for chunk in bytes {
+                                        if let Err(e) = file.write_all(&chunk) {
+                                            open_error_window(e.to_string());
+                                            return;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    open_error_window(e.to_string());
+                                    return;
+                                }
+                            }
+                            match unpack_mod_path(buf).await {
+                                Ok(_) => {
+                                    if load_mods().is_ok() {
+                                        match set_mods_table(&get_mods_in_order(), weak.clone()) {
+                                            Ok(_) => {}
+                                            Err(e) => eprintln!("{e}"),
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    open_error_window(e.to_string());
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+
         let deets_weak = deets.as_weak();
         let mut scheme_rx = dark_rx.resubscribe();
         let scheme_changer = tokio::spawn(async move {

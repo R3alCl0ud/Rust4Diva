@@ -388,6 +388,7 @@ pub async fn init(
             }
         });
 
+    let scheme_rx = dark_rx.resubscribe();
     ui.global::<WindowLogic>()
         .on_open_mod_editor(move |module, _idx| {
             let ui_edit_handle = ui_edit_handle.clone();
@@ -424,6 +425,21 @@ pub async fn init(
                     }
                     Err(e) => open_error_window(e.to_string()),
                 }
+            });
+            let weak = editdialog.as_weak();
+
+            let mut scheme_rx = scheme_rx.resubscribe();
+            let scheme_task = tokio::spawn(async move {
+                while let Ok(scheme) = scheme_rx.recv().await {
+                    let _ = weak.upgrade_in_event_loop(move |ui| {
+                        ui.invoke_set_color_scheme(scheme);
+                    });
+                }
+            });
+
+            editdialog.window().on_close_requested(move || {
+                scheme_task.abort();
+                slint::CloseRequestResponse::HideWindow
             });
 
             editdialog.show().unwrap();
@@ -771,7 +787,7 @@ pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Wea
                     if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>()
                     {
                         if let Some(mut download) = downloads.row_data(index as usize) {
-                            download.progress += chunk_size;
+                            download.progress += chunk_size as i32;
                             downloads.set_row_data(index as usize, download);
                         }
                     }
