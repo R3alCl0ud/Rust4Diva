@@ -17,7 +17,7 @@ use slint::private_unstable_api::re_exports::ColorScheme;
 use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::config::{write_config, write_config_sync};
+use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{get_diva_folder, get_temp_folder, open_error_window};
 use crate::modpacks::{apply_mod_priority, ModPackMod};
 use crate::slint_generatedApp::App;
@@ -856,6 +856,17 @@ pub fn load_mods() -> std::io::Result<()> {
             prio.push(m.dir_name().unwrap_or(m.config.name.clone()));
         }
         gconf.priority = prio.clone();
+    }
+    // clone and drop the mutex instance from here so it can be unlocked
+    let gconf = gconf.clone();
+    if gconf.applied_pack.is_empty() {
+        if let Ok(mut dml) = DML_CFG.try_lock() {
+            dml.priority = gconf.priority.clone();
+            match write_dml_config(dml.clone()) {
+                Ok(_) => {}
+                Err(e) => eprintln!("{e}"),
+            }
+        }
     }
     Ok(())
 }

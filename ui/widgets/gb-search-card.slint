@@ -3,63 +3,18 @@ import { GameBananaLogic } from "../applogic.slint";
 import { GbPreviewData } from "../diva-types.slint";
 
 
-export component GbPreviewLine {
-    in property <GbPreviewData> data;
-    in property <int> idx;
-    Rectangle {
-        background: mod(idx, 2) == 0 ? Palette.background : Palette.alternate-background;
-        GridLayout {
-            Row {
-                Image {
-                    source: data.image;
-                    height: 62px;
-                    width: 110px;
-                }
-
-                Text {
-                    text: data.name;
-                    font-size: 20px;
-                    wrap: TextWrap.word-wrap;
-                    horizontal-alignment: center;
-                    overflow: TextOverflow.elide;
-                }
-
-                Text {
-                    horizontal-alignment: center;
-                    font-size: 14px;
-                    overflow: TextOverflow.elide;
-                    wrap: TextWrap.word-wrap;
-                    text: "Author: " + data.author.name;
-                }
-
-                Text {
-                    wrap: TextWrap.word-wrap;
-                    overflow: TextOverflow.elide;
-                    horizontal-alignment: center;
-                    font-size: 14px;
-                    text: "Type: " + data.item-type;
-                }
-
-                Button {
-                    text: "Check Files";
-                    primary: true;
-                    clicked => {
-                        GameBananaLogic.list-files(data);
-                    }
-                }
-            }
-        }
-    }
-}
-
 export component GbPreviewCard {
     in property <GbPreviewData> data: {
         image: @image-url("../assets/test-preview.jpg"),
         name:"Onneb's Song Pack",
         author: { name: "Onneb" },
-        item-type:"Mod"
+        item-type:"Mod",
+        image-loaded: true,
+        submitted: "09-19-2024",
+        updated: "Never"
     };
-    height: 270px;
+
+    // height: 285px;
     width: 236px;
     Rectangle {
         border-width: 1px;
@@ -100,6 +55,13 @@ export component GbPreviewCard {
                 overflow: TextOverflow.elide;
                 font-size: 14px;
                 text: "Type: " + data.item-type;
+            }
+
+            Text {
+                horizontal-alignment: center;
+                overflow: TextOverflow.elide;
+                font-size: 14px;
+                text: data.updated != "Never" ? "Updated: " + data.updated : "Submitted: " + data.submitted;
             }
 
             Button {

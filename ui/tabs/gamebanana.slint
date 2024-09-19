@@ -1,4 +1,4 @@
-import { GbPreviewCard, GbPreviewLine} from "../widgets/gb-search-card.slint";
+import { GbPreviewCard } from "../widgets/gb-search-card.slint";
 import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch, Button, ComboBox } from "std-widgets.slint";
 import { GameBananaLogic } from "../applogic.slint";
 import { GbPreviewData, GbSearchSort } from "../diva-types.slint";
@@ -8,6 +8,7 @@ import { GbSearchTable } from "../widgets/search-table.slint";
 export component GameBanana {
 
     out property <string> s-term;
+    out property <int> s-sort;
     in property <bool> loading: false;
     in property <int> n-results: 0;
     in-out property <int> page: 0;
@@ -33,6 +34,8 @@ export component GameBanana {
             author:  { name: "Onneb" },
             item-type:"Mod",
             image-loaded: true,
+            submitted: "09-19-2024",
+            updated: "Never"
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
@@ -40,24 +43,32 @@ export component GameBanana {
             author: { name: "Onneb" },
             item-type:"Mod",
             image-loaded: true,
+            submitted: "09-19-2024",
+            updated: "Never"
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack5",
             author:  { name: "Onneb" },
-            item-type:"Mod"
+            item-type:"Mod",
+            submitted: "09-19-2024",
+            updated: "Never"
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack6",
             author:  { name: "Onneb" },
-            item-type:"Mod"
+            item-type:"Mod",
+            submitted: "09-19-2024",
+            updated: "Never"
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack7",
             author: { name: "Onneb" },
-            item-type:"Mod"
+            item-type:"Mod",
+            submitted: "09-19-2024",
+            updated: "Never"
         },
     ];
     init => {
@@ -81,7 +92,8 @@ export component GameBanana {
                 accepted(search) => {
                     page = 1;
                     s-term = search;
-                    GameBananaLogic.search(s-term, page);
+                    s-sort = sort-select.current-index;
+                    GameBananaLogic.search(s-term, page, s-sort);
                 }
             }
 
@@ -93,8 +105,8 @@ export component GameBanana {
                     font-size: 16px;
                 }
 
-                ComboBox {
-                    model: ["default", "new", "updated"];
+                sort-select := ComboBox {
+                    model: ["Relevance", "Popularity", "New", "Updated"];
                     current-index: 0;
                 }
             }
@@ -146,7 +158,7 @@ export component GameBanana {
                 clicked => {
                     if !loading {
                         page += 1;
-                        GameBananaLogic.search(s-term, page);
+                        GameBananaLogic.search(s-term, page, s-sort);
                     }
                 }
             }

@@ -1,4 +1,3 @@
-
 import { Button, ProgressIndicator, ListView, Palette, Spinner } from "std-widgets.slint";
 import { TableViewCellNoTouch, TableViewCell, TableViewRow, TableViewColumn } from "common-table.slint";
 import { FileTableRow } from "filetable.slint";
@@ -9,11 +8,12 @@ import { GameBananaLogic } from "../applogic.slint";
 export component GbSearchTable {
     in-out property <[GbPreviewData]> results;
     in-out property <[TableColumn]> columns: [
-        { title:"Preview", width: 110px },
-        { title:"Name" },
-        { title:"Author" },
-        { title:"Type" },
-        { title:"More Info" }
+        { title: "Preview", width: 118px },
+        { title: "Name" },
+        { title: "Author" },
+        { title: "Type", width: 110px },
+        { title: "Date" },
+        { title: "More Info" }
     ];
     in-out property <int> current-row: -1;
     out property <int> current-sort-column: -1;
@@ -138,8 +138,8 @@ export component GbSearchTable {
                         width: 110px;
                     }
                     if !result.image-loaded: Spinner {
-                        // height: 62px;
-                        // width: 110px;
+                        height: 62px;
+                        width: 110px;
                         indeterminate: true;
                     }
                 }
@@ -204,11 +204,28 @@ export component GbSearchTable {
                     }
                 }
 
-                TableViewCellNoTouch {
+                TableViewCell {
                     horizontal-stretch: columns[4].horizontal-stretch;
                     min-width: max(columns[4].min-width, columns[4].width);
                     preferred-width: self.min-width;
                     max-width: (2 < columns.length && columns[4].width >= 1px) ? max(columns[4].min-width, columns[4].width) : 100000px;
+                    date-text := Text {
+                        width: 100%;
+                        height: 100%;
+                        overflow: elide;
+                        vertical-alignment: center;
+                        text: result.updated != "Never" ? "Updated: " + result.updated : "Submitted: " + result.submitted;
+                        font-weight: CosmicFontSettings.body.font-weight;
+                        font-size: CosmicFontSettings.body.font-size;
+                        color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
+                    }
+                }
+
+                TableViewCellNoTouch {
+                    horizontal-stretch: columns[5].horizontal-stretch;
+                    min-width: max(columns[5].min-width, columns[5].width);
+                    preferred-width: self.min-width;
+                    max-width: (2 < columns.length && columns[5].width >= 1px) ? max(columns[5].min-width, columns[5].width) : 100000px;
                     Button {
                         text: "Check Files";
                         primary: true;

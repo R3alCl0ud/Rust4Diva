@@ -10,12 +10,12 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use slint::private_unstable_api::re_exports::ColorScheme;
-use tokio::fs;
 use tokio::sync::broadcast;
 use tokio::time::sleep;
 // use slint::Pal
 use crate::diva::{get_temp_folder, open_error_window};
 use crate::modmanagement::{get_mods_in_order, load_mods, set_mods_table, unpack_mod_path};
+use crate::util::reqwest_client;
 use crate::{
     App, Download, GameBananaLogic, GbDetailsWindow, GbPreviewData, SlGbSubmitter, DIVA_CFG,
 };
@@ -28,8 +28,8 @@ const GB_DIVA_ID: i32 = 16522;
 
 const GB_MOD_INFO: &str = "/Core/Item/Data";
 const GB_MOD_DATA: &'static str = "apiv11/Mod";
-const GB_MOD_SEARCH: &str = "apiv11/Game/16522/Subfeed";
-// const GB_MOD_SEARCH: &str = "apiv11/Util/Search/Results";
+// const GB_MOD_SEARCH: &str = "apiv11/Game/16522/Subfeed";
+const GB_MOD_SEARCH: &str = "apiv11/Util/Search/Results";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GbModDownload {
@@ -247,6 +247,41 @@ pub struct GbMetadata {
     is_complete: bool,
 }
 
+pub enum GbSearchSort {
+    Relevance(String),
+    Popularity(String),
+    Newest(String),
+    Updated(String),
+}
+
+impl Default for GbSearchSort {
+    fn default() -> Self {
+        Self::Relevance("best_match".to_owned())
+    }
+}
+
+impl Into<String> for GbSearchSort {
+    fn into(self) -> String {
+        match self {
+            GbSearchSort::Relevance(s) => s,
+            GbSearchSort::Popularity(s) => s,
+            GbSearchSort::Newest(s) => s,
+            GbSearchSort::Updated(s) => s,
+        }
+    }
+}
+
+impl From<i32> for GbSearchSort {
+    fn from(value: i32) -> Self {
+        match value {
+            1 => Self::Popularity("popularity".to_owned()),
+            2 => Self::Newest("date".to_owned()),
+            3 => Self::Updated("udate".to_owned()),
+            _ => Self::default(),
+        }
+    }
+}
+
 pub fn fetch_mod_data(mod_id: &str) -> Option<GBMod> {
     // let stream = InMemoryStream::default();
     if mod_id.is_empty() {
@@ -328,12 +363,12 @@ pub async fn init(
     let ui_search_handle = ui.as_weak();
 
     ui.global::<GameBananaLogic>()
-        .on_search(move |search, page| {
+        .on_search(move |search, page, sort| {
             let ui_search_handle = ui_search_handle.clone();
             let ui_result_handle = ui_search_handle.clone();
             ui_search_handle.unwrap().set_s_prog_vis(true);
             tokio::spawn(async move {
-                match search_gb(search.to_string(), page.clone()).await {
+                match search_gb(search.to_string(), page.clone(), sort.clone()).await {
                     Ok(res) => {
                         let _ = ui_result_handle.upgrade_in_event_loop(move |ui| {
                             let mut items = vec![];
@@ -459,7 +494,7 @@ pub async fn init(
                     });
 
                     tokio::spawn(async move {
-                        let req = reqwest::get(download.url.to_string());
+                        let req = reqwest_client().get(download.url.to_string()).send();
                         let res = match req.await {
                             Ok(res) => match res.error_for_status() {
                                 Ok(res) => res,
@@ -685,14 +720,28 @@ pub async fn get_image(
 pub async fn search_gb(
     search: String,
     page: i32,
+    sort: i32,
 ) -> Result<GbSearchResults, Box<dyn Error + Send + Sync>> {
     let client = reqwest::Client::new();
-    let req = client
-        .get(format!("{GB_DOMAIN}/{GB_MOD_SEARCH}"))
-        .query(&[("_sName", search), ("_nPage", page.to_string())]);
+    let sort = GbSearchSort::from(sort);
+    // let (sort) = sort;
+    let req = client.get(format!("{GB_DOMAIN}/{GB_MOD_SEARCH}")).query(&[
+        ("_sSearchString", search),
+        ("_nPage", page.to_string()),
+        ("_nPerpage", "30".to_owned()),
+        ("_sOrder", sort.into()),
+        ("_idGameRow", GB_DIVA_ID.to_string()),
+    ]);
     // req.
     let res = req.send().await?.text().await?;
-    Ok(sonic_rs::from_str::<GbSearchResults>(&res)?)
+    match sonic_rs::from_str::<GbSearchResults>(&res) {
+        Ok(results) => Ok(results),
+        Err(e) => {
+            eprintln!("{}", res); // log the res that failed to parse
+            Err(e.into())
+        }
+    }
+    // Ok(sonic_rs::from_str::<GbSearchResults>(&res)?)
 }
 
 pub async fn fetch_mod_info(mod_id: i32) -> Result<GbMod, Box<dyn Error + Send + Sync>> {

@@ -28,6 +28,7 @@ mod gamebanana;
 mod modmanagement;
 mod modpacks;
 mod oneclick;
+mod util;
 
 slint::include_modules!();
 
