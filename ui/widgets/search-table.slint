@@ -4,7 +4,7 @@ import { TableViewCellNoTouch, TableViewCell, TableViewRow, TableViewColumn } fr
 import { FileTableRow } from "filetable.slint";
 import { GbPreviewData } from "../diva-types.slint";
 import { FontSettings as CosmicFontSettings } from "../styling.slint";
-
+import { GameBananaLogic } from "../applogic.slint";
 
 export component GbSearchTable {
     in-out property <[GbPreviewData]> results;
@@ -133,7 +133,7 @@ export component GbSearchTable {
 
                     if result.image-loaded: Image {
                         source: result.image;
-                        image-fit: ImageFit.preserve;
+                        image-fit: ImageFit.cover;
                         height: 62px;
                         width: 110px;
                     }
@@ -211,6 +211,10 @@ export component GbSearchTable {
                     max-width: (2 < columns.length && columns[4].width >= 1px) ? max(columns[4].min-width, columns[4].width) : 100000px;
                     Button {
                         text: "Check Files";
+                        primary: true;
+                        clicked => {
+                            GameBananaLogic.list-files(result);
+                        }
                     }
                 }
             }
