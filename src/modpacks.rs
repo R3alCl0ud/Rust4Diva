@@ -13,8 +13,8 @@ use crate::diva::{get_config_dir, get_diva_folder, open_error_window};
 use crate::modmanagement::DivaMod;
 use crate::slint_generatedApp::App;
 use crate::{
-    ConfirmDeletePack, DivaData, DivaModElement, ModPackElement, ModpackLogic, WindowLogic,
-    DIVA_CFG, DML_CFG, MOD_PACKS,
+    ConfirmDeletePack, DivaModElement, ModPackElement, ModpackLogic, WindowLogic, DIVA_CFG,
+    DML_CFG, MOD_PACKS,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -75,26 +75,26 @@ impl ModPackMod {
 }
 
 impl ModPack {
-    pub async fn to_element(self: &Self, diva: &Arc<Mutex<DivaData>>) -> ModPackElement {
-        let diva = diva.lock().await;
+    // pub async fn to_element(self: &Self, diva: &Arc<Mutex<DivaData>>) -> ModPackElement {
+    //     let diva = diva.lock().await;
 
-        let vec_mod: VecModel<DivaModElement> = VecModel::from(vec![]);
-        for module in self.mods.clone() {
-            if let Some(module) = diva
-                .mods
-                .iter()
-                .find(|&diva_mod| diva_mod.config.name == module.name)
-            {
-                vec_mod.push(module.to_element());
-            }
-        }
+    //     let vec_mod: VecModel<DivaModElement> = VecModel::from(vec![]);
+    //     for module in self.mods.clone() {
+    //         if let Some(module) = diva
+    //             .mods
+    //             .iter()
+    //             .find(|&diva_mod| diva_mod.config.name == module.name)
+    //         {
+    //             vec_mod.push(module.to_element());
+    //         }
+    //     }
 
-        return ModPackElement {
-            name: self.name.clone().into(),
-            mods: ModelRc::new(vec_mod),
-            path: SharedString::from(""),
-        };
-    }
+    //     return ModPackElement {
+    //         name: self.name.clone().into(),
+    //         mods: ModelRc::new(vec_mod),
+    //         path: SharedString::from(""),
+    //     };
+    // }
 
     pub fn new(name: String) -> Self {
         Self {

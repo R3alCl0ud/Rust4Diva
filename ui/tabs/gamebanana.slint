@@ -2,6 +2,7 @@ import { GbPreviewCard, GbPreviewLine} from "../widgets/gb-search-card.slint";
 import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch, Button, ComboBox } from "std-widgets.slint";
 import { GameBananaLogic } from "../applogic.slint";
 import { GbPreviewData, GbSearchSort } from "../diva-types.slint";
+import { GbSearchTable } from "../widgets/search-table.slint";
 
 
 export component GameBanana {
@@ -16,25 +17,29 @@ export component GameBanana {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack",
             author:  { name: "Onneb" },
-            item-type:"Mod"
+            item-type:"Mod",
+            image-loaded: true,
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack2",
             author:  { name: "Onneb" },
-            item-type:"Mod"
+            item-type:"Mod",
+            image-loaded: true,
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack3",
             author:  { name: "Onneb" },
-            item-type:"Mod"
+            item-type:"Mod",
+            image-loaded: true,
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack4",
             author: { name: "Onneb" },
-            item-type:"Mod"
+            item-type:"Mod",
+            image-loaded: true,
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
@@ -122,11 +127,10 @@ export component GameBanana {
                         }
                     }
                 }
-                if !grid-list.checked: ListView {
-                    for result[idx] in results: GbPreviewLine {
-                        data: result;
-                        idx: idx;
-                    }
+                if !grid-list.checked: GbSearchTable {
+                    results: results;
+                    width: 100%;
+                    height: 100%;
                 }
             }
         }

@@ -1,7 +1,7 @@
 import { ListView, VerticalBox, ProgressIndicator,  Button, Palette } from "std-widgets.slint";
 import { StateLayerBase } from "../components/state-layer-base.slint";
 import { CosmicFontSettings} from "../styling/cosmic-styling.slint";
-import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
+import { TableViewColumn, TableViewCell, SelectableTableViewRow} from "./common-table.slint";
 import { TableViewCellNoTouch } from "common-table.slint";
 import { Download} from "../diva-types.slint";
 import { GameBananaLogic } from "../applogic.slint";
@@ -15,10 +15,10 @@ export component FileTableRow inherits Rectangle {
     callback pointer-event(/* event */ PointerEvent, /* absolute mouse position */ Point);
     min-width: layout.min-width;
     min-height: max(24px, layout.min-height);
-    background: root.even ? Palette.control-background : transparent;
+    background: root.even ? Palette.control-background : Palette.background;
     StateLayerBase {
         checked: root.selected;
-        focus-boder-margin: 0;
+        focus-border-margin: 0;
         border-radius: root.border-radius;
         // pressed: touch-area.pressed;
         // has-hover: touch-area.has-hover;
@@ -202,7 +202,7 @@ export component FileTable {
                     max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
                     // width: root.column_sizes[2];
                     if file.failed == false: ProgressIndicator {
-                        indeterminate: false;
+                        indeterminate: file.progress == 0;
                         progress: file.progress / file.size;
                     }
                     if file.failed == true: Text {
@@ -416,7 +416,7 @@ export component GbFileTable {
                     max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
                     // width: root.column_sizes[2];
                     if file.inprogress && !file.failed: ProgressIndicator {
-                        indeterminate: false;
+                        indeterminate: file.progress == 0;
                         height: 32px;
                         progress: file.progress / file.size;
                     }

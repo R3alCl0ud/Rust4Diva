@@ -605,10 +605,10 @@ pub fn check_archive_valid_structure(archive: File, name: String) -> bool {
                 if !file.contains("/") {
                     // this logic might work now
                     // rar archive work around since folders are not represented with a trailing /
-                    if rar {
+                    if rar && count < 1 {
                         count += 1;
-                        println!("aw dang it");
                     } else {
+                        println!("aw dang it");
                         return false;
                     }
                 }

@@ -1,7 +1,7 @@
 import { ListView, VerticalBox, ProgressIndicator,CheckBox, Button, Switch, Palette, ScrollView  } from "std-widgets.slint";
 import { StateLayerBase } from "../components/state-layer-base.slint";
 import { FontSettings} from "../styling.slint";
-import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
+import { TableViewColumn, TableViewCell, SelectableTableViewRow} from "./common-table.slint";
 import { DivaModElement } from "../diva-types.slint";
 import { ModLogic, WindowLogic } from "../applogic.slint";
 
@@ -255,7 +255,7 @@ export component ModTableRow inherits Rectangle {
 
     StateLayerBase {
         checked: root.selected;
-        focus-boder-margin: 0;
+        focus-border-margin: 0;
         border-radius: root.border-radius;
     }
 }

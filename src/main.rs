@@ -31,13 +31,6 @@ mod oneclick;
 
 slint::include_modules!();
 
-#[derive(Clone)]
-pub struct DivaData {
-    mods: Vec<DivaMod>,
-    diva_directory: String,
-    dml: Option<DivaModLoader>,
-    config: DivaConfig,
-}
 
 pub static MODS: LazyLock<Mutex<HashMap<String, DivaMod>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -172,15 +165,4 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     slint::run_event_loop()?;
     println!("OMG Migu says \"goodbye\"");
     Ok(())
-}
-
-impl DivaData {
-    fn new() -> Self {
-        Self {
-            mods: Vec::new(),
-            diva_directory: "".to_string(),
-            dml: None,
-            config: DivaConfig::new(),
-        }
-    }
 }

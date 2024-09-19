@@ -672,7 +672,7 @@ pub async fn get_image(
     let bytes = res.bytes().await?;
     let image = image::load_from_memory(&bytes)?;
     let image = image
-        .resize(440 as u32, 248 as u32, image::imageops::FilterType::Nearest)
+        .resize(880 as u32, 496 as u32, image::imageops::FilterType::Nearest)
         .into_rgba8();
     let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
         image.as_raw(),
