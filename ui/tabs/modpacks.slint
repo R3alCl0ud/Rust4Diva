@@ -3,6 +3,7 @@ import { DivaModElement, ModPackElement } from "../diva-types.slint";
 import { ModPickTable } from "../widgets/modpack-tables.slint";
 import { TextEntryDialog } from "../widgets/text-entry-dialog.slint";
 import { ModpackLogic, ModLogic, WindowLogic } from "../applogic.slint";
+import { ModTable } from "../widgets/mod-table.slint";
 export component ModPacksTab {
     in-out property <[string]> modpacks: [];
     in-out property <[DivaModElement]> mods;
@@ -11,6 +12,7 @@ export component ModPacksTab {
     out property <string> current-pack: packs.current-value;
     callback show-text-entry();
     property <length> btn-height: 36px;
+    callback open-module-ctx(DivaModElement, int, Point);
 
     layout := GridBox {
         selection-controls := Row {
@@ -55,8 +57,8 @@ export component ModPacksTab {
             }
 
             Text {
-                col: 4;
-                colspan: 3;
+                col: 3;
+                colspan: 4;
                 height: 20px;
                 text: "In Modpack";
             }
@@ -65,17 +67,18 @@ export component ModPacksTab {
         main-contents := Row {
 
             mod-picker := ModPickTable {
-                col: 0;
-                colspan: 3;
-                horizontal-stretch: 0.5;
+                // col: 0;
+                colspan: 2;
+                min-width: 200px;
+                horizontal-stretch: 3;
                 preferred-height: 500px;
                 columns: [{ title :"Name" }];
                 mods: mods;
             }
 
             move-btns := VerticalBox {
-                col: 3;
-                rowspan: 1;
+                col: 2;
+                // rowspan: 1;
                 width: 10%;
                 Button {
                     height: 48%;
@@ -109,18 +112,38 @@ export component ModPacksTab {
                 }
             }
 
-            in-pack := ModPickTable {
-                preferred-height: 500px;
-                col: 4;
-                colspan: 3;
-                columns: [{ title :"Name" }];
+            in-pack := ModTable {
+                col: 3;
+                colspan: 4;
+                columns: [
+                    { title: "Enabled", width: 100px },
+                    { title: "Priority", width: 100px },
+                    { title: "Name" },
+                    { title: "Authors" },
+                    { title: "Version", width: 100px },
+                    { title: "Description" }
+                ];
                 mods: pack-mods;
+                mod-toggled(index, module) => {
+                    ModLogic.toggle-mod(module);
+                }
+                open-ctx-menu(module, idx, pos) => {
+                    open-module-ctx(module, idx, pos);
+                }
             }
+
+            // in-pack := ModPickTable {
+            //     preferred-height: 500px;
+            //     col: 4;
+            //     colspan: 3;
+            //     columns: [{ title :"Name" }];
+            //     mods: pack-mods;
+            // }
         }
 
         packactns := Row {
             Button {
-                colspan: 3;
+                colspan: 2;
                 height: btn-height;
                 text: "Reload";
                 clicked => {
@@ -129,8 +152,8 @@ export component ModPacksTab {
             }
 
             Button {
-                col: 4;
-                colspan: 3;
+                col: 3;
+                colspan: 4;
                 height: btn-height;
                 text: "Save";
                 clicked => {
@@ -142,26 +165,26 @@ export component ModPacksTab {
             }
         }
 
-        applyactns := Row {
-            Button {
-                colspan: 3;
-                height: btn-height;
-                enabled: packs.current-index != -1 && !pack-modified;
-                text: "Activate Modpack";
-                clicked => {
-                    ModpackLogic.apply-modpack(pack-mods);
-                }
-            }
+        // applyactns := Row {
+        //     Button {
+        //         // colspan: ;
+        //         height: btn-height;
+        //         enabled: packs.current-index != -1 && !pack-modified;
+        //         text: "Activate Modpack";
+        //         clicked => {
+        //             ModpackLogic.apply-modpack(pack-mods);
+        //         }
+        //     }
 
-            Button {
-                col: 4;
-                colspan: 3;
-                height: btn-height;
-                text: "Deactivate Modpacks";
-                clicked => {
-                    ModpackLogic.apply-modpack([]);
-                }
-            }
-        }
+        //     Button {
+        //         col: 2;
+        //         colspan: 5;
+        //         height: btn-height;
+        //         text: "Deactivate Modpacks";
+        //         clicked => {
+        //             ModpackLogic.apply-modpack([]);
+        //         }
+        //     }
+        // }
     }
 }

@@ -101,11 +101,11 @@ pub struct GbMod {
     #[serde(rename(deserialize = "_sName"))]
     pub name: String,
     #[serde(rename(deserialize = "_aFiles"))]
-    pub files: Vec<GbModDownload>,
+    pub files: Option<Vec<GbModDownload>>,
     #[serde(rename(deserialize = "_sText"))]
-    pub text: String,
+    pub text: Option<String>,
     #[serde(rename(deserialize = "_aSubmitter"))]
-    pub submitter: GbSubmitter,
+    pub submitter: Option<GbSubmitter>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -448,11 +448,13 @@ pub async fn init(
                 Ok(module) => {
                     let _ = deets_weak.upgrade_in_event_loop(move |deets| {
                         let vecmod: VecModel<Download> = VecModel::default();
-                        for file in module.files {
+                        for file in module.files.unwrap_or(vec![]) {
                             vecmod.push(file.into());
                         }
                         deets.set_files(ModelRc::new(vecmod));
-                        deets.set_description(module.text.replace("<br>", "\n").into());
+                        deets.set_description(
+                            module.text.unwrap_or_default().replace("<br>", "\n").into(),
+                        );
                     });
                 }
                 Err(e) => open_error_window(e.to_string()),
@@ -634,14 +636,6 @@ pub fn handle_dmm_oneclick(
                                         Some(downloads) => {
                                             println!("Pushing");
                                             let cur_len = downloads.iter().len();
-                                            // let download = Download {
-                                            //     id: file.id as i32,
-                                            //     name: SharedString::from(&file.file),
-                                            //     progress: 0.0,
-                                            //     size: file.filesize as i32,
-                                            //     url: SharedString::from(&file.download_url),
-                                            //     failed: false,
-                                            // };
                                             let mut download: Download = file.into();
                                             download.inprogress = true;
                                             downloads.push(download.clone());
@@ -723,14 +717,13 @@ pub async fn search_gb(
     sort: i32,
 ) -> Result<GbSearchResults, Box<dyn Error + Send + Sync>> {
     let client = reqwest::Client::new();
-    let sort = GbSearchSort::from(sort);
-    // let (sort) = sort;
     let req = client.get(format!("{GB_DOMAIN}/{GB_MOD_SEARCH}")).query(&[
         ("_sSearchString", search),
         ("_nPage", page.to_string()),
         ("_nPerpage", "30".to_owned()),
-        ("_sOrder", sort.into()),
+        ("_sOrder", GbSearchSort::from(sort).into()),
         ("_idGameRow", GB_DIVA_ID.to_string()),
+        ("_sModelName", "Mod".to_owned()),
     ]);
     // req.
     let res = req.send().await?.text().await?;

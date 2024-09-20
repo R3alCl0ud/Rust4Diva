@@ -66,10 +66,15 @@ export component GbDetailsWindow inherits Dialog {
         }
 
         Row {
-            GbFileTable {
+            HorizontalLayout {
                 colspan: 2;
-                columns: [{ title: "Name" }, { title: "Size" }, { title:"Download" }];
-                files: files;
+                if files.length > 0: GbFileTable {
+                    columns: [{ title: "Name" }, { title: "Size" }, { title:"Download" }];
+                    files: files;
+                }
+                if files.length == 0: Text {
+                    text: "No files";
+                }
             }
         }
     }

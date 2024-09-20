@@ -1,4 +1,4 @@
-import { Switch, GridBox, Button,Palette } from "std-widgets.slint";
+import { Switch, GridBox, Button,Palette, ListView, HorizontalBox, CheckBox, StandardButton, VerticalBox } from "std-widgets.slint";
 import { FilePathEdit } from "../widgets/text-box.slint";
 
 export struct SettingsData {
@@ -15,6 +15,8 @@ export global SettingsLogic {
     callback open-diva-picker(/* Default/Current Path*/ string);
     callback open-steam-picker(/* Default/Current Path*/ string);
     callback open-aft-picker(/* Default/Current Path*/ string);
+    callback add-pdmm-location();
+    callback remove-pdmm-location(string);
 }
 
 export component SettingsWindow inherits Dialog {
@@ -24,11 +26,16 @@ export component SettingsWindow inherits Dialog {
     in-out property <string> steam-dir: "/path/to/steam";
     in-out property <string> diva-dir: "/path/to/pdx";
     in-out property <string> aft-dir: "/path/to/aft";
+    in-out property <[string]> pdmm-dirs:["/path/to/pdx", "/path/to/pdx2"];
+    in-out property <int> active-pdmm: 0;
     property <length> control-text-size: 16px;
     default-font-size: 16px;
 
     public function set-color-scheme(scheme: ColorScheme) {
         Palette.color-scheme = scheme;
+    }
+    pure function checked(num: int) -> bool {
+        return active-pdmm == num;
     }
 
     callback cancel();
@@ -46,7 +53,8 @@ export component SettingsWindow inherits Dialog {
                 checked: Palette.color-scheme == ColorScheme.dark;
             }
         }
-        Row {
+
+        easter-row := Row {
             Text {
                 text: "AFT Mode: ";
                 font-size: control-text-size;
@@ -59,7 +67,7 @@ export component SettingsWindow inherits Dialog {
             }
         }
 
-        Row {
+        steam-row := Row {
             Text {
                 text: "Steam Location: ";
                 vertical-alignment: center;
@@ -78,47 +86,74 @@ export component SettingsWindow inherits Dialog {
             }
         }
 
-        Row {
+        pdmm-row := Row {
             Text {
-                text: "PDMM+ Location: ";
-                vertical-alignment: center;
+                text: "PDMM+ Location(s): ";
+                vertical-alignment: top;
                 font-size: control-text-size;
             }
 
-            diva-loc := FilePathEdit {
+            VerticalBox {
+                padding-left: 0px;
+                padding-right: 0px;
                 colspan: 3;
-                default-path: diva-dir;
-                open-picker => {
-                    SettingsLogic.open-diva-picker(diva-dir);
+                Rectangle {
+                    background: Palette.control-background;
+                    border-radius: 5px;
+                    border-color: Palette.border;
+                    ListView {
+                        for loc[idx] in pdmm-dirs: HorizontalBox {
+                            Switch {
+                                checked: root.active-pdmm == idx;
+                                toggled => {
+                                    if self.checked {
+                                        root.active-pdmm = idx;
+                                    }
+                                    debug(idx);
+                                    debug(root.active-pdmm);
+                                }
+                            }
+
+                            FilePathEdit {
+                                default-path: loc;
+                                open-picker => {
+                                    SettingsLogic.open-diva-picker(pdmm-dirs[idx]);
+                                }
+                                edited(path) => {
+                                    pdmm-dirs[idx] = path;
+                                }
+                            }
+                        }
+                    }
                 }
-                edited(t) => {
-                    diva-dir = t;
+
+                Button {
+                    text: "Add";
                 }
             }
         }
 
-        Row {
-            Text {
-                text: "AFT Location: ";
-                vertical-alignment: center;
-                font-size: control-text-size;
-            }
+        // Row {
+        //     Text {
+        //         text: "AFT Location: ";
+        //         vertical-alignment: center;
+        //         font-size: control-text-size;
+        //     }
 
-            aft-loc := FilePathEdit {
-                colspan: 3;
-                default-path: aft-dir;
-                open-picker => {
-                    SettingsLogic.open-aft-picker(aft-dir);
-                }
-                edited(t) => {}
-            }
-        }
+        //     aft-loc := FilePathEdit {
+        //         colspan: 3;
+        //         default-path: aft-dir;
+        //         open-picker => {
+        //             SettingsLogic.open-aft-picker(aft-dir);
+        //         }
+        //         edited(t) => {
+        //         }
+        //     }
+        // }
 
-
-
-        Row {
-            Rectangle { }
-        }
+        // Row {
+        //     Rectangle { }
+        // }
 
         Row {
             Button {
@@ -130,7 +165,7 @@ export component SettingsWindow inherits Dialog {
                         aft-mode: aft-mode.checked,
                         steam-dir: steam-dir,
                         diva-dir: diva-dir,
-                        aft-dir: aft-loc.default-path,
+                        aft-dir: aft-dir,
                         dark-mode: dark-mode.checked
                     });
                 }
