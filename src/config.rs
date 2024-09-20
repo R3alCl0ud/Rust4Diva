@@ -11,10 +11,12 @@ use slint::{CloseRequestResponse, ComponentHandle, Model, ModelRc, SharedString,
 use tokio::fs;
 use tokio::sync::broadcast::Sender;
 
-use crate::diva::{get_config_dir_sync, get_diva_folder, get_steam_folder, open_error_window};
+use crate::diva::{
+    find_diva_folder, get_config_dir_sync, get_diva_folder, get_steam_folder, open_error_window,
+};
 use crate::modmanagement::{get_mods_in_order, load_mods, set_mods_table, DivaModLoader};
 use crate::slint_generatedApp::App;
-use crate::DML_CFG;
+use crate::{DIVA_DIR, DML_CFG};
 
 use crate::{
     diva::get_config_dir, DivaLogic, SettingsLogic, SettingsWindow, WindowLogic, DIVA_CFG,
@@ -118,12 +120,14 @@ pub async fn write_config(cfg: DivaConfig) -> std::io::Result<()> {
 
 pub fn write_dml_config(dml: DivaModLoader) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(diva_dir) = get_diva_folder() {
-        let mut target = PathBuf::from(diva_dir);
-        target.push("config.toml");
-        return match toml::to_string(&dml) {
-            Ok(cfg_str) => Ok(std::fs::write(target, cfg_str)?),
-            Err(e) => Err(std::io::Error::new(ErrorKind::Other, e.to_string()).into()),
-        };
+        if !diva_dir.is_empty() {
+            let mut target = PathBuf::from(diva_dir.clone());
+            target.push("config.toml");
+            return match toml::to_string(&dml) {
+                Ok(cfg_str) => Ok(std::fs::write(target, cfg_str)?),
+                Err(e) => Err(std::io::Error::new(ErrorKind::Other, e.to_string()).into()),
+            };
+        }
     }
     Err(Box::new(std::io::Error::new(
         ErrorKind::NotFound,
@@ -146,7 +150,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
         if let Ok(mut dml) = DML_CFG.try_lock() {
             dml.enabled = !dml.enabled;
             if let Ok(dml_str) = toml::to_string_pretty(&dml.clone()) {
-                if let Some(diva_dir) = get_diva_folder() {
+                if let Some(diva_dir) = find_diva_folder() {
                     let mut buf = PathBuf::from(diva_dir);
                     buf.push("config.toml");
                     match std::fs::write(buf, dml_str) {
@@ -167,7 +171,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                 let dark_tx = dark_tx.clone();
                 let current_scheme = scheme_handle.upgrade().unwrap().get_color_scheme();
                 let steam_dir = get_steam_folder().unwrap_or("Not Set".to_string());
-                let diva_dir = get_diva_folder().unwrap_or("Not Set".to_string());
+                let diva_dir = find_diva_folder().unwrap_or("Not Set".to_string());
                 let settings = SettingsWindow::new().unwrap();
                 // let settings = settings_weak.unwrap();
 

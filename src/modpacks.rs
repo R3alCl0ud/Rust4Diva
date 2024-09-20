@@ -3,17 +3,15 @@ use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use sonic_rs::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::vec;
 use tokio::fs;
-use tokio::sync::Mutex;
 
 use crate::config::{write_config, write_dml_config};
-use crate::diva::{get_config_dir, get_diva_folder, open_error_window};
+use crate::diva::{ get_config_dir, get_diva_folder, open_error_window};
 use crate::modmanagement::DivaMod;
 use crate::slint_generatedApp::App;
 use crate::{
-    ConfirmDeletePack, DivaModElement, ModPackElement, ModpackLogic, WindowLogic, DIVA_CFG,
+    ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, DIVA_CFG,
     DML_CFG, MOD_PACKS,
 };
 

@@ -11,7 +11,7 @@ use slint_interpreter::ComponentHandle;
 use tokio::sync::broadcast;
 
 use crate::config::{load_diva_config, DivaConfig};
-use crate::diva::{create_tmp_if_not, get_diva_folder, open_error_window, MIKU_ART};
+use crate::diva::{create_tmp_if_not, find_diva_folder, open_error_window, MIKU_ART};
 use crate::gamebanana::parse_dmm_url;
 use crate::modmanagement::{
     load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
@@ -32,14 +32,13 @@ mod util;
 
 slint::include_modules!();
 
-
 pub static MODS: LazyLock<Mutex<HashMap<String, DivaMod>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 pub static DIVA_DIR: LazyLock<Mutex<String>> = LazyLock::new(|| {
-    let mut str = String::new();
-    if let Some(dir_str) = get_diva_folder() {
-        str = dir_str;
-    }
+    let str = String::new();
+    // if let Some(dir_str) = find_diva_folder() {
+    //     str = dir_str;
+    // }
     Mutex::new(str)
 });
 pub static MODS_DIR: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new("mods".to_string()));
@@ -127,12 +126,13 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         app.set_dml_version(cfg.dml_version.clone().into());
     }
 
-    if let Some(diva_dir) = get_diva_folder() {
+    if let Some(diva_dir) = find_diva_folder() {
         let mut dir = DIVA_DIR.lock()?;
         *dir = diva_dir;
-        if !is_dml_installed() {
-            app.invoke_ask_install_dml();
-        }
+    }
+
+    if !is_dml_installed() {
+        app.invoke_ask_install_dml();
     }
 
     let _ = load_mods();

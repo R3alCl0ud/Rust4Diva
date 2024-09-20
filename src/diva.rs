@@ -4,7 +4,7 @@ use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::{ErrorMessageWindow, DIVA_CFG, MAIN_UI_WEAK};
+use crate::{ErrorMessageWindow, DIVA_CFG, DIVA_DIR, MAIN_UI_WEAK};
 use slint::ComponentHandle;
 
 cfg_if::cfg_if! {
@@ -123,6 +123,14 @@ pub fn get_steam_folder() -> Option<String> {
 }
 
 pub fn get_diva_folder() -> Option<String> {
+    if let Ok(dir) = DIVA_DIR.try_lock() {
+        return Some(dir.clone());
+    }
+    return find_diva_folder();
+}
+
+pub fn find_diva_folder() -> Option<String> {
+    // try retreiving from the config second
     if let Ok(cfg) = DIVA_CFG.try_lock() {
         let mut buf = PathBuf::from(cfg.diva_dir.clone());
         if !cfg.diva_dir.is_empty() && buf.exists() {

@@ -18,7 +18,7 @@ use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::config::{write_config, write_config_sync, write_dml_config};
-use crate::diva::{get_diva_folder, get_temp_folder, open_error_window};
+use crate::diva::{find_diva_folder, get_diva_folder, get_temp_folder, open_error_window};
 use crate::modpacks::{apply_mod_priority, ModPackMod};
 use crate::slint_generatedApp::App;
 use crate::{
@@ -572,7 +572,7 @@ pub fn save_mod_config(
 }
 
 pub async fn unpack_mod_path(archive: PathBuf) -> compress_tools::Result<()> {
-    let mut buf = PathBuf::from(get_diva_folder().unwrap_or("./mods".to_string()));
+    let mut buf = PathBuf::from(find_diva_folder().unwrap_or("./mods".to_string()));
     // DIVA_CFG.lock().unwrap().
     buf.push(DML_CFG.lock().unwrap().mods.clone());
     // buf.push(diva.clone().dml.unwrap().mods);
@@ -820,9 +820,9 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), E
 }
 //std::io::Result<()>
 pub fn load_mods() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let dir = DIVA_DIR.lock().unwrap().to_string();
+    let dir = DIVA_DIR.try_lock().unwrap().clone();
     let mut buf = PathBuf::from(dir);
-    let mut gconf = DIVA_CFG.lock().unwrap();
+    let mut gconf = DIVA_CFG.try_lock().unwrap();
     buf.push("mods");
     let buf = buf.canonicalize()?;
     buf.display().to_string();
