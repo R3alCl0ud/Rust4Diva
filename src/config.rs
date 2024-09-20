@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
-use slint::ComponentHandle;
+use slint::{CloseRequestResponse, ComponentHandle};
 use tokio::fs;
 use tokio::sync::broadcast::Sender;
 
@@ -176,10 +176,18 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
 
                 let cancel_handle = settings.as_weak();
                 settings.on_cancel(move || {
-                    cancel_handle.upgrade().unwrap().hide().unwrap();
                     if let Ok(mut open) = SETTINGS_OPEN.try_lock() {
                         *open = false;
                     }
+                    cancel_handle.unwrap().hide().unwrap();
+                });
+
+                settings.window().on_close_requested(|| {
+                    if let Ok(mut open) = SETTINGS_OPEN.try_lock() {
+                        *open = false;
+                        return CloseRequestResponse::HideWindow;
+                    }
+                    CloseRequestResponse::KeepWindowShown
                 });
 
                 settings.show().unwrap();
