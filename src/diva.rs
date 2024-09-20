@@ -132,9 +132,10 @@ pub fn get_diva_folder() -> Option<String> {
                 return Some(cfg.diva_dir.clone());
             }
         }
+    } else {
+        println!("couldn't lock, Looking for Project Diva folder");
     }
 
-    println!("Looking for Project Diva folder");
     match get_steam_folder() {
         Some(steam_folder) => {
             let mut path = "".to_owned();

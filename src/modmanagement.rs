@@ -158,14 +158,16 @@ pub async fn init(
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
 
-    ui.on_load_mods(move || match load_mods() {
-        Ok(_) => {
-            let mods = get_mods_in_order();
-            let _ = set_mods_table(&mods, ui_load_handle.clone());
-        }
-        Err(e) => {
-            open_error_window(e.to_string());
-            // eprintln!("{e}");
+    ui.on_load_mods(move || {
+        match load_mods() {
+            Ok(_) => {
+                let mods = get_mods_in_order();
+                let _ = set_mods_table(&mods, ui_load_handle.clone());
+            }
+            Err(e) => {
+                open_error_window(e.to_string());
+                // eprintln!("{e}");
+            }
         }
     });
 
@@ -816,8 +818,8 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), E
         ui.set_mods(model);
     })
 }
-
-pub fn load_mods() -> std::io::Result<()> {
+//std::io::Result<()>
+pub fn load_mods() -> Result<(), Box<dyn Error + Send + Sync>> {
     let dir = DIVA_DIR.lock().unwrap().to_string();
     let mut buf = PathBuf::from(dir);
     let mut gconf = DIVA_CFG.lock().unwrap();
@@ -860,6 +862,7 @@ pub fn load_mods() -> std::io::Result<()> {
     // clone and drop the mutex instance from here so it can be unlocked
     let gconf = gconf.clone();
     if gconf.applied_pack.is_empty() {
+        println!("appling priority incase of new mods");
         if let Ok(mut dml) = DML_CFG.try_lock() {
             dml.priority = gconf.priority.clone();
             match write_dml_config(dml.clone()) {

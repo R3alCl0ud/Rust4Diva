@@ -3,15 +3,16 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use futures_util::future::Shared;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
-use slint::{CloseRequestResponse, ComponentHandle};
+use slint::{CloseRequestResponse, ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use tokio::fs;
 use tokio::sync::broadcast::Sender;
 
 use crate::diva::{get_config_dir_sync, get_diva_folder, get_steam_folder, open_error_window};
-use crate::modmanagement::DivaModLoader;
+use crate::modmanagement::{get_mods_in_order, load_mods, set_mods_table, DivaModLoader};
 use crate::slint_generatedApp::App;
 use crate::DML_CFG;
 
@@ -38,6 +39,8 @@ pub struct DivaConfig {
     pub first_run: bool,
     #[serde(default)]
     pub dml_version: String,
+    #[serde(default)]
+    pub diva_dirs: Vec<String>,
 }
 
 fn yes() -> bool {
@@ -56,6 +59,7 @@ impl DivaConfig {
             dark_mode: true,
             first_run: true,
             dml_version: "".to_owned(),
+            diva_dirs: vec![],
         }
     }
 }
@@ -76,7 +80,11 @@ pub async fn load_diva_config() -> std::io::Result<DivaConfig> {
     if let Ok(cfg_str) = fs::read_to_string(cfg_dir).await {
         let res: Result<DivaConfig, _> = toml::from_str(cfg_str.as_str());
         match res {
-            Ok(cfg) => {
+            Ok(mut cfg) => {
+                if cfg.diva_dirs.is_empty() && !cfg.diva_dir.is_empty() {
+                    cfg.diva_dirs.push(cfg.diva_dir.clone());
+                }
+
                 return Ok(cfg);
             }
             Err(e) => {
@@ -166,6 +174,24 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                 settings.set_steam_dir(steam_dir.into());
                 settings.set_diva_dir(diva_dir.into());
                 settings.invoke_set_color_scheme(current_scheme);
+
+                if let Ok(cfg) = DIVA_CFG.try_lock() {
+                    let vec = VecModel::<SharedString>::default();
+                    for dir in cfg.diva_dirs.clone() {
+                        vec.push(dir.into());
+                    }
+
+                    if vec.row_count() == 0 {
+                        vec.push("/path/to/pdx".into());
+                    }
+                    settings.set_pdmm_dirs(ModelRc::new(vec));
+                    settings.set_active_pdmm(cfg.diva_dir.clone().into());
+                    // if let Some(idx) = cfg.diva_dirs.iter().position(|i| *i == cfg.diva_dir) {
+                    //     println!("Active dir found: {}", idx);
+                    //     settings.set_active_pdmm(idx as i32);
+                    // }
+                }
+
                 let main_ui = main_close_handle.unwrap();
                 let close_handle = settings.as_weak();
                 main_ui.on_close_windows(move || {
@@ -191,6 +217,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                 });
 
                 settings.show().unwrap();
+
                 // settings.on
                 let steam_handle = settings.as_weak();
                 settings
@@ -216,7 +243,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
 
                 settings
                     .global::<SettingsLogic>()
-                    .on_open_diva_picker(move |s| {
+                    .on_open_diva_picker(move |s, row| {
                         let diva_dir_handle = diva_dir_handle.clone();
                         let picker =
                             AsyncFileDialog::new().set_directory(PathBuf::from(s.to_string()));
@@ -225,12 +252,42 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                                 Some(dir) => {
                                     println!("{}", dir.path().display().to_string());
                                     let _ = diva_dir_handle.upgrade_in_event_loop(move |ui| {
-                                        ui.set_diva_dir(dir.path().display().to_string().into());
+                                        let model = ui.get_pdmm_dirs();
+                                        model.set_row_data(
+                                            row as usize,
+                                            dir.path().display().to_string().into(),
+                                        );
                                     });
                                 }
                                 None => {}
                             }
                         });
+                    });
+
+                let weak = settings.as_weak();
+                settings
+                    .global::<SettingsLogic>()
+                    .on_add_pdmm_location(move || {
+                        let settings = weak.unwrap();
+                        let model = settings.get_pdmm_dirs();
+                        match model.as_any().downcast_ref::<VecModel<SharedString>>() {
+                            Some(vec) => vec.push("/path/to/pdx".into()),
+                            None => todo!(),
+                        }
+                    });
+                let weak = settings.as_weak();
+
+                settings
+                    .global::<SettingsLogic>()
+                    .on_remove_pdmm_location(move |idx| {
+                        let settings = weak.unwrap();
+                        let model = settings.get_pdmm_dirs();
+                        match model.as_any().downcast_ref::<VecModel<SharedString>>() {
+                            Some(vec) => {
+                                vec.remove(idx as usize);
+                            }
+                            None => {}
+                        }
                     });
 
                 let apply_handle = settings.as_weak();
@@ -241,55 +298,68 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                         let dark_tx = dark_tx.clone();
                         let color_handle = color_handle.clone();
                         let apply_handle = apply_handle.clone();
+                        let mut lcfg = None;
                         if let Ok(mut cfg) = DIVA_CFG.lock() {
-                            if let Ok(e) = PathBuf::from(settings.diva_dir.to_string()).try_exists()
-                            {
-                                if e {
-                                    cfg.diva_dir = settings.diva_dir.to_string().clone();
+                            let mut dirs = vec![];
+                            for dir in settings.diva_dirs.iter() {
+                                let mut buf = PathBuf::from(dir.clone().to_string());
+                                buf.push("DivaMegaMix.exe");
+                                if let Ok(e) = buf.try_exists() {
+                                    if e {
+                                        dirs.push(dir.to_string());
+                                    } else {
+                                        open_error_window(
+                                            "Invalid Project Diva Directory".to_string(),
+                                        );
+                                        return;
+                                    }
                                 } else {
                                     open_error_window("Invalid Project Diva Directory".to_string());
                                     return;
                                 }
-                            } else {
-                                open_error_window("Invalid Project Diva Directory".to_string());
-                                return;
                             }
                             if PathBuf::from(settings.steam_dir.to_string()).exists() {
                                 cfg.steam_dir = settings.steam_dir.to_string().clone();
-                            } else {
-                                // open_error_window("Invalid Steam")
                             }
-                            if PathBuf::from(settings.aft_dir.to_string()).exists() {
-                                cfg.aft_dir = settings.aft_dir.to_string().clone();
-                            }
+
+                            cfg.diva_dir = settings.diva_dir.to_string();
+                            cfg.diva_dirs = dirs;
                             cfg.aft_mode = settings.aft_mode;
                             cfg.dark_mode = settings.dark_mode;
 
-                            let cfg = cfg.clone();
+                            lcfg = Some(cfg.clone());
+                        }
+                        if let Some(cfg) = lcfg {
                             tokio::spawn(async move {
                                 let cfg = cfg.clone();
                                 match write_config(cfg.clone()).await {
                                     Ok(_) => {
                                         println!("Config successfully updated");
-                                        let _ = apply_handle.upgrade_in_event_loop(move |ui| {
-                                            if cfg.dark_mode {
-                                                ui.invoke_set_color_scheme(ColorScheme::Dark);
-                                            } else {
-                                                ui.invoke_set_color_scheme(ColorScheme::Light);
-                                            }
-                                        });
-                                        let _ = color_handle.upgrade_in_event_loop(move |ui| {
-                                            if cfg.dark_mode {
-                                                ui.invoke_set_color_scheme(ColorScheme::Dark);
-                                            } else {
-                                                ui.invoke_set_color_scheme(ColorScheme::Light);
-                                            }
-                                        });
+                                        let _ =
+                                            apply_handle.clone().upgrade_in_event_loop(move |ui| {
+                                                if cfg.dark_mode {
+                                                    ui.invoke_set_color_scheme(ColorScheme::Dark);
+                                                } else {
+                                                    ui.invoke_set_color_scheme(ColorScheme::Light);
+                                                }
+                                            });
+                                        let _ =
+                                            color_handle.clone().upgrade_in_event_loop(move |ui| {
+                                                if cfg.dark_mode {
+                                                    ui.invoke_set_color_scheme(ColorScheme::Dark);
+                                                } else {
+                                                    ui.invoke_set_color_scheme(ColorScheme::Light);
+                                                }
+                                            });
                                         let _ = dark_tx.send(if cfg.dark_mode {
                                             ColorScheme::Dark
                                         } else {
                                             ColorScheme::Light
                                         });
+                                        if load_mods().is_ok() {
+                                            let _ =
+                                                set_mods_table(&get_mods_in_order(), color_handle);
+                                        }
                                     }
                                     Err(e) => {
                                         eprintln!("{e}");
