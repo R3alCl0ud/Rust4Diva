@@ -61,6 +61,7 @@ jobs:
     runs-on: windows-latest  
     env: 
       SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
+      VCPKG_ROOT: "C:\\vcpkg"
     steps:
       - uses: actions/checkout@master
       - name: Install libarchive
