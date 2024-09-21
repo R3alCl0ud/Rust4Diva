@@ -17,7 +17,8 @@ use crate::diva::{get_temp_folder, open_error_window};
 use crate::modmanagement::{get_mods_in_order, load_mods, set_mods_table, unpack_mod_path};
 use crate::util::reqwest_client;
 use crate::{
-    App, Download, GameBananaLogic, GbDetailsWindow, GbPreviewData, SlGbSubmitter, DIVA_CFG,
+    App, Download, GameBananaLogic, GbDetailsWindow, GbPreviewData, HyperLink, SlGbSubmitter,
+    DIVA_CFG,
 };
 use slint::{ComponentHandle, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel, Weak};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
@@ -419,6 +420,14 @@ pub async fn init(
             });
         }
         let item_id = item.id.clone();
+
+        deets
+            .global::<HyperLink>()
+            .on_open_hyperlink(|link| match open::that(link.to_string()) {
+                Ok(_) => {}
+                Err(e) => eprintln!("{e}"),
+            });
+
         let deets_weak = deets.as_weak();
         if !item.image_loaded && !item.image_url.is_empty() {
             let url = item.image_url.to_string();

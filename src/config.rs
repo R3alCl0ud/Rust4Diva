@@ -3,7 +3,6 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use futures_util::future::Shared;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
@@ -15,8 +14,9 @@ use crate::diva::{
     find_diva_folder, get_config_dir_sync, get_diva_folder, get_steam_folder, open_error_window,
 };
 use crate::modmanagement::{get_mods_in_order, load_mods, set_mods_table, DivaModLoader};
+use crate::modpacks::load_mod_packs;
 use crate::slint_generatedApp::App;
-use crate::{DIVA_DIR, DML_CFG};
+use crate::{DML_CFG, MOD_PACKS};
 
 use crate::{
     diva::get_config_dir, DivaLogic, SettingsLogic, SettingsWindow, WindowLogic, DIVA_CFG,
@@ -361,8 +361,26 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                                             ColorScheme::Light
                                         });
                                         if load_mods().is_ok() {
-                                            let _ =
-                                                set_mods_table(&get_mods_in_order(), color_handle);
+                                            let _ = set_mods_table(
+                                                &get_mods_in_order(),
+                                                color_handle.clone(),
+                                            );
+                                        }
+
+                                        if let Ok(packs) = load_mod_packs().await {
+                                            let _ = color_handle.clone().upgrade_in_event_loop(
+                                                move |ui| {
+                                                    let mut gpacks = MOD_PACKS.lock().unwrap();
+                                                    *gpacks = packs.clone();
+                                                    let ui_packs =
+                                                        VecModel::<SharedString>::default();
+                                                    ui_packs.push("All Mods".into());
+                                                    for (pack, _mods) in gpacks.iter() {
+                                                        ui_packs.push(pack.into());
+                                                    }
+                                                    ui.set_modpacks(ModelRc::new(ui_packs));
+                                                },
+                                            );
                                         }
                                     }
                                     Err(e) => {

@@ -19,10 +19,11 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{find_diva_folder, get_diva_folder, get_temp_folder, open_error_window};
-use crate::modpacks::{apply_mod_priority, ModPackMod};
+use crate::modpacks::{apply_mod_priority, save_modpack, ModPackMod};
 use crate::slint_generatedApp::App;
 use crate::{
-    ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, WindowLogic, DIVA_DIR,
+    ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, ModpackLogic, WindowLogic,
+    DIVA_DIR, MOD_PACKS,
 };
 use crate::{Download, DIVA_CFG, DML_CFG, MODS};
 
@@ -80,6 +81,19 @@ impl DivaModLoader {
             mods: "mods".to_string(),
             version: "".to_string(),
             priority: vec![],
+        }
+    }
+}
+
+impl From<DivaMod> for DivaModElement {
+    fn from(value: DivaMod) -> Self {
+        DivaModElement {
+            name: value.config.name.clone().into(),
+            author: value.config.author.clone().into(),
+            description: value.config.description.clone().into(),
+            version: value.config.version.clone().into(),
+            enabled: value.config.enabled.clone(),
+            path: value.path.clone().into(),
         }
     }
 }
@@ -258,7 +272,7 @@ pub async fn init(
         if idx < 1 {
             return;
         }
-        if let Ok(mut gcfg) = DIVA_CFG.lock() {
+        if let Ok(mut gcfg) = DIVA_CFG.try_lock() {
             if amt == 1 {
                 gcfg.priority.swap(idx as usize, (idx - 1) as usize);
             } else {
@@ -363,30 +377,53 @@ pub async fn init(
     ui.global::<ModLogic>()
         .on_set_priority(move |_module, old, new| {
             if let Ok(mut cfg) = DIVA_CFG.lock() {
-                let item = cfg.priority.remove(old as usize);
-                let new = max(0, min(new as usize, cfg.priority.len()));
-                cfg.priority.insert(new, item);
-                let lcfg = cfg.clone();
-                let ui_priority_handle = ui_priority_handle.clone();
-                tokio::spawn(async move {
-                    match write_config(lcfg).await {
-                        Ok(_) => {
-                            // let gmods = MODS.lock().unwrap();
-                            if let Err(e) =
-                                set_mods_table(&get_mods_in_order(), ui_priority_handle.clone())
-                            {
+                if cfg.applied_pack == "" || cfg.applied_pack == "All Mods" {
+                    let item = cfg.priority.remove(old as usize);
+                    let new = max(0, min(new as usize, cfg.priority.len()));
+                    cfg.priority.insert(new, item);
+                    let lcfg = cfg.clone();
+                    let ui_priority_handle = ui_priority_handle.clone();
+                    tokio::spawn(async move {
+                        match write_config(lcfg).await {
+                            Ok(_) => {
+                                // let gmods = MODS.lock().unwrap();
+                                let mods = get_mods_in_order();
+                                let _ = set_mods_table(&mods, ui_priority_handle.clone());
+                                let _ = ui_priority_handle.upgrade_in_event_loop(move |ui| {
+                                    let mods_model: VecModel<DivaModElement> = VecModel::default();
+                                    for diva_mod in mods.clone() {
+                                        mods_model.push(diva_mod.to_element());
+                                    }
+                                    let model = ModelRc::new(mods_model);
+                                    ui.set_mods(model.clone());
+                                    ui.set_pack_mods(model);
+                                });
+                            }
+                            Err(e) => {
                                 let msg =
                                     format!("Unable to save priority to disk: \n{}", e.to_string());
                                 open_error_window(msg);
                             }
                         }
-                        Err(e) => {
-                            let msg =
-                                format!("Unable to save priority to disk: \n{}", e.to_string());
-                            open_error_window(msg);
-                        }
+                    });
+                } else if let Ok(mut packs) = MOD_PACKS.try_lock() {
+                    let applied = cfg.applied_pack.clone();
+                    if let Some(pack) = packs.get_mut(&cfg.applied_pack) {
+                        let item = pack.mods.remove(old as usize);
+                        let new = max(0, min(new as usize, pack.mods.len()));
+                        pack.mods.insert(new, item);
+                        let pack = pack.clone();
+                        let ui_priority_handle = ui_priority_handle.clone();
+                        tokio::spawn(async move {
+                            if save_modpack(pack).await.is_ok() {
+                                let _ = ui_priority_handle.upgrade_in_event_loop(move |ui| {
+                                    ui.global::<ModpackLogic>()
+                                        .invoke_change_modpack(applied.into());
+                                });
+                            }
+                        });
                     }
-                });
+                }
             }
         });
 

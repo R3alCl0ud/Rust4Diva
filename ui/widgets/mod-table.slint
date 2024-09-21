@@ -281,6 +281,8 @@ export component ModTable {
 
     private property <length> e: self.width / root.columns.length;
 
+    in-out property <length> viewport-y <=> scroll-view.viewport-y;
+
     public function set-current-row(index: int) {
         if (index < 0 || index >= mods.length) {
             return;
@@ -416,7 +418,7 @@ export component ModTable {
                             i-shadow-mod.visible = true;
                         } else if pe.button == PointerEventButton.right {
                             open-ctx-menu(self.module, idx, {
-                                x: pos.x - root.absolute-position.x,
+                                x: root.absolute-position.x + pos.x - 10px,
                                 y: pos.y,
                             });
                         }

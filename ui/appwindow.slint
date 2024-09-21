@@ -29,11 +29,11 @@ import { ConfirmDeletePack } from "dialogs/deletepack.slint";
 import { ErrorMessageWindow } from "dialogs/errormsg.slint";
 import { ConfirmDelete } from "dialogs/confirmdelete.slint";
 
-import { ModpackLogic, ModLogic, WindowLogic, DivaLogic, GameBananaLogic } from "applogic.slint";
+import { ModpackLogic, ModLogic, WindowLogic, DivaLogic, GameBananaLogic, HyperLink } from "applogic.slint";
 import { GbDetailsWindow } from "subwindows/gb-item.slint";
 
 export { GbPreviewData, GameBananaLogic, GbDetailsWindow }
-export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack }
+export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack, HyperLink }
 export { WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic, ConfirmDelete, DivaLogic, Palette }
 
 export struct SlintModConfig {
@@ -90,7 +90,7 @@ export component App inherits Window {
     in-out property <string> active-pack;
     out property <string> current-pack: mpmgmt-tab.current-pack;
 
-    callback load-mods <=> mgmt-tab.clicked;
+    callback load-mods();
     callback toggle-mod(int);
     callback search-gb(string);
     callback list-files(int);
@@ -186,21 +186,19 @@ export component App inherits Window {
         }
 
         TabWidget {
-            manager := Tab {
-                title: "Mods";
-                mgmt-tab := ModManager {
-                    active-pack: active-pack;
-                    width: 100%;
-                    height: (window_height - parent.absolute-position.y) - 5px;
-                    mods: mods;
-                    open-module-ctx(m, i, p) => {
-                        mod-ctx-menu.show(m, i, p);
-                    }
-                }
-            }
+            // manager := Tab {
+            //     title: "Mods";
+            //     mgmt-tab := ModManager {
+            //         active-pack: active-pack;
+            //         width: 100%;
+            //         height: (window_height - parent.absolute-position.y) - 5px;
+            //         mods: mods;
+
+            //     }
+            // }
 
             packs-tab := Tab {
-                title: "Modpacks";
+                title: "Manage Mods";
                 mpmgmt-tab := ModPacksTab {
                     width: 100%;
                     height: (window_height - parent.absolute-position.y) - 5px;
@@ -209,6 +207,9 @@ export component App inherits Window {
                     pack-mods: pack-mods;
                     show-text-entry => {
                         packcreator.show();
+                    }
+                    open-module-ctx(m, i, p) => {
+                        mod-ctx-menu.show(m, i, p);
                     }
                 }
             }

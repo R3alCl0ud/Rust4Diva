@@ -1,4 +1,6 @@
+use base64ct::{Base64, Encoding};
 use filenamify::filenamify;
+use sha2::{Digest, Sha256};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use sonic_rs::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -7,12 +9,11 @@ use std::vec;
 use tokio::fs;
 
 use crate::config::{write_config, write_dml_config};
-use crate::diva::{ get_config_dir, get_diva_folder, open_error_window};
-use crate::modmanagement::DivaMod;
+use crate::diva::{get_config_dir, get_diva_folder, open_error_window};
+use crate::modmanagement::{get_mods_in_order, DivaMod};
 use crate::slint_generatedApp::App;
 use crate::{
-    ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, DIVA_CFG,
-    DML_CFG, MOD_PACKS,
+    ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, DIVA_CFG, DML_CFG, MOD_PACKS,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -73,27 +74,6 @@ impl ModPackMod {
 }
 
 impl ModPack {
-    // pub async fn to_element(self: &Self, diva: &Arc<Mutex<DivaData>>) -> ModPackElement {
-    //     let diva = diva.lock().await;
-
-    //     let vec_mod: VecModel<DivaModElement> = VecModel::from(vec![]);
-    //     for module in self.mods.clone() {
-    //         if let Some(module) = diva
-    //             .mods
-    //             .iter()
-    //             .find(|&diva_mod| diva_mod.config.name == module.name)
-    //         {
-    //             vec_mod.push(module.to_element());
-    //         }
-    //     }
-
-    //     return ModPackElement {
-    //         name: self.name.clone().into(),
-    //         mods: ModelRc::new(vec_mod),
-    //         path: SharedString::from(""),
-    //     };
-    // }
-
     pub fn new(name: String) -> Self {
         Self {
             name: name.clone(),
@@ -119,6 +99,7 @@ pub async fn init(ui: &App) {
             match binding.as_any().downcast_ref::<VecModel<SharedString>>() {
                 None => {}
                 Some(ui_packs) => {
+                    ui_packs.push("All Mods".into());
                     for (pack, _mods) in gpacks.iter() {
                         ui_packs.push(pack.into());
                     }
@@ -129,10 +110,6 @@ pub async fn init(ui: &App) {
             eprintln!("{}", e);
             open_error_window(e.to_string());
         }
-    }
-
-    if let Ok(cfg) = DIVA_CFG.try_lock() {
-        ui.set_active_pack(cfg.applied_pack.clone().into());
     }
 
     ui.global::<ModpackLogic>().on_add_mod_to_pack(
@@ -176,6 +153,18 @@ pub async fn init(ui: &App) {
         .on_change_modpack(move |mod_pack| {
             let ui_change_handle = ui_change_handle.clone();
             tokio::spawn(async move {
+                if mod_pack.to_string() == "All Mods" || mod_pack.to_string() == "" {
+                    let _ = ui_change_handle.upgrade_in_event_loop(|ui| {
+                        ui.set_active_pack("".into());
+                        let vec = VecModel::<DivaModElement>::default();
+                        for m in get_mods_in_order() {
+                            vec.push(m.into());
+                        }
+                        let model = ModelRc::new(vec);
+                        ui.set_pack_mods(model.clone());
+                        ui.global::<ModpackLogic>().invoke_apply_modpack(model);
+                    });
+                }
                 if let Ok(packs) = MOD_PACKS.lock() {
                     let pack = packs.get(&mod_pack.clone().to_string()).clone();
                     if pack.is_none() {
@@ -188,8 +177,10 @@ pub async fn init(ui: &App) {
                         for module in pack.mods.clone() {
                             pack_mods.push(module.to_element());
                         }
-                        ui.set_pack_mods(ModelRc::new(pack_mods));
+                        let model = ModelRc::new(pack_mods);
+                        ui.set_pack_mods(model.clone());
                         ui.set_active_pack(pack.name.into());
+                        ui.global::<ModpackLogic>().invoke_apply_modpack(model);
                     });
                 }
             });
@@ -200,7 +191,7 @@ pub async fn init(ui: &App) {
 
         let pack_name = filenamify(pack.to_string());
 
-        if pack_name.len() <= 0 {
+        if pack_name.len() <= 0 || pack_name == "All Mods" {
             return;
         }
         let modpack = ModPack::new(pack_name.clone());
@@ -382,6 +373,13 @@ pub async fn init(ui: &App) {
                     }
                 });
         });
+
+    if let Ok(cfg) = DIVA_CFG.try_lock() {
+        // println!();
+        ui.set_active_pack(cfg.applied_pack.clone().into());
+        ui.global::<ModpackLogic>()
+            .invoke_change_modpack(cfg.applied_pack.clone().into());
+    }
 }
 
 pub async fn load_mod_packs() -> std::io::Result<HashMap<String, ModPack>> {
@@ -407,9 +405,16 @@ pub async fn load_mod_packs() -> std::io::Result<HashMap<String, ModPack>> {
 pub async fn get_modpacks_folder() -> std::io::Result<PathBuf> {
     match get_config_dir().await {
         Ok(mut config_dir) => {
-            config_dir.push("modpacks");
-            if !config_dir.exists() {
-                fs::create_dir(config_dir.clone()).await?
+            if let Ok(cfg) = DIVA_CFG.try_lock() {
+                let cfg = cfg.clone();
+                config_dir.push(hash_dir_name(cfg.diva_dir.clone()));
+                if !config_dir.exists() {
+                    std::fs::create_dir(config_dir.clone())?
+                }
+                config_dir.push("modpacks");
+                if !config_dir.exists() {
+                    std::fs::create_dir(config_dir.clone())?
+                }
             }
             Ok(config_dir)
         }
@@ -450,4 +455,9 @@ pub async fn apply_mod_priority() -> Result<(), Box<dyn std::error::Error + Send
         }
     }
     Ok(())
+}
+
+pub fn hash_dir_name(dir: String) -> String {
+    let hash = Sha256::digest(dir);
+    Base64::encode_string(&hash)
 }

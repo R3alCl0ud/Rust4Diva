@@ -17,18 +17,8 @@ export component ModPacksTab {
     layout := GridBox {
         selection-controls := Row {
 
-            packs := ComboBox {
-                model: modpacks;
-                colspan: 5;
-                height: btn-height;
-                selected(pack) => {
-                    ModpackLogic.change-modpack(pack);
-                }
-            }
-
             add-pack-bnt := Button {
                 height: btn-height;
-                col: 5;
                 colspan: 1;
                 text: "Add New Pack";
                 clicked => {
@@ -38,12 +28,21 @@ export component ModPacksTab {
 
             Button {
                 height: btn-height;
-                col: 6;
                 colspan: 1;
                 text: "Delete Modpack";
                 enabled: packs.current-index != -1;
                 clicked => {
                     WindowLogic.open-delete-dialog(packs.current-value);
+                }
+            }
+
+            packs := ComboBox {
+                model: modpacks;
+                colspan: 5;
+                height: btn-height;
+                selected(pack) => {
+                    ModpackLogic.change-modpack(pack);
+                    in-pack.viewport-y = 0;
                 }
             }
         }
@@ -131,14 +130,6 @@ export component ModPacksTab {
                     open-module-ctx(module, idx, pos);
                 }
             }
-
-            // in-pack := ModPickTable {
-            //     preferred-height: 500px;
-            //     col: 4;
-            //     colspan: 3;
-            //     columns: [{ title :"Name" }];
-            //     mods: pack-mods;
-            // }
         }
 
         packactns := Row {

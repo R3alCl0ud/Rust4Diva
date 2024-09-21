@@ -14,9 +14,10 @@ export component ModCtxMenu {
         width: 100px;
         Rectangle {
             background: Palette.background;
-            border-color: Palette.border;
-            border-width: 5px;
+            border-color: Palette.foreground;
+            border-width: 1px;
             VerticalLayout {
+                padding: 1px;
                 width: 100px;
                 Rectangle {
                     // forward-focus: e-ta;
@@ -28,11 +29,23 @@ export component ModCtxMenu {
                             debug("Test");
                             WindowLogic.open-mod-editor(module, idx);
                         }
-                        Text {
-                            x: 5px;
-                            width: 95px;
-                            horizontal-alignment: left;
-                            text: "Edit";
+                        HorizontalLayout {
+                            padding-left: 5px;
+                            width: 100px;
+                            Image {
+                                y:5px;
+                                source: @image-url("../assets/trash-can-solid.svg");
+                                height: 20px;
+                                vertical-alignment: center;
+                                width: 20px;
+                                colorize: Palette.foreground;
+                            }
+
+                            Text {
+                                vertical-alignment: center;
+                                horizontal-alignment: left;
+                                text: "Edit";
+                            }
                         }
                     }
                 }
@@ -40,18 +53,31 @@ export component ModCtxMenu {
                 Rectangle {
                     height: 30px;
                     background: delete-ta.has-hover ? Palette.alternate-background : Palette.background;
-
+                    // bord
                     delete-ta := TouchArea {
-                        width: 100px;
-                        Text {
-                            x: 5px;
-                            width: 95px;
-                            horizontal-alignment: left;
-                            text: "Delete";
-                        }
-
                         clicked => {
                             ModLogic.delete-mod(module);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        width: 100px;
+                        padding-left: 5px;
+                        Image {
+                            y: 5px;
+                            source: @image-url("../assets/trash-can-solid.svg");
+                            vertical-alignment: center;
+                            width: 20px;
+                            height: 20px;
+                            colorize: Palette.foreground;
+                        }
+
+                        Text {
+                            // x: 5px;
+                            // width: 95px;
+                            horizontal-alignment: left;
+                            vertical-alignment: center;
+                            text: "Delete";
                         }
                     }
                 }
