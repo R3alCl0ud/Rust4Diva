@@ -4,8 +4,10 @@ Name "Rust4Diva"
 ; To change from default installer icon:
 Icon "..\assets\rust4diva.ico"
 
+!define VERSION "/Git_Commit_Hash/g"
+
 ; The setup filename
-OutFile "Rust4Diva v0.3.1 installer.exe"
+OutFile "output\Rust4Diva ${VERSION} installer.exe"
 
 ; The default installation directory
 InstallDir $PROGRAMFILES64\Rust4Diva
