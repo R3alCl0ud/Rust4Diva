@@ -38,7 +38,7 @@ export component ModPacksTab {
 
             packs := ComboBox {
                 model: modpacks;
-                colspan: 5;
+                colspan: 8;
                 height: btn-height;
                 selected(pack) => {
                     ModpackLogic.change-modpack(pack);
@@ -57,7 +57,7 @@ export component ModPacksTab {
 
             Text {
                 col: 3;
-                colspan: 4;
+                colspan: 7;
                 height: 20px;
                 text: "In Modpack";
             }
@@ -113,7 +113,7 @@ export component ModPacksTab {
 
             in-pack := ModTable {
                 col: 3;
-                colspan: 4;
+                colspan: 7;
                 columns: [
                     { title: "Enabled", width: 100px },
                     { title: "Priority", width: 100px },

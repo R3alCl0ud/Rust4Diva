@@ -25,13 +25,13 @@ export component MoveBtns {
                     pointer-event(e) => {
                         if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
                             if e.modifiers.alt {
-                                ModLogic.move-mod-up(idx, 5);
+                                ModLogic.set-priority(idx, idx - 5);
                             } else if e.modifiers.alt && e.modifiers.shift {
-                                ModLogic.move-mod-up(idx, 10);
+                                ModLogic.set-priority(idx,idx - 10);
                             } else if e.modifiers.shift {
-                                ModLogic.move-mod-up(idx, -1);
+                                ModLogic.set-priority(idx, 0);
                             } else {
-                                ModLogic.move-mod-up(idx, 1);
+                                ModLogic.set-priority(idx, idx - 1);
                             }
                         }
                     }
@@ -52,13 +52,13 @@ export component MoveBtns {
                     pointer-event(e) => {
                         if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
                             if e.modifiers.alt {
-                                ModLogic.move-mod-down(idx, 5);
+                                ModLogic.set-priority(idx, idx + 5);
                             } else if e.modifiers.alt && e.modifiers.shift {
-                                ModLogic.move-mod-down(idx, 10);
+                                ModLogic.set-priority(idx,idx + 10);
                             } else if e.modifiers.shift {
-                                ModLogic.move-mod-down(idx, -1);
+                                ModLogic.set-priority(idx, 0);
                             } else {
-                                ModLogic.move-mod-down(idx, 1);
+                                ModLogic.set-priority(idx, idx + 1);
                             }
                         }
                     }
@@ -426,7 +426,7 @@ export component ModTable {
                     if pe.kind == PointerEventKind.up && pe.button == PointerEventButton.left {
                         self.should-move = true;
                         i-shadow-mod.visible = false;
-                        ModLogic.set-priority(module, idx, max(0, round((self.y / 1px) / (self.height / 1px))));
+                        ModLogic.set-priority( idx, max(0, round((self.y / 1px) / (self.height / 1px))));
                         self.y = max(0px, round((self.y / 1px) / (self.height / 1px)) * self.height);
                         self.opacity = 1;
                     }
