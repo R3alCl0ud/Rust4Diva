@@ -220,7 +220,7 @@ pub fn find_diva_folder() -> Option<String> {
     }
 }
 
-pub async fn get_config_dir() -> std::io::Result<PathBuf> {
+pub fn get_config_dir() -> std::io::Result<PathBuf> {
     match dirs::config_dir() {
         Some(mut buf) => {
             buf.push("rust4diva");

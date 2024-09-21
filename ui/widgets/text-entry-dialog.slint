@@ -35,18 +35,19 @@ export component TextEntryDialog {
 
                     HorizontalBox {
                         Button {
-                            text: "Cancel";
+                            primary: true;
                             min-width: 80px;
+                            text: "Accept";
                             clicked => {
+                                root.accepted(text-input.text);
                                 root.close();
                             }
                         }
 
                         Button {
+                            text: "Cancel";
                             min-width: 80px;
-                            text: "Accept";
                             clicked => {
-                                root.accepted(text-input.text);
                                 root.close();
                             }
                         }

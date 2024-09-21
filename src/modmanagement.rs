@@ -19,7 +19,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{find_diva_folder, get_diva_folder, get_temp_folder, open_error_window};
-use crate::modpacks::{apply_mod_priority, save_modpack, ModPackMod};
+use crate::modpacks::{apply_mod_priority, save_modpack, save_modpack_sync, ModPackMod};
 use crate::slint_generatedApp::App;
 use crate::{
     ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, ModpackLogic, WindowLogic,
@@ -163,8 +163,6 @@ pub async fn init(
     let ui_progress_handle = ui.as_weak();
     let ui_download_handle = ui.as_weak();
     let ui_file_picker_handle = ui.as_weak();
-    let ui_mod_up_handle = ui.as_weak();
-    let ui_mod_down_handle = ui.as_weak();
     let ui_priority_handle = ui.as_weak();
     let ui_scheme_handle = ui.as_weak();
     let ui_edit_handle = ui.as_weak();
@@ -251,20 +249,54 @@ pub async fn init(
     });
 
     ui.global::<ModLogic>().on_toggle_mod(move |module| {
-        if let Ok(mut gmods) = MODS.lock() {
-            if let Some(m) = gmods.get_mut(&module.dir_name().unwrap()) {
-                m.config.enabled = !m.config.enabled;
-                let buf = PathBuf::from(m.path.clone());
-                println!("{}", buf.display());
-                // fs::write(buf,
-                if let Err(e) = save_mod_config(buf, &mut m.config.clone()) {
-                    let msg = format!("Unable to save mod config: \n{}", e.to_string());
-                    open_error_window(msg);
+        let mut gmods = match MODS.try_lock() {
+            Ok(mods) => mods,
+            Err(_) => return,
+        };
+        let m = match gmods.get_mut(&module.dir_name().unwrap()) {
+            Some(m) => m,
+            None => return,
+        };
+        m.config.enabled = !m.config.enabled;
+        let buf = PathBuf::from(m.path.clone());
+        println!("{}", buf.display());
+        if let Err(e) = save_mod_config(buf, &mut m.config.clone()) {
+            let msg = format!("Unable to save mod config: \n{}", e.to_string());
+            open_error_window(msg);
+        }
+        let cfg = match DIVA_CFG.try_lock() {
+            Ok(cfg) => cfg,
+            Err(_) => return,
+        };
+        if cfg.applied_pack != "All Mods" && cfg.applied_pack != "" {
+            let mut packs = match MOD_PACKS.try_lock() {
+                Ok(packs) => packs,
+                Err(_) => return,
+            };
+            let pack = match packs.get_mut(&cfg.applied_pack) {
+                Some(p) => p,
+                None => return,
+            };
+            let idx = pack
+                .mods
+                .iter()
+                .position(|m| m.name == module.name.to_string());
+            if let Some(idx) = idx {
+                pack.mods[idx].enabled = m.config.enabled;
+            }
+            let pack = pack.clone();
+            match save_modpack_sync(pack) {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("{e}");
+                    return;
                 }
             }
         }
-        let mods = get_mods_in_order();
-        let _ = set_mods_table(&mods, ui_toggle_handle.clone());
+        ui_toggle_handle
+            .unwrap()
+            .global::<ModpackLogic>()
+            .invoke_change_modpack(cfg.applied_pack.clone().into());
     });
 
     ui.on_open_file_picker(move || {
@@ -510,7 +542,7 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
 
 pub fn save_mod_config(
     config_path: PathBuf,
-    diva_mod_config: &mut DivaModConfig,
+    diva_mod_config: &DivaModConfig,
 ) -> std::io::Result<()> {
     if let Ok(config_str) = toml::to_string(&diva_mod_config) {
         return match fs::write(config_path, config_str) {

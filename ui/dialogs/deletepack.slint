@@ -1,5 +1,6 @@
 import { VerticalBox, Button, Palette } from "std-widgets.slint";
 import { ModpackLogic, ModLogic } from "../applogic.slint";
+import { ConfirmDeleteButton } from "../widgets/buttons.slint";
 export component ConfirmDeletePack inherits Dialog {
     in-out property <string> modpack;
 
@@ -20,18 +21,18 @@ export component ConfirmDeletePack inherits Dialog {
         }
 
         HorizontalLayout {
-            Button {
-                text: "Cancel";
-                clicked => {
-                    root.close();
-                }
-            }
-
-            Button {
+            ConfirmDeleteButton {
                 text: "Confirm";
                 clicked => {
                     root.close();
                     ModpackLogic.delete-modpack(root.modpack);
+                }
+            }
+
+            Button {
+                text: "Cancel";
+                clicked => {
+                    root.close();
                 }
             }
         }

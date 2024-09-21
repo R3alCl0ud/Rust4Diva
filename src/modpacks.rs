@@ -1,5 +1,6 @@
 use base64ct::{Base64, Encoding};
 use filenamify::filenamify;
+use futures_util::future::try_join_all;
 use sha2::{Digest, Sha256};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use sonic_rs::{Deserialize, Serialize};
@@ -10,10 +11,11 @@ use tokio::fs;
 
 use crate::config::{write_config, write_dml_config};
 use crate::diva::{get_config_dir, get_diva_folder, open_error_window};
-use crate::modmanagement::{get_mods_in_order, DivaMod};
+use crate::modmanagement::{get_mods_in_order, load_mods, save_mod_config, DivaMod};
 use crate::slint_generatedApp::App;
 use crate::{
-    ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, DIVA_CFG, DML_CFG, MOD_PACKS,
+    ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, DIVA_CFG, DML_CFG, MODS,
+    MOD_PACKS,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -50,6 +52,11 @@ impl PartialEq<ModPackMod> for DivaMod {
 
 impl ModPackMod {
     pub fn to_element(self: &Self) -> DivaModElement {
+        if let Ok(mods) = MODS.try_lock() {
+            if let Some(m) = mods.get(&self.dir_name().unwrap_or_default()) {
+                return m.clone().into();
+            }
+        }
         DivaModElement {
             author: SharedString::from(""),
             name: self.name.clone().into(),
@@ -165,24 +172,56 @@ pub async fn init(ui: &App) {
                         ui.global::<ModpackLogic>().invoke_apply_modpack(model);
                     });
                 }
-                if let Ok(packs) = MOD_PACKS.lock() {
-                    let pack = packs.get(&mod_pack.clone().to_string()).clone();
-                    if pack.is_none() {
-                        return;
+                let mut pack = None;
+                if let Ok(packs) = MOD_PACKS.try_lock() {
+                    let handle = packs.get(&mod_pack.clone().to_string());
+                    if let Some(handle) = handle {
+                        pack = Some(handle.clone());
                     }
-                    let pack = pack.unwrap();
-                    let pack = pack.clone();
-                    let _ = ui_change_handle.upgrade_in_event_loop(move |ui| {
-                        let pack_mods: VecModel<DivaModElement> = VecModel::default();
-                        for module in pack.mods.clone() {
-                            pack_mods.push(module.to_element());
-                        }
-                        let model = ModelRc::new(pack_mods);
-                        ui.set_pack_mods(model.clone());
-                        ui.set_active_pack(pack.name.into());
-                        ui.global::<ModpackLogic>().invoke_apply_modpack(model);
-                    });
                 }
+                if pack.is_none() {
+                    return;
+                }
+                let pack = pack.unwrap();
+                let mut joins = vec![];
+                if let Ok(mods) = MODS.try_lock() {
+                    let mut mods = mods.clone();
+                    for m in pack.mods.clone() {
+                        if let Some(module) = mods.get_mut(&m.dir_name().unwrap_or_default()) {
+                            module.config.enabled = m.enabled;
+                            let module = module.clone();
+                            joins.push(tokio::spawn(async move {
+                                save_mod_config(
+                                    PathBuf::from(module.path.clone()),
+                                    &module.config.clone(),
+                                )
+                            }));
+                        }
+                    }
+                }
+                match try_join_all(joins).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!("{e}")
+                    }
+                }
+                match load_mods() {
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!("{e}")
+                    }
+                }
+
+                let _ = ui_change_handle.upgrade_in_event_loop(move |ui| {
+                    let pack_mods: VecModel<DivaModElement> = VecModel::default();
+                    for module in pack.mods.clone() {
+                        pack_mods.push(module.to_element());
+                    }
+                    let model = ModelRc::new(pack_mods);
+                    ui.set_pack_mods(model.clone());
+                    ui.set_active_pack(pack.name.into());
+                    ui.global::<ModpackLogic>().invoke_apply_modpack(model);
+                });
             });
         });
 
@@ -225,9 +264,13 @@ pub async fn init(ui: &App) {
                                 match sonic_rs::to_string_pretty(&pack.clone()) {
                                     Ok(pack_str) => {
                                         tokio::spawn(async move {
-                                            let mut buf = get_modpacks_folder()
-                                                .await
-                                                .unwrap_or(PathBuf::new());
+                                            let mut buf = match get_modpacks_folder() {
+                                                Ok(buf) => buf,
+                                                Err(e) => {
+                                                    eprintln!("{e}");
+                                                    return;
+                                                }
+                                            };
                                             buf.push(format!("{modpack}.json"));
                                             match fs::write(buf, pack_str).await {
                                                 Ok(_) => {}
@@ -342,8 +385,13 @@ pub async fn init(ui: &App) {
                                 }
                                 let ui_delete_handle = ui_delete_handle.clone();
                                 tokio::spawn(async move {
-                                    let mut buf =
-                                        get_modpacks_folder().await.unwrap_or(PathBuf::new());
+                                    let mut buf = match get_modpacks_folder() {
+                                        Ok(buf) => buf,
+                                        Err(e) => {
+                                            eprintln!("{e}");
+                                            return;
+                                        }
+                                    };
                                     buf.push(format!("{}.json", filenamify(pack.name)));
                                     match fs::remove_file(buf).await {
                                         Ok(_) => {
@@ -383,7 +431,7 @@ pub async fn init(ui: &App) {
 }
 
 pub async fn load_mod_packs() -> std::io::Result<HashMap<String, ModPack>> {
-    let packs_dir = get_modpacks_folder().await;
+    let packs_dir = get_modpacks_folder();
     if packs_dir.is_err() {
         return Err(packs_dir.unwrap_err().into());
     }
@@ -402,8 +450,8 @@ pub async fn load_mod_packs() -> std::io::Result<HashMap<String, ModPack>> {
     Ok(packs)
 }
 
-pub async fn get_modpacks_folder() -> std::io::Result<PathBuf> {
-    match get_config_dir().await {
+pub fn get_modpacks_folder() -> std::io::Result<PathBuf> {
+    match get_config_dir() {
         Ok(mut config_dir) => {
             if let Ok(cfg) = DIVA_CFG.try_lock() {
                 let cfg = cfg.clone();
@@ -423,11 +471,23 @@ pub async fn get_modpacks_folder() -> std::io::Result<PathBuf> {
 }
 
 pub async fn save_modpack(pack: ModPack) -> std::io::Result<()> {
-    match get_modpacks_folder().await {
+    match get_modpacks_folder() {
         Ok(mut packs_dir) => {
             packs_dir.push(filenamify(pack.name.clone()) + ".json");
             if let Ok(pckstr) = sonic_rs::to_string_pretty(&pack.clone()) {
                 return fs::write(packs_dir, pckstr).await;
+            }
+            Ok(())
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+pub fn save_modpack_sync(pack: ModPack) -> std::io::Result<()> {
+    match get_modpacks_folder() {
+        Ok(mut packs_dir) => {
+            packs_dir.push(filenamify(pack.name.clone()) + ".json");
+            if let Ok(pckstr) = sonic_rs::to_string_pretty(&pack.clone()) {
+                return std::fs::write(packs_dir, pckstr);
             }
             Ok(())
         }

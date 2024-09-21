@@ -32,7 +32,7 @@ pub struct DivaConfig {
     #[serde(default)]
     pub aft_dir: String,
     #[serde(default)]
-    pub applied_pack: String, // pub
+    pub applied_pack: String,
     #[serde(default)]
     pub aft_mode: bool,
     #[serde(default = "yes")]
@@ -67,7 +67,7 @@ impl DivaConfig {
 }
 
 pub async fn load_diva_config() -> std::io::Result<DivaConfig> {
-    let mut cfg_dir = get_config_dir().await?;
+    let mut cfg_dir = get_config_dir()?;
     cfg_dir.push("rust4diva.toml");
     if !cfg_dir.exists() {
         let cfg = DivaConfig::new();
