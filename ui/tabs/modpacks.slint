@@ -66,7 +66,6 @@ export component ModPacksTab {
         main-contents := Row {
 
             mod-picker := ModPickTable {
-                // col: 0;
                 colspan: 2;
                 min-width: 200px;
                 horizontal-stretch: 3;
@@ -77,7 +76,6 @@ export component ModPacksTab {
 
             move-btns := VerticalBox {
                 col: 2;
-                // rowspan: 1;
                 width: 10%;
                 Button {
                     height: 48%;
@@ -144,7 +142,7 @@ export component ModPacksTab {
 
             Button {
                 col: 3;
-                colspan: 4;
+                colspan: 7;
                 height: btn-height;
                 text: "Save";
                 clicked => {

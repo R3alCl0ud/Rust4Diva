@@ -20,7 +20,6 @@ export component ModCtxMenu {
                 padding: 1px;
                 width: 100px;
                 Rectangle {
-                    // forward-focus: e-ta;
                     height: 30px;
                     background: edit-ta.has-hover ? Palette.alternate-background : Palette.background;
 
@@ -53,7 +52,6 @@ export component ModCtxMenu {
                 Rectangle {
                     height: 30px;
                     background: delete-ta.has-hover ? Palette.alternate-background : Palette.background;
-                    // bord
                     delete-ta := TouchArea {
                         clicked => {
                             ModLogic.delete-mod(module);
@@ -73,8 +71,6 @@ export component ModCtxMenu {
                         }
 
                         Text {
-                            // x: 5px;
-                            // width: 95px;
                             horizontal-alignment: left;
                             vertical-alignment: center;
                             text: "Delete";
@@ -85,25 +81,6 @@ export component ModCtxMenu {
         }
     }
 
-    // Rectangle {
-    //     height: 30px;
-    //     background: b-ta.has-hover ? Palette.alternate-background : Palette.background;
-    //     b-ta := TouchArea {
-    //         Text {
-    //             horizontal-alignment: left;
-    //             text: "Test";
-    //         }
-
-    //         pointer-event(e) => {
-    //             if e.kind == PointerEventKind.down {
-    //                 show({ }, {
-    //                     x: (self.absolute-position.x + self.mouse-x)- 20px,
-    //                     y: (self.absolute-position.y + self.mouse-y) - 100px
-    //                 });
-    //             }
-    //         }
-    //     }
-    // }
     public function show(module: DivaModElement, idx: int, pos: Point) {
 
         self.pos = pos;
