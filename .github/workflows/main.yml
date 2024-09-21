@@ -74,4 +74,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rust4diva${{ github.head_ref }}-windows-x86_64
-          path: windows/output/Rust4Diva v*.exe
+          path: windows/output/
