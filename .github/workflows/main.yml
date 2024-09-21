@@ -3,11 +3,11 @@ name: Build
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "*" ]
 
 jobs:
-  build:
-    name: Build
+  build-linux:
+    name: Build Linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
@@ -16,7 +16,45 @@ jobs:
       - name: Build
         run: SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 cargo build --verbose
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: rust4diva${{ github.head_ref }}-linux.zip
+          name: rust4diva${{ github.head_ref }}-linux-x86_64.zip
+          path: target/debug/rust4diva
+  build-macos-x86_64:
+    name: Build MacOS x86_64
+    runs-on: macos-13    
+    steps:
+      - uses: actions/checkout@master
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+      - name: Install libarchive
+        run: brew install libarchive
+      - name: Install rustup
+        run: brew install rustup
+      - name: Build
+        run: PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig" SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 cargo build --verbose
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust4diva${{ github.head_ref }}-macos-x86_64.zip
+          path: target/debug/rust4diva
+  build-macos-arm:
+    name: Build MacOS Arm
+    runs-on: macos-14    
+    steps:
+      - uses: actions/checkout@master
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+      - name: Install libarchive
+        run: brew install libarchive
+      - name: Install rustup
+        run: brew install rustup
+      - name: Build Rust4Diva
+        run: PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig" SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 cargo build --verbose
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust4diva${{ github.head_ref }}-macos-arm.zip
           path: target/debug/rust4diva
