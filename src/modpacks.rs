@@ -1,6 +1,5 @@
 use base64ct::{Base64, Encoding};
 use filenamify::filenamify;
-use futures_util::future::try_join_all;
 use sha2::{Digest, Sha256};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use sonic_rs::{Deserialize, Serialize};
@@ -9,9 +8,9 @@ use std::path::PathBuf;
 use std::vec;
 use tokio::fs;
 
-use crate::config::{write_config, write_dml_config};
+use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{get_config_dir, get_diva_folder, open_error_window};
-use crate::modmanagement::{get_mods_in_order, load_mods, save_mod_config, DivaMod};
+use crate::modmanagement::{get_mods_in_order, DivaMod};
 use crate::slint_generatedApp::App;
 use crate::{
     ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, DIVA_CFG, DML_CFG, MODS,
@@ -159,70 +158,27 @@ pub async fn init(ui: &App) {
     ui.global::<ModpackLogic>()
         .on_change_modpack(move |mod_pack| {
             let ui_change_handle = ui_change_handle.clone();
-            tokio::spawn(async move {
-                if mod_pack.to_string() == "All Mods" || mod_pack.to_string() == "" {
-                    let _ = ui_change_handle.upgrade_in_event_loop(|ui| {
-                        ui.set_active_pack("".into());
-                        let vec = VecModel::<DivaModElement>::default();
-                        for m in get_mods_in_order() {
-                            vec.push(m.into());
-                        }
-                        let model = ModelRc::new(vec);
-                        ui.set_pack_mods(model.clone());
-                        ui.global::<ModpackLogic>().invoke_apply_modpack(model);
-                    });
-                }
-                let mut pack = None;
-                if let Ok(packs) = MOD_PACKS.try_lock() {
-                    let handle = packs.get(&mod_pack.clone().to_string());
-                    if let Some(handle) = handle {
-                        pack = Some(handle.clone());
+            {
+                let mut cfg = match DIVA_CFG.try_lock() {
+                    Ok(cfg) => cfg,
+                    _ => {
+                        println!("Failed to lock");
+                        return;
                     }
-                }
-                if pack.is_none() {
+                };
+                cfg.applied_pack = mod_pack.to_string();
+                if write_config_sync(cfg.clone()).is_err() {
                     return;
                 }
-                let pack = pack.unwrap();
-                let mut joins = vec![];
-                if let Ok(mods) = MODS.try_lock() {
-                    let mut mods = mods.clone();
-                    for m in pack.mods.clone() {
-                        if let Some(module) = mods.get_mut(&m.dir_name().unwrap_or_default()) {
-                            module.config.enabled = m.enabled;
-                            let module = module.clone();
-                            joins.push(tokio::spawn(async move {
-                                save_mod_config(
-                                    PathBuf::from(module.path.clone()),
-                                    &module.config.clone(),
-                                )
-                            }));
-                        }
-                    }
-                }
-                match try_join_all(joins).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        eprintln!("{e}")
-                    }
-                }
-                match load_mods() {
-                    Ok(_) => {}
-                    Err(e) => {
-                        eprintln!("{e}")
-                    }
-                }
-
-                let _ = ui_change_handle.upgrade_in_event_loop(move |ui| {
-                    let pack_mods: VecModel<DivaModElement> = VecModel::default();
-                    for module in pack.mods.clone() {
-                        pack_mods.push(module.to_element());
-                    }
-                    let model = ModelRc::new(pack_mods);
-                    ui.set_pack_mods(model.clone());
-                    ui.set_active_pack(pack.name.into());
-                    ui.global::<ModpackLogic>().invoke_apply_modpack(model);
-                });
-            });
+            }
+            let ui = ui_change_handle.unwrap();
+            let vec: VecModel<DivaModElement> = Default::default();
+            let mods = get_mods_in_order();
+            for m in mods {
+                vec.push(m.into());
+            }
+            ui.set_pack_mods(ModelRc::new(vec));
+            ui.set_active_pack(mod_pack);
         });
 
     ui.global::<ModpackLogic>().on_create_new_pack(move |pack| {
@@ -256,45 +212,44 @@ pub async fn init(ui: &App) {
                     for m in mods.iter() {
                         vec_mods.push(m.to_packmod());
                     }
-                    {
-                        let mut gpacks = MOD_PACKS.lock().unwrap();
-                        match gpacks.get_mut(&modpack) {
-                            Some(pack) => {
-                                pack.mods = vec_mods.clone();
-                                match sonic_rs::to_string_pretty(&pack.clone()) {
-                                    Ok(pack_str) => {
-                                        tokio::spawn(async move {
-                                            let mut buf = match get_modpacks_folder() {
-                                                Ok(buf) => buf,
-                                                Err(e) => {
-                                                    eprintln!("{e}");
-                                                    return;
-                                                }
-                                            };
-                                            buf.push(format!("{modpack}.json"));
-                                            match fs::write(buf, pack_str).await {
-                                                Ok(_) => {}
-                                                Err(e) => {
-                                                    eprintln!("{e}");
 
-                                                    let msg = format!(
-                                                        "Unable to save modpack: \n{}",
-                                                        e.to_string()
-                                                    );
-                                                    open_error_window(msg);
-                                                }
+                    let mut gpacks = MOD_PACKS.lock().unwrap();
+                    match gpacks.get_mut(&modpack) {
+                        Some(pack) => {
+                            pack.mods = vec_mods.clone();
+                            match sonic_rs::to_string_pretty(&pack.clone()) {
+                                Ok(pack_str) => {
+                                    tokio::spawn(async move {
+                                        let mut buf = match get_modpacks_folder() {
+                                            Ok(buf) => buf,
+                                            Err(e) => {
+                                                eprintln!("{e}");
+                                                return;
                                             }
-                                        });
-                                    }
-                                    Err(e) => {
-                                        let msg =
-                                            format!("Unable to save modpack: \n{}", e.to_string());
-                                        open_error_window(msg);
-                                    }
+                                        };
+                                        buf.push(format!("{modpack}.json"));
+                                        match fs::write(buf, pack_str).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                eprintln!("{e}");
+
+                                                let msg = format!(
+                                                    "Unable to save modpack: \n{}",
+                                                    e.to_string()
+                                                );
+                                                open_error_window(msg);
+                                            }
+                                        }
+                                    });
+                                }
+                                Err(e) => {
+                                    let msg =
+                                        format!("Unable to save modpack: \n{}", e.to_string());
+                                    open_error_window(msg);
                                 }
                             }
-                            None => {}
                         }
+                        None => {}
                     }
                 }
                 None => {
@@ -422,11 +377,13 @@ pub async fn init(ui: &App) {
                 });
         });
 
-    if let Ok(cfg) = DIVA_CFG.try_lock() {
-        // println!();
-        ui.set_active_pack(cfg.applied_pack.clone().into());
+    {
+        let pack = match DIVA_CFG.try_lock() {
+            Ok(cfg) => cfg.applied_pack.clone(),
+            Err(_) => "".to_owned(),
+        };
         ui.global::<ModpackLogic>()
-            .invoke_change_modpack(cfg.applied_pack.clone().into());
+            .invoke_change_modpack(pack.into());
     }
 }
 

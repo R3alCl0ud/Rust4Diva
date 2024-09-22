@@ -5,7 +5,7 @@ use std::env;
 use std::error::Error;
 use std::sync::{LazyLock, Mutex};
 
-use modmanagement::{get_mods_in_order, is_dml_installed};
+use modmanagement::is_dml_installed;
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint_interpreter::ComponentHandle;
 use tokio::sync::broadcast;
@@ -14,7 +14,7 @@ use crate::config::{load_diva_config, DivaConfig};
 use crate::diva::{create_tmp_if_not, find_diva_folder, open_error_window, MIKU_ART};
 use crate::gamebanana::parse_dmm_url;
 use crate::modmanagement::{
-    load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
+    get_mods, load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
 };
 use crate::modpacks::ModPack;
 use crate::oneclick::{spawn_listener, try_send_mmdl};
@@ -136,7 +136,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     }
 
     let _ = load_mods();
-    let _ = set_mods_table(&get_mods_in_order(), app_weak.clone());
+    let _ = set_mods_table(&get_mods(), app_weak.clone());
 
     if let Ok(dml) = DML_CFG.try_lock() {
         app.set_dml_enabled(dml.enabled);
@@ -144,10 +144,10 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
 
     app.set_r4d_version(env!("CARGO_PKG_VERSION").into());
 
-    modmanagement::init(&app, dl_rx, dark_rx.resubscribe()).await;
-    gamebanana::init(&app, dl_tx, url_rx, dark_rx.resubscribe()).await;
-    modpacks::init(&app).await;
     config::init_ui(&app, dark_tx).await;
+    modmanagement::init(&app, dl_rx, dark_rx.resubscribe()).await;
+    modpacks::init(&app).await;
+    gamebanana::init(&app, dl_tx, url_rx, dark_rx.resubscribe()).await;
 
     println!("Does the app run?");
 

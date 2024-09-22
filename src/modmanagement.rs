@@ -90,7 +90,7 @@ impl From<DivaMod> for DivaModElement {
         DivaModElement {
             name: value.config.name.clone().into(),
             author: value.config.author.clone().into(),
-            description: value.config.description.clone().into(),
+            description: value.config.description.escape_default().to_string().into(),
             version: value.config.version.clone().into(),
             enabled: value.config.enabled.clone(),
             path: value.path.clone().into(),
@@ -170,15 +170,15 @@ pub async fn init(
     let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
 
-    ui.on_load_mods(move || {
+    ui.global::<ModLogic>().on_load_mods(move || {
+        println!("Loading mods");
         match load_mods() {
             Ok(_) => {
-                let mods = get_mods_in_order();
+                let mods = get_mods();
                 let _ = set_mods_table(&mods, ui_load_handle.clone());
             }
             Err(e) => {
                 open_error_window(e.to_string());
-                // eprintln!("{e}");
             }
         }
     });
@@ -473,6 +473,7 @@ pub async fn init(
     println!("dl spawned");
     let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
     println!("ui updater spawned");
+
 }
 
 pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
@@ -521,10 +522,8 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
                     );
                     continue;
                 }
-                let mut mod_config = mod_config_res.unwrap();
-                mod_config.description = mod_config.description.escape_default().to_string();
                 mods.push(DivaMod {
-                    config: mod_config,
+                    config: mod_config_res.unwrap(),
                     path: mod_p_str,
                 });
             }
@@ -797,7 +796,7 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), E
     ui_handle.upgrade_in_event_loop(move |ui| {
         let mods_model: VecModel<DivaModElement> = VecModel::default();
         let mut mods = mods.clone();
-        mods.sort_by_key(|m| m.config.name.clone());
+        mods.sort_by_key(|m| m.config.name.clone().to_lowercase());
         for diva_mod in mods {
             mods_model.push(diva_mod.to_element());
         }
@@ -816,17 +815,17 @@ pub fn load_mods() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mods = load_mods_from_dir(buf.display().to_string());
     let mut dmods = MODS.lock().unwrap();
     let mut mod_map = HashMap::new();
-    for mut m in mods {
-        let n = m.dir_name().unwrap_or(m.config.name.clone());
+    for mut r#mod in mods {
+        let dir_name = r#mod.dir_name().unwrap_or(r#mod.config.name.clone());
 
         // Will make the mod's name default to the folder name if the field is blank for some reason
-        if m.config.name.is_empty() {
-            m.config.name = n.clone();
+        if r#mod.config.name.is_empty() {
+            r#mod.config.name = dir_name.clone();
         }
 
-        mod_map.insert(n.clone(), m.clone());
-        if !gconf.priority.contains(&n) {
-            gconf.priority.push(n);
+        mod_map.insert(dir_name.clone(), r#mod.clone());
+        if !gconf.priority.contains(&dir_name) {
+            gconf.priority.push(dir_name);
         }
     }
     *dmods = mod_map.clone();
@@ -861,9 +860,48 @@ pub fn load_mods() -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
+pub fn get_mods() -> Vec<DivaMod> {
+    let mut mods = vec![];
+    if let Ok(ms) = MODS.try_lock() {
+        for (_, m) in ms.iter() {
+            mods.push(m.to_owned());
+        }
+    }
+    mods
+}
+
 pub fn get_mods_in_order() -> Vec<DivaMod> {
     let mut mods = vec![];
-    let prio = DIVA_CFG.lock().unwrap().priority.clone();
+    let cfg = match DIVA_CFG.try_lock() {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            eprintln!("{e}");
+            return mods;
+        }
+    };
+    println!("{}", cfg.applied_pack);
+    let mut prio = vec![];
+    if cfg.applied_pack == "All Mods" || cfg.applied_pack == "" {
+        prio = cfg.priority.clone();
+    } else {
+        println!("Locking");
+        let packs = match MOD_PACKS.try_lock() {
+            Ok(packs) => packs,
+            Err(e) => {
+                eprintln!("{e}");
+                return mods;
+            }
+        };
+        println!("getting pack");
+        let pack = match packs.get(&cfg.applied_pack) {
+            Some(pack) => pack,
+            None => return mods,
+        };
+        for m in pack.mods.as_slice() {
+            prio.push(m.dir_name().unwrap_or_default());
+        }
+        println!("Pack contains: {}", prio.len());
+    }
     let gmods = MODS.lock().unwrap().clone();
     for p in prio {
         match gmods.get(&p) {
