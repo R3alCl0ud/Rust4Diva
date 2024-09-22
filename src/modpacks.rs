@@ -119,7 +119,7 @@ pub async fn init(ui: &App) {
     }
 
     ui.global::<ModpackLogic>().on_add_mod_to_pack(
-        move |diva_mod_element: DivaModElement, _mod_pack| {
+        move |diva_mod_element: DivaModElement, mod_pack| {
             let ui = ui_add_mod_handle.upgrade().unwrap();
             let pack_mods = ui.get_pack_mods();
             if let Some(pack_mods) = pack_mods
@@ -133,12 +133,14 @@ pub async fn init(ui: &App) {
                 }
                 println!("Pushing mod @ modpacks.rs 80");
                 pack_mods.push(diva_mod_element);
+                ui.global::<ModpackLogic>()
+                    .invoke_save_modpack(mod_pack, ui.get_pack_mods());
             }
         },
     );
 
     ui.global::<ModpackLogic>().on_remove_mod_from_pack(
-        move |diva_mod_element: DivaModElement, _mod_pack| {
+        move |diva_mod_element: DivaModElement, mod_pack| {
             let ui = ui_remove_mod_handle.upgrade().unwrap();
             let pack_mods = ui.get_pack_mods();
             if let Some(pack_mods) = pack_mods
@@ -150,7 +152,10 @@ pub async fn init(ui: &App) {
                     .filter(|item| item.name != diva_mod_element.name);
                 let new_vec: Vec<DivaModElement> = filtered.collect();
                 let vec_mod = VecModel::from(new_vec);
-                ui.set_pack_mods(ModelRc::new(vec_mod));
+                let model = ModelRc::new(vec_mod);
+                ui.set_pack_mods(model.clone());
+                ui.global::<ModpackLogic>()
+                    .invoke_save_modpack(mod_pack, model);
             }
         },
     );

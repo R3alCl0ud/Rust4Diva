@@ -1,6 +1,8 @@
-# Rust4Diva
+# Rust4Diva [![Build](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/main.yml/badge.svg)](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/main.yml)
 
 A Fast cross-platform mod manager written in rust for the steam version of Hatsune Miku Project Diva Mega Mix +
+
+
 
 Toggle mods
 
@@ -29,8 +31,9 @@ Get new mods online directly in the app
     - This was only tested on MacOS on Arm though, you can't even install Mega Mix plus using the regular version of steam though.
   - [ ] Url handling
     - Not sure how this works on MacOS
-  - [ ] Rebuilt Distributable
-    - I personally will be unable to sign this since I don't have a mac nor do I want to pay the $100 a year or whatever it is to apple for the privledge
+  - [x] Prebuilt Distributable
+    - ~~I personally will be unable to sign this since I don't have a mac nor do I want to pay the $100 a year or whatever it is to apple for the privledge~~
+    - built using github actions now
 - [x] Commission a proper logo/icon
   - Logo is being made, just waiting now, Ty Nezuko
 

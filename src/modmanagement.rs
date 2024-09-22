@@ -327,7 +327,8 @@ pub async fn init(
     ui.global::<ModLogic>().on_set_priority(move |old, new| {
         if let Ok(mut cfg) = DIVA_CFG.lock() {
             if cfg.applied_pack == "" || cfg.applied_pack == "All Mods" {
-                let item = cfg.priority.remove(old as usize);
+                let old = min(old as usize, cfg.priority.len());
+                let item = cfg.priority.remove(old);
                 let new = max(0, min(new as usize, cfg.priority.len()));
                 cfg.priority.insert(new, item);
                 let lcfg = cfg.clone();
@@ -473,7 +474,6 @@ pub async fn init(
     println!("dl spawned");
     let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
     println!("ui updater spawned");
-
 }
 
 pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
@@ -884,7 +884,6 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
     if cfg.applied_pack == "All Mods" || cfg.applied_pack == "" {
         prio = cfg.priority.clone();
     } else {
-        println!("Locking");
         let packs = match MOD_PACKS.try_lock() {
             Ok(packs) => packs,
             Err(e) => {
@@ -892,7 +891,6 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
                 return mods;
             }
         };
-        println!("getting pack");
         let pack = match packs.get(&cfg.applied_pack) {
             Some(pack) => pack,
             None => return mods,
@@ -900,7 +898,6 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
         for m in pack.mods.as_slice() {
             prio.push(m.dir_name().unwrap_or_default());
         }
-        println!("Pack contains: {}", prio.len());
     }
     let gmods = MODS.lock().unwrap().clone();
     for p in prio {
