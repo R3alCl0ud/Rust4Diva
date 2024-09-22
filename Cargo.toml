@@ -43,3 +43,14 @@ winreg = "0.52.0"
 [build-dependencies]
 slint-build = "1.7.2"
 winresource = "0.1.17"
+cargo-bundle = "0.6.1"
+
+
+[package.metadata.bundle]
+name = "Rust4Diva"
+identifier = "xyz.rust4diva.Rust4Diva"
+resources = ["assets"]
+deb_depends = ["libarchive"]
+osx_url_schemes = ["divamodmanager"]
+linux_mime_types = ["x-scheme-handler/divamodmanager"]
+icon = ["assets/rust4diva-32x32.png", "assets/rust4diva-128.png", "assets/rust4diva-1024.png"]
