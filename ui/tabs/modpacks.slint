@@ -78,6 +78,7 @@ export component ModPacksTab {
                 col: 2;
                 width: 10%;
                 Button {
+                    enabled: packs.current-index != 0 && packs.current-value != "All Mods" && packs.current-value != "";
                     height: 48%;
                     colorize-icon: true;
                     icon: @image-url("../assets/right-long-solid.svg");
@@ -95,7 +96,7 @@ export component ModPacksTab {
                 Button {
                     height: 48%;
                     colorize-icon: true;
-                    enabled: pack-mods.length > 0;
+                    enabled: pack-mods.length > 0 && packs.current-index != 0 && packs.current-value != "All Mods" && packs.current-value != "";
                     icon: @image-url("../assets/left-long-solid.svg");
                     clicked => {
                         if packs.current-index != -1 {

@@ -83,9 +83,11 @@ export component ModTableRow inherits Rectangle {
     in property <MoveBtnType> list-position;
     in-out property <bool> should-move: false;
     out property <length> m-offset;
+    in property <int> current-row;
 
     callback pointer-event(/* event */ PointerEvent, /* absolute mouse position */ Point, Point);
     callback moved(/* Mouse Pos */Point, /* Abs Mouse Pos */ Point);
+    callback clicked();
     min-width: layout.min-width;
     min-height: max(24px, layout.min-height);
     background: root.even ? Palette.control-background : Palette.background;
@@ -140,6 +142,10 @@ export component ModTableRow inherits Rectangle {
                 root.pointer-event(e, { x:self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y },{ x: self.mouse-x, y: self.mouse-y });
             }
 
+            clicked => {
+                root.clicked();
+            }
+
             Rectangle {
                 name-text := Text {
                     width: 100%;
@@ -151,6 +157,11 @@ export component ModTableRow inherits Rectangle {
                     font-weight: FontSettings.body.font-weight;
                     font-size: FontSettings.body.font-size;
                     color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
+                    states [
+                        selected when idx == root.current-row: {
+                            name-text.color: Palette.accent-background;
+                        }
+                    ]
                 }
             }
         }
@@ -165,7 +176,9 @@ export component ModTableRow inherits Rectangle {
             moved => {
                 root.moved({ x: self.mouse-x, y: self.mouse-y }, { x: self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y });
             }
-
+            clicked => {
+                root.clicked();
+            }
             pointer-event(e) => {
                 if e.kind == PointerEventKind.down {
                     m-offset = self.mouse-y;
@@ -173,7 +186,7 @@ export component ModTableRow inherits Rectangle {
                 root.pointer-event(e, { x:self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y },{ x: self.mouse-x, y: self.mouse-y });
             }
             Rectangle {
-                bytes-text := Text {
+                author-text := Text {
                     width: 100%;
                     height: 100%;
                     overflow: elide;
@@ -183,6 +196,11 @@ export component ModTableRow inherits Rectangle {
                     font-weight: FontSettings.body.font-weight;
                     font-size: FontSettings.body.font-size;
                     color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
+                    states [
+                        selected when idx == root.current-row: {
+                            author-text.color: Palette.accent-background;
+                        }
+                    ]
                 }
             }
         }
@@ -193,7 +211,9 @@ export component ModTableRow inherits Rectangle {
             moved => {
                 root.moved({ x: self.mouse-x, y: self.mouse-y }, { x: self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y });
             }
-
+            clicked => {
+                root.clicked();
+            }
             pointer-event(e) => {
                 if e.kind == PointerEventKind.down {
                     m-offset = self.mouse-y;
@@ -216,6 +236,11 @@ export component ModTableRow inherits Rectangle {
                     font-weight: FontSettings.body.font-weight;
                     font-size: FontSettings.body.font-size;
                     color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
+                    states [
+                        selected when idx == root.current-row: {
+                            mod-ver.color: Palette.accent-background;
+                        }
+                    ]
                 }
             }
         }
@@ -230,7 +255,9 @@ export component ModTableRow inherits Rectangle {
             moved => {
                 root.moved({ x: self.mouse-x, y: self.mouse-y }, { x: self.x + self.mouse-x, y:self.absolute-position.y + self.mouse-y });
             }
-
+            clicked => {
+                root.clicked();
+            }
             pointer-event(e) => {
                 if e.kind == PointerEventKind.down {
                     m-offset = self.mouse-y;
@@ -248,6 +275,11 @@ export component ModTableRow inherits Rectangle {
                     font-weight: FontSettings.body.font-weight;
                     font-size: FontSettings.body.font-size;
                     color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
+                    states [
+                        selected when idx == root.current-row: {
+                            mod-desc.color: Palette.accent-background;
+                        }
+                    ]
                 }
             }
         }
@@ -318,7 +350,7 @@ export component ModTable {
     horizontal-stretch: 1;
     vertical-stretch: 1;
     accessible-role: table;
-    // forward-focus: focus-scope;
+    forward-focus: focus-scope;
 
     VerticalLayout {
         Rectangle {
@@ -373,6 +405,7 @@ export component ModTable {
                 module: module;
                 idx: idx;
                 selected: idx == root.current-row;
+                current-row: root.current-row;
                 even: mod(idx, 2) == 0;
                 y: self.height * idx;
                 height: max(45px, item-height);
@@ -397,6 +430,11 @@ export component ModTable {
                         self.y = clamp(self.y, min(0px, abs(scroll-view.viewport-y)), scroll-view.viewport-height - self.height);
                         i-shadow-mod.y = self.y;
                     }
+                }
+
+                clicked => {
+                    root.focus();
+                    root.set-current-row(idx);
                 }
 
                 pointer-event(pe, pos, mouse) => {
