@@ -61,8 +61,10 @@ jobs:
       - name: "Run slugify"
         id: slugify
         uses: eltimn/slugify-action@v2.0.2
+
       - name: Install libarchive
         run: brew install libarchive
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -72,11 +74,16 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
       - name: Build Rust4Diva
         run: cargo build --verbose
+      
+      - name: Create IconSet
+        run: iconutil -c icns assets/icon.iconset
 
       - name: Setup Cargo Bundle
         run: cargo install cargo-bundle
+
       - name: Bundle Rust4Diva
         run: cargo bundle
 
@@ -113,10 +120,15 @@ jobs:
 
       - name: Build Rust4Diva
         run: cargo build --verbose
+      - name: Create IconSet
+        run: iconutil -c icns assets/icon.iconset
+
       - name: Setup Cargo Bundle
         run: cargo install cargo-bundle
+
       - name: Bundle Rust4Diva
         run: cargo bundle
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
