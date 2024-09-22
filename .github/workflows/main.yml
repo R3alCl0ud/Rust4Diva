@@ -3,20 +3,81 @@ name: Build
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "*" ]
 
 jobs:
-  build:
-    name: Build
+  build-linux:
+    name: Build Linux
     runs-on: ubuntu-latest
+    env: 
+      SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
     steps:
       - uses: actions/checkout@master
       - name: install libarchive
         run: sudo apt install libarchive-dev -y
       - name: Build
-        run: SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 cargo build --verbose
+        run: cargo build --verbose
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: rust4diva${{ github.head_ref }}-linux.zip
+          name: rust4diva${{ github.head_ref }}-linux-x86_64
           path: target/debug/rust4diva
+  build-macos-x86_64:
+    name: Build MacOS x86_64
+    runs-on: macos-13    
+    env: 
+      PKG_CONFIG_PATH: "/usr/local/opt/libarchive/lib/pkgconfig"
+      SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
+    steps:
+      - uses: actions/checkout@master
+      - name: Install libarchive
+        run: brew install libarchive
+      - name: Build Rust4Diva
+        run: cargo build --verbose
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust4diva${{ github.head_ref }}-macos-x86_64
+          path: target/debug/rust4diva
+  build-macos-arm:
+    name: Build MacOS Arm
+    runs-on: macos-14    
+    env: 
+      PKG_CONFIG_PATH: "/usr/local/opt/libarchive/lib/pkgconfig"
+      SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
+    steps:
+      - uses: actions/checkout@master
+      - name: Install libarchive
+        run: brew install libarchive
+      - name: Build Rust4Diva
+        run: cargo build --verbose
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust4diva${{ github.head_ref }}-macos-arm
+          path: target/debug/rust4diva
+  build-windows-x86_64:
+    name: Build Windows x86_64
+    runs-on: windows-latest  
+    env: 
+      SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
+      VCPKG_ROOT: "C:\\vcpkg"
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: "C:\\vcpkg\\installed\\x64-windows-static-md"
+          key: ${{ runner.os }}-${{ hashFiles('windows/libarchive.dll') }}
+      - name: Install libarchive
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: vcpkg install libarchive:x64-windows-static-md
+      - name: Build Rust4Diva
+        run: cargo build --verbose
+      - name: Package installer
+        run: windows\package-nightly.bat
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust4diva${{ github.head_ref }}-windows-x86_64
+          path: windows/output/*
