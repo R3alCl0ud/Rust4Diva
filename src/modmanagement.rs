@@ -264,39 +264,44 @@ pub async fn init(
             let msg = format!("Unable to save mod config: \n{}", e.to_string());
             open_error_window(msg);
         }
-        let cfg = match DIVA_CFG.try_lock() {
-            Ok(cfg) => cfg,
-            Err(_) => return,
-        };
-        if cfg.applied_pack != "All Mods" && cfg.applied_pack != "" {
-            let mut packs = match MOD_PACKS.try_lock() {
-                Ok(packs) => packs,
+        let mut applied = "".to_owned();
+        {
+            let cfg = match DIVA_CFG.try_lock() {
+                Ok(cfg) => cfg,
                 Err(_) => return,
             };
-            let pack = match packs.get_mut(&cfg.applied_pack) {
-                Some(p) => p,
-                None => return,
-            };
-            let idx = pack
-                .mods
-                .iter()
-                .position(|m| m.name == module.name.to_string());
-            if let Some(idx) = idx {
-                pack.mods[idx].enabled = m.config.enabled;
-            }
-            let pack = pack.clone();
-            match save_modpack_sync(pack) {
-                Ok(_) => {}
-                Err(e) => {
-                    eprintln!("{e}");
-                    return;
+            applied = cfg.applied_pack.clone();
+            if cfg.applied_pack != "All Mods" && cfg.applied_pack != "" {
+                let mut packs = match MOD_PACKS.try_lock() {
+                    Ok(packs) => packs,
+                    Err(_) => return,
+                };
+                let pack = match packs.get_mut(&cfg.applied_pack) {
+                    Some(p) => p,
+                    None => return,
+                };
+                let idx = pack
+                    .mods
+                    .iter()
+                    .position(|m| m.name == module.name.to_string());
+                if let Some(idx) = idx {
+                    pack.mods[idx].enabled = m.config.enabled;
+                }
+                let pack = pack.clone();
+                match save_modpack_sync(pack) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!("{e}");
+                        return;
+                    }
                 }
             }
         }
+        println!("Gets here");
         ui_toggle_handle
             .unwrap()
             .global::<ModpackLogic>()
-            .invoke_change_modpack(cfg.applied_pack.clone().into());
+            .invoke_change_modpack(applied.into());
     });
 
     ui.on_open_file_picker(move || {
@@ -327,7 +332,7 @@ pub async fn init(
     ui.global::<ModLogic>().on_set_priority(move |old, new| {
         if let Ok(mut cfg) = DIVA_CFG.lock() {
             if cfg.applied_pack == "" || cfg.applied_pack == "All Mods" {
-                let old = min(old as usize, cfg.priority.len());
+                let old = min(old as usize, cfg.priority.len() - 1);
                 let item = cfg.priority.remove(old);
                 let new = max(0, min(new as usize, cfg.priority.len()));
                 cfg.priority.insert(new, item);
@@ -358,6 +363,7 @@ pub async fn init(
             } else if let Ok(mut packs) = MOD_PACKS.try_lock() {
                 let applied = cfg.applied_pack.clone();
                 if let Some(pack) = packs.get_mut(&cfg.applied_pack) {
+                    let old = min(old as usize, pack.mods.len() - 1);
                     let item = pack.mods.remove(old as usize);
                     let new = max(0, min(new as usize, pack.mods.len()));
                     pack.mods.insert(new, item);
@@ -575,8 +581,23 @@ pub async fn unpack_mod_path(archive: PathBuf) -> compress_tools::Result<()> {
             let _ = fs::create_dir(buf.clone());
         }
     }
-    let mod_archive = File::open(archive.clone()).unwrap();
-    uncompress_archive(mod_archive, buf.as_path(), Ownership::Ignore)
+    let mut mod_archive = File::open(archive.clone()).unwrap();
+    let res = uncompress_archive(&mut mod_archive, buf.as_path(), Ownership::Preserve);
+    // compress tools always gives an error when extracting rar files
+    if res.is_err() && archive.extension().unwrap_or_default() == "rar" {
+        if let Err(e) = res {
+            eprintln!("{e}");
+            if e.to_string()
+                == "Extraction error: 'Can't decompress an entry marked as a directory'"
+            {
+                println!("Ignoring this error on rar archive");
+                return Ok(());
+            } else {
+                return Err(e.into());
+            }
+        }
+    }
+    return res;
 }
 
 pub fn check_archive_valid_structure(archive: File, name: String) -> bool {
@@ -899,7 +920,14 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
             prio.push(m.dir_name().unwrap_or_default());
         }
     }
-    let gmods = MODS.lock().unwrap().clone();
+    println!("Locking mods");
+    let gmods = match MODS.try_lock() {
+        Ok(gmods) => gmods.clone(),
+        Err(e) => {
+            eprintln!("{e}");
+            return mods;
+        }
+    };
     for p in prio {
         match gmods.get(&p) {
             Some(m) => {
@@ -908,6 +936,8 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
             None => {}
         }
     }
+    println!("done with mods");
+
     mods
 }
 
