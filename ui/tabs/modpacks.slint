@@ -9,7 +9,7 @@ export component ModPacksTab {
     in-out property <[DivaModElement]> mods;
     in-out property <[DivaModElement]> pack-mods: [];
     in-out property <bool> pack-modified;
-    out property <string> current-pack: packs.current-value;
+    in-out property <string> current-pack <=> packs.current-value;
     callback show-text-entry();
     property <length> btn-height: 36px;
     callback open-module-ctx(DivaModElement, int, Point);

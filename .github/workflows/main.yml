@@ -29,7 +29,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
         run: cargo build --verbose
@@ -61,13 +61,13 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build Rust4Diva
         run: cargo build --verbose
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust4diva-${{steps.slugify.outputs.sha}}-macos-x86_64
+          name: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}
           path: target/debug/rust4diva
   build-macos-arm:
     name: Build MacOS Arm
@@ -93,7 +93,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build Rust4Diva
         run: cargo build --verbose
@@ -101,7 +101,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust4diva-${{steps.slugify.outputs.sha}}-macos-arm
+          name: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}
           path: target/debug/rust4diva
 
   build-windows-x86_64:
@@ -118,16 +118,10 @@ jobs:
         id: slugify
         uses: eltimn/slugify-action@v2.0.2
 
-      - uses: actions/cache@v4
-        id: cache
-        with:
-          path: "C:\\vcpkg\\installed\\x64-windows-static-md"
-          key: ${{ runner.os }}-${{ hashFiles('windows/libarchive.dll') }}
-      
       - name: vcpkg libarchive
         uses: johnwason/vcpkg-action@v6
         id: vcpkg
-        with:
+        with: 
           pkgs: libarchive
           triplet: x64-windows-static-md
           token: ${{ github.token }}

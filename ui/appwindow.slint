@@ -86,7 +86,7 @@ export component App inherits Window {
     in property <[DivaModElement]> mods: [];
     in-out property <[DivaModElement]> pack-mods: [];
     in-out property <[string]> modpacks: [];
-    in-out property <string> active-pack;
+    in-out property <string> active-pack <=> mpmgmt-tab.current-pack;
     out property <string> current-pack: mpmgmt-tab.current-pack;
 
     callback load-mods();
