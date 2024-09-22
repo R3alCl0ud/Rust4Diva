@@ -64,7 +64,13 @@ jobs:
       VCPKG_ROOT: "C:\\vcpkg"
     steps:
       - uses: actions/checkout@master
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: "C:\\vcpkg\\installed\\x64-windows-static-md"
+          key: ${{ runner.os }}-${{ hashFiles('windows/libarchive.dll') }}
       - name: Install libarchive
+        if: steps.cache.outputs.cache-hit != 'true'
         run: vcpkg install libarchive:x64-windows-static-md
       - name: Build Rust4Diva
         run: cargo build --verbose
@@ -74,4 +80,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rust4diva${{ github.head_ref }}-windows-x86_64
-          path: windows/output/
+          path: windows/output/*

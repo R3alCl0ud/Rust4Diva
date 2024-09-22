@@ -2,7 +2,7 @@
 setlocal
 
 rem Define the file where you want to replace the text
-set "file=.\release.nsi"
+set "file=.\windows\release.nsi"
 set "oldText=/Git_Commit_Hash/g"
 
 rem Get the package version

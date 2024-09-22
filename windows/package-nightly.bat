@@ -2,7 +2,7 @@
 setlocal
 
 rem Define the file where you want to replace the text
-set "file=.\nightly.nsi"
+set "file=.\windows\nightly.nsi"
 set "oldText=/Git_Commit_Hash/g"
 set "newText=COMMIT_HASH"
 
