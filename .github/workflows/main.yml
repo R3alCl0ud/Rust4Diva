@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-linux:
-    name: Build Linux
+    name: Build Linux x86_64
     runs-on: ubuntu-latest
     env: 
       SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
@@ -15,6 +15,15 @@ jobs:
       - uses: actions/checkout@master
       - name: install libarchive
         run: sudo apt install libarchive-dev -y
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build
         run: cargo build --verbose
       - name: Upload artifact
@@ -32,6 +41,15 @@ jobs:
       - uses: actions/checkout@master
       - name: Install libarchive
         run: brew install libarchive
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build Rust4Diva
         run: cargo build --verbose
       - name: Upload artifact
@@ -47,8 +65,18 @@ jobs:
       SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
     steps:
       - uses: actions/checkout@master
+
       - name: Install libarchive
         run: brew install libarchive
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build Rust4Diva
         run: cargo build --verbose
       - name: Upload artifact
@@ -62,6 +90,7 @@ jobs:
     env: 
       SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
       VCPKG_ROOT: "C:\\vcpkg"
+      VCPKG_DEFAULT_TRIPLET: "x64-windows-static-md"
     steps:
       - uses: actions/checkout@master
       - uses: actions/cache@v4
@@ -69,9 +98,13 @@ jobs:
         with:
           path: "C:\\vcpkg\\installed\\x64-windows-static-md"
           key: ${{ runner.os }}-${{ hashFiles('windows/libarchive.dll') }}
-      - name: Install libarchive
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: vcpkg install libarchive:x64-windows-static-md
+      - name: Setup libarchive
+        uses: lukka/run-vcpkg@v11
+        id: runvcpkg
+        with:
+          # This one is not needed, as it is the default value anyway.
+          # vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          vcpkgJsonGlob: 'windows/vcpkg.json'
       - name: Build Rust4Diva
         run: cargo build --verbose
       - name: Package installer
