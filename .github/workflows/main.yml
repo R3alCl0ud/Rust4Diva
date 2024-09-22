@@ -13,9 +13,15 @@ jobs:
       SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
     steps:
       - uses: actions/checkout@master
+
+      - name: "Run slugify"
+        id: slugify
+        uses: eltimn/slugify-action@v2
+
       - name: install libarchive
         run: sudo apt install libarchive-dev -y
-      - uses: actions/cache@v3
+
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -24,13 +30,16 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Build
         run: cargo build --verbose
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust4diva${{ github.head_ref }}-linux-x86_64
+          name: rust4diva-${{steps.slugify.outputs.sha}}-linux-x86_64
           path: target/debug/rust4diva
+
   build-macos-x86_64:
     name: Build MacOS x86_64
     runs-on: macos-13    
@@ -39,9 +48,12 @@ jobs:
       SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
     steps:
       - uses: actions/checkout@master
+      - name: "Run slugify"
+        id: slugify
+        uses: eltimn/slugify-action@v2
       - name: Install libarchive
         run: brew install libarchive
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -55,7 +67,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust4diva${{ github.head_ref }}-macos-x86_64
+          name: rust4diva-${{steps.slugify.outputs.sha}}-macos-x86_64
           path: target/debug/rust4diva
   build-macos-arm:
     name: Build MacOS Arm
@@ -66,9 +78,14 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
+      - name: "Run slugify"
+        id: slugify
+        uses: eltimn/slugify-action@v2
+
       - name: Install libarchive
         run: brew install libarchive
-      - uses: actions/cache@v3
+
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -77,40 +94,53 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Build Rust4Diva
         run: cargo build --verbose
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust4diva${{ github.head_ref }}-macos-arm
+          name: rust4diva-${{steps.slugify.outputs.sha}}-macos-arm
           path: target/debug/rust4diva
+
   build-windows-x86_64:
     name: Build Windows x86_64
     runs-on: windows-latest  
     env: 
       SLINT_ENABLE_EXPERIMENTAL_FEATURES: "1" 
-      VCPKG_ROOT: "C:\\vcpkg"
+      VCPKG_ROOT: "${{ github.workspace }}\\vcpkg"
       VCPKG_DEFAULT_TRIPLET: "x64-windows-static-md"
     steps:
       - uses: actions/checkout@master
+
+      - name: "Run slugify"
+        id: slugify
+        uses: eltimn/slugify-action@v2
+
       - uses: actions/cache@v4
         id: cache
         with:
           path: "C:\\vcpkg\\installed\\x64-windows-static-md"
           key: ${{ runner.os }}-${{ hashFiles('windows/libarchive.dll') }}
-      - name: Setup libarchive
-        uses: lukka/run-vcpkg@v11
-        id: runvcpkg
+      
+      - name: vcpkg libarchive
+        uses: johnwason/vcpkg-action@v6
+        id: vcpkg
         with:
-          # This one is not needed, as it is the default value anyway.
-          # vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          vcpkgJsonGlob: 'windows/vcpkg.json'
+          pkgs: libarchive
+          triplet: x64-windows-static-md
+          token: ${{ github.token }}
+          github-binarycache: true
+      
       - name: Build Rust4Diva
         run: cargo build --verbose
+
       - name: Package installer
         run: windows\package-nightly.bat
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust4diva${{ github.head_ref }}-windows-x86_64
+          name: rust4diva-${{steps.slugify.outputs.sha}}-windows-x86_64
           path: windows/output/*

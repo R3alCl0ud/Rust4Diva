@@ -10,7 +10,7 @@ use tokio::fs;
 
 use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{get_config_dir, get_diva_folder, open_error_window};
-use crate::modmanagement::{get_mods_in_order, DivaMod};
+use crate::modmanagement::{get_mods_in_order, save_mod_config, DivaMod};
 use crate::slint_generatedApp::App;
 use crate::{
     ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, DIVA_CFG, DML_CFG, MODS,
@@ -158,6 +158,7 @@ pub async fn init(ui: &App) {
     ui.global::<ModpackLogic>()
         .on_change_modpack(move |mod_pack| {
             let ui_change_handle = ui_change_handle.clone();
+            // make sure that the mutex is unlocked after we are done with it
             {
                 let mut cfg = match DIVA_CFG.try_lock() {
                     Ok(cfg) => cfg,
@@ -171,12 +172,49 @@ pub async fn init(ui: &App) {
                     return;
                 }
             }
-            let ui = ui_change_handle.unwrap();
+
+            let mut mods = get_mods_in_order();
+            // make sure that the mutex is unlocked after we are done with it
+            {
+                let mut packs = match MOD_PACKS.try_lock() {
+                    Ok(packs) => packs,
+                    Err(_) => return,
+                };
+
+                let mut gmods = match MODS.try_lock() {
+                    Ok(ms) => ms,
+                    Err(_) => return,
+                };
+                if let Some(pack) = packs.get_mut(&mod_pack.to_string()) {
+                    for m in mods.iter_mut() {
+                        if let Some(pm) = pack.mods.iter().find(|p| p.path == m.path) {
+                            if m.config.enabled != pm.enabled {
+                                m.config.enabled = pm.enabled;
+                                if let Err(e) =
+                                    save_mod_config(PathBuf::from(m.path.clone()), &m.config)
+                                {
+                                    eprintln!("{e}");
+                                }
+                                gmods.insert(m.dir_name().unwrap(), m.clone());
+                            }
+                        }
+                    }
+                    if pack.mods.len() != mods.len() {
+                        pack.mods = mods.iter().map(|m| m.to_packmod()).collect();
+                    }
+                    match save_modpack_sync(pack.clone()) {
+                        Err(e) => eprintln!("{e}"),
+                        _ => {}
+                    }
+                }
+            }
+
+            // actually create the model now
             let vec: VecModel<DivaModElement> = Default::default();
-            let mods = get_mods_in_order();
             for m in mods {
                 vec.push(m.into());
             }
+            let ui = ui_change_handle.unwrap();
             ui.set_pack_mods(ModelRc::new(vec));
             ui.set_active_pack(mod_pack);
         });
