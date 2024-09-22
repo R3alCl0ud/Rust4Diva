@@ -34,11 +34,21 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
-      - name: Upload artifact
+      - name: Make sure Cargo-bundle installed
+        run: cargo install cargo-bundle
+      - name: Bundle Rust4Diva
+        run: cargo bundle
+
+      - name: Upload debug executable
         uses: actions/upload-artifact@v4
         with:
           name: rust4diva-${{steps.slugify.outputs.sha}}-linux-x86_64
           path: target/debug/rust4diva
+      - name: Upload deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust4diva-${{steps.slugify.outputs.sha}}-linux-x86_64-deb
+          path: target/debug/bundle/deb/*
 
   build-macos-x86_64:
     name: Build MacOS x86_64
@@ -65,6 +75,8 @@ jobs:
       - name: Build Rust4Diva
         run: cargo build --verbose
 
+      - name: Setup Cargo Bundle
+        run: cargo install cargo-bundle
       - name: Bundle Rust4Diva
         run: cargo bundle
 
@@ -101,6 +113,8 @@ jobs:
 
       - name: Build Rust4Diva
         run: cargo build --verbose
+      - name: Setup Cargo Bundle
+        run: cargo install cargo-bundle
       - name: Bundle Rust4Diva
         run: cargo bundle
       - name: Upload artifact
