@@ -68,6 +68,9 @@ jobs:
       - name: Install libarchive
         run: brew install libarchive
 
+      - name: Install Create-DMG
+        run: brew install create-dmg
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -91,14 +94,14 @@ jobs:
       - name: Bundle Rust4Diva
         run: cargo bundle
         
-      - name: Zip App to preserve permissions
-        run: zip ./rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.zip target/debug/bundle/osx/*
+      - name: Create DMG image
+        run: create-dmg --volname "Rust4Diva" --volicon "assets/icon.icns" --window-pos 200 120 --window-size 800 400 --icon-size 100 --icon "Rust4Diva.app" 200 190 --hide-extension "Rust4Diva.app" --app-drop-link 600 185 "rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.dmg" "target/debug/bundle/osx"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}
-          path: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.zip
+          path: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.dmg
   build-macos-arm:
     name: Build MacOS Arm
     runs-on: macos-14    
@@ -115,6 +118,9 @@ jobs:
 
       - name: Install libarchive
         run: brew install libarchive
+
+      - name: Install Create-DMG
+        run: brew install create-dmg
 
       - uses: actions/cache@v4
         with:
@@ -137,14 +143,14 @@ jobs:
 
       - name: Bundle Rust4Diva
         run: cargo bundle
-      - name: Zip App to preserve permissions
-        run: zip ./rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.zip target/debug/bundle/osx/*
+      - name: Create DMG image
+        run: create-dmg --volname "Rust4Diva" --volicon "assets/icon.icns" --window-pos 200 120 --window-size 800 400 --icon-size 100 --icon "Rust4Diva.app" 200 190 --hide-extension "Rust4Diva.app" --app-drop-link 600 185 "rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.dmg" "target/debug/bundle/osx"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}
-          path: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.zip
+          path: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.dmg
 
   build-windows-x86_64:
     name: Build Windows x86_64
