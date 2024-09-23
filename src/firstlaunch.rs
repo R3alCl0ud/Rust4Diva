@@ -5,7 +5,7 @@ use std::sync::{LazyLock, Mutex};
 
 use filenamify::filenamify;
 
-use crate::config::write_config;
+use crate::config::write_config_sync;
 use crate::diva::{get_diva_folder, open_error_window};
 use crate::modpacks::{self, ModPack, ModPackMod};
 use crate::slint_generatedApp::App;
@@ -163,7 +163,6 @@ pub async fn init(_diva_ui: &App) -> Result<(), slint::PlatformError> {
 
             let apply_handle = setup.as_weak();
             setup.global::<SetupLogic>().on_apply(move || {
-                let save_handle = apply_handle.clone();
                 let ui = apply_handle.upgrade().unwrap();
                 let mut diva_buf = PathBuf::from(ui.get_diva_dir().to_string());
                 // do checks to make sure entries are valid
@@ -185,72 +184,42 @@ pub async fn init(_diva_ui: &App) -> Result<(), slint::PlatformError> {
                 let dark_mode = ui.get_dark_mode();
                 println!("Dark Mode: {}", dark_mode);
                 println!("PDMM+: {}", diva_buf.display());
-                let mut prio = Vec::new();
                 if let Ok(dmm_cfg_opt) = DMM_CFG.try_lock() {
-                    if dmm_cfg_opt.is_some() {
-                        let mut loadouts: Vec<ModPack> = Vec::new();
-                        let dmm_cfg = dmm_cfg_opt.as_ref().unwrap();
-                        match dmm_cfg.configs.get(&"Project DIVA Mega Mix+".to_string()) {
-                            Some(config) => {
-                                // if let Some(cl) = &config.current_loadout {
-                                //     // currentload = Some(cl.clone());
-                                // }
+                    let mut loadouts: Vec<ModPack> = Vec::new();
+                    if let Some(dmm_cfg) = dmm_cfg_opt.as_ref() {
+                        if let Some(config) =
+                            dmm_cfg.configs.get(&"Project DIVA Mega Mix+".to_string())
+                        {
+                            match ui
+                                .get_loadouts()
+                                .as_any()
+                                .downcast_ref::<VecModel<Loadout>>()
+                            {
+                                Some(loadouts_mod) => {
+                                    for loadout in loadouts_mod.iter() {
+                                        if !loadout.import {
+                                            continue;
+                                        }
 
-                                match ui
-                                    .get_loadouts()
-                                    .as_any()
-                                    .downcast_ref::<VecModel<Loadout>>()
-                                {
-                                    Some(loadouts_mod) => {
-                                        // let dmm_cfg
-                                        for loadout in loadouts_mod.iter() {
-                                            if loadout.import {
-                                                let mut pack = ModPack::new(filenamify(
-                                                    loadout.name.to_string(),
-                                                ));
+                                        let mut pack =
+                                            ModPack::new(filenamify(loadout.name.to_string()));
 
-                                                println!(
-                                                    r#"Converting Loadout: "{}" to modpack"#,
-                                                    pack.name
-                                                );
-                                                for module in config
-                                                    .loadouts
-                                                    .get(&loadout.name.to_string())
-                                                    .unwrap()
-                                                {
-                                                    if module.enabled {
-                                                        pack.mods.push(
-                                                            module.to_packmod(diva_buf.clone()),
-                                                        )
-                                                    }
-                                                }
-                                                loadouts.push(pack.clone());
-                                                if config.current_loadout.is_some()
-                                                    && filenamify(loadout.name.to_string())
-                                                        == filenamify(
-                                                            config
-                                                                .current_loadout
-                                                                .clone()
-                                                                .unwrap()
-                                                                .clone(),
-                                                        )
-                                                {
-                                                    if let Some(l) = config
-                                                        .loadouts
-                                                        .get(&loadout.name.to_string())
-                                                    {
-                                                        for m in l {
-                                                            prio.push(m.name.clone());
-                                                        }
-                                                    }
-                                                }
+                                        println!(
+                                            r#"Converting Loadout: "{}" to modpack"#,
+                                            pack.name
+                                        );
+                                        for module in
+                                            config.loadouts.get(&loadout.name.to_string()).unwrap()
+                                        {
+                                            if module.enabled {
+                                                pack.mods.push(module.to_packmod(diva_buf.clone()))
                                             }
                                         }
+                                        loadouts.push(pack.clone());
                                     }
-                                    None => {}
                                 }
+                                None => {}
                             }
-                            None => {}
                         }
 
                         tokio::spawn(async move {
@@ -263,29 +232,21 @@ pub async fn init(_diva_ui: &App) -> Result<(), slint::PlatformError> {
                     }
                 }
 
-                if let Ok(mut cfg) = DIVA_CFG.try_lock() {
-                    // let mut cfg = cfg.clone();
-                    cfg.dark_mode = dark_mode;
-                    cfg.diva_dir = diva_buf.display().to_string();
-                    cfg.first_run = false;
-                    if !prio.is_empty() {
-                        println!("{:?}", prio);
-                        cfg.priority = prio.clone();
+                let mut cfg = match DIVA_CFG.try_lock() {
+                    Ok(cfg) => cfg,
+                    Err(_) => {
+                        open_error_window("Unable to lock config".to_string());
+                        return;
                     }
-                    let cfg = cfg.clone();
-                    tokio::spawn(async move {
-                        if let Err(e) = write_config(cfg.clone()).await {
-                            open_error_window(e.to_string());
-                        } else {
-                            println!("Setup complete");
-                            let _ = save_handle.upgrade_in_event_loop(|ui| {
-                                ui.hide().unwrap();
-                            });
-                        }
-                    });
-                } else {
-                    open_error_window("Unable to lock config".to_string());
-                    return;
+                };
+                cfg.dark_mode = dark_mode;
+                cfg.diva_dir = diva_buf.display().to_string();
+                cfg.diva_dirs = vec![cfg.diva_dir.clone()];
+                cfg.first_run = false;
+                let cfg = cfg.clone();
+                match write_config_sync(cfg) {
+                    Ok(_) => ui.hide().unwrap(),
+                    Err(e) => open_error_window(e.to_string()),
                 }
             });
             setup.show()?;
