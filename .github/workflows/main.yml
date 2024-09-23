@@ -35,7 +35,9 @@ jobs:
         run: cargo build --verbose
 
       - name: Make sure Cargo-bundle installed
+        continue-on-error: true
         run: cargo install cargo-bundle
+
       - name: Bundle Rust4Diva
         run: cargo bundle
 
@@ -83,11 +85,12 @@ jobs:
         run: iconutil -c icns assets/icon.iconset
 
       - name: Setup Cargo Bundle
+        continue-on-error: true
         run: cargo install cargo-bundle
 
       - name: Bundle Rust4Diva
         run: cargo bundle
-
+        
       - name: Zip App to preserve permissions
         run: zip ./rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.zip target/debug/bundle/osx/*
 
@@ -129,6 +132,7 @@ jobs:
         run: iconutil -c icns assets/icon.iconset
 
       - name: Setup Cargo Bundle
+        continue-on-error: true
         run: cargo install cargo-bundle
 
       - name: Bundle Rust4Diva
