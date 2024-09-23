@@ -11,10 +11,8 @@ description = "Cross-platform mod manager for Hatsune Miku Project Diva Mega Mix
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 regex = "1.10.6"
-curl = "0.4.46"
 sonic-rs = "0.3.13 "
 serde = { version = "1.0.210", features = ["derive"] }
-env_logger = "0.11.5"
 toml = "0.8.19"
 dirs = "5.0.1"
 keyvalues-parser = "0.2.0"
@@ -36,15 +34,12 @@ sha2 = "0.10.8"
 base64ct = { version = "1.6.0", features = ["alloc"] }
 open = "5.3.0"
 
-
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52.0"
 
 [build-dependencies]
 slint-build = "1.7.2"
 winresource = "0.1.17"
-cargo-bundle = "0.6.1"
-
 
 [package.metadata.bundle]
 name = "Rust4Diva"

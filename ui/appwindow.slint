@@ -210,18 +210,18 @@ export component App inherits Window {
                 }
             }
 
-            downloads := Tab {
-                title: "Downloads";
-                VerticalBox {
-                    for dl in downloads-map: Text {
-                        text: dl.value.name;
-                    }
-                    FileTable {
-                        columns: [{ title: "Name" }, { title: "Size" }, { title: "Progress" }];
-                        files: downloads-list;
-                    }
-                }
-            }
+            // downloads := Tab {
+            //     title: "Downloads";
+            //     VerticalBox {
+            //         for dl in downloads-map: Text {
+            //             text: dl.value.name;
+            //         }
+            //         FileTable {
+            //             columns: [{ title: "Name" }, { title: "Size" }, { title: "Progress" }];
+            //             files: downloads-list;
+            //         }
+            //     }
+            // }
         }
     }
 }

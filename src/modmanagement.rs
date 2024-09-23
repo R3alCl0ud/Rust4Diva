@@ -3,19 +3,18 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{ErrorKind, Write};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::thread::sleep;
 use std::time::Duration;
 use std::{fs, io};
 
 use compress_tools::{list_archive_files, uncompress_archive, Ownership};
-use curl::easy::Easy;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
-use slint::{ComponentHandle, EventLoopError, Model, ModelRc, VecModel, Weak};
-use tokio::sync::mpsc::{Receiver, Sender};
+use slint::{ComponentHandle, EventLoopError, ModelRc, VecModel, Weak};
+use tokio::sync::mpsc::Receiver;
 
 use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{find_diva_folder, get_diva_folder, get_temp_folder, open_error_window};
@@ -155,19 +154,15 @@ impl DivaModElement {
 
 pub async fn init(
     ui: &App,
-    dl_rx: Receiver<(i32, Download)>,
+    _dl_rx: Receiver<(i32, Download)>,
     dark_rx: tokio::sync::broadcast::Receiver<ColorScheme>,
 ) {
     let ui_toggle_handle = ui.as_weak();
     let ui_load_handle = ui.as_weak();
-    let ui_progress_handle = ui.as_weak();
-    let ui_download_handle = ui.as_weak();
     let ui_file_picker_handle = ui.as_weak();
     let ui_priority_handle = ui.as_weak();
     let ui_scheme_handle = ui.as_weak();
     let ui_edit_handle = ui.as_weak();
-
-    let (dl_ui_tx, dl_ui_rx) = tokio::sync::mpsc::channel::<(i32, f32)>(2048);
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
 
     ui.global::<ModLogic>().on_load_mods(move || {
@@ -475,11 +470,6 @@ pub async fn init(
         });
         confirm.show().unwrap();
     });
-
-    let _ = spawn_download_listener(dl_rx, dl_ui_tx, ui_download_handle);
-    println!("dl spawned");
-    let _ = spawn_download_ui_updater(dl_ui_rx, ui_progress_handle);
-    println!("ui updater spawned");
 }
 
 pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
@@ -648,168 +638,6 @@ pub fn load_diva_ml_config(diva_folder: &str) -> Option<DivaModLoader> {
         }
     }
     return loader;
-}
-
-pub fn spawn_download_listener(
-    mut dl_rx: Receiver<(i32, Download)>,
-    prog_tx: Sender<(i32, f32)>,
-    ui_download_handle: Weak<App>,
-) {
-    // let diva_arc = diva_arc.clone();
-    let ui_download_handle = ui_download_handle.clone();
-    tokio::spawn(async move {
-        println!("Listening for downloads");
-        while !dl_rx.is_closed() {
-            // Vec::is_empty()
-            if let Some((index, download)) = dl_rx.recv().await {
-                println!("{}", download.url.as_str());
-                let mut dst = Vec::new();
-                let mut easy = Easy::new();
-                let mut rcvd = 0;
-                let mut lstsnd = 0;
-                easy.url(download.url.as_str()).unwrap();
-                let _redirect = easy.follow_location(true);
-                let mut started = false;
-
-                {
-                    let mut transfer = easy.transfer();
-                    transfer
-                        .write_function(|data| {
-                            if !started {
-                                started = true;
-                                println!("First chunk received");
-                            }
-                            dst.extend_from_slice(data);
-                            rcvd += data.len();
-                            let prog = rcvd - lstsnd;
-                            if lstsnd as i32 == 0 || prog >= 3000 {
-                                lstsnd = rcvd.clone();
-                                let p = prog_tx.try_send((index.clone(), prog as f32));
-                                match p {
-                                    Ok(_) => {}
-                                    Err(_e) => {
-                                        // eprintln!("{}", e);
-                                    }
-                                }
-                            }
-                            Ok(data.len())
-                        })
-                        .unwrap();
-
-                    // handle the error here instead of unwrapping so that this
-                    // receiver thread doesn't panic and downloads can continue to happen
-                    match transfer.perform() {
-                        Ok(_) => {}
-                        Err(e) => {
-                            eprintln!("{}", e);
-                            open_error_window(e.to_string());
-                            let _ = ui_download_handle.upgrade_in_event_loop(move |ui| {
-                                let downloads = ui.get_downloads_list();
-                                if let Some(downloads) =
-                                    downloads.as_any().downcast_ref::<VecModel<Download>>()
-                                {
-                                    if let Some(mut download) = downloads.row_data(index as usize) {
-                                        download.failed = true;
-                                        downloads.set_row_data(index as usize, download);
-                                    }
-                                }
-                            });
-                            // skip the file, wait for next download
-                            continue;
-                        }
-                    }
-                }
-                let mut dl_path = PathBuf::from(get_temp_folder().unwrap());
-                dl_path.push(&download.name.as_str());
-                let file_res = File::create(dl_path.clone());
-                match file_res {
-                    Ok(mut f) => match f.write_all(dst.clone().as_slice()) {
-                        Ok(_) => {
-                            println!("Saved successfully, will try to extract");
-                            match unpack_mod_path(dl_path.clone()).await {
-                                Ok(_) => {
-                                    println!("Successfully unpacked mod");
-                                    if load_mods().is_ok() {
-                                        let _ = set_mods_table(
-                                            &get_mods_in_order(),
-                                            ui_download_handle.clone(),
-                                        );
-                                    }
-                                }
-                                Err(e) => {
-                                    eprintln!("Failed to extract the mod file:\n{}", e);
-                                    // let _ = ui_download_handle.clone().upgrade_in_event_loop(
-                                    //     move |ui| {
-                                    let msg = format!(
-                                        "Failed to extract the mod file: \n{}",
-                                        e.to_string()
-                                    );
-                                    // ui.invoke_open_error_dialog(msg.into());
-                                    // },
-                                    // );
-                                    open_error_window(msg);
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                            let msg = format!(
-                                "Something went wrong while saving the file to disk: \n{}",
-                                e.to_string()
-                            );
-                            open_error_window(msg);
-                        }
-                    },
-                    Err(e) => {
-                        eprintln!("Something went wrong while saving the file to disk \n{}", e);
-                        let msg = format!(
-                            "Something went wrong while saving the file to disk: \n{}",
-                            e.to_string()
-                        );
-                        open_error_window(msg);
-                    }
-                }
-            }
-        }
-        println!("Closed idk");
-    });
-}
-
-pub fn spawn_download_ui_updater(mut prog_rx: Receiver<(i32, f32)>, ui_weak: Weak<App>) {
-    tokio::spawn(async move {
-        let wait_time = tokio::time::Duration::from_millis(50);
-        while !prog_rx.is_closed() {
-            /*
-            await recv causes thread to hang until download is finished
-            so we are try_recv'ing instead
-            but we can't do this without a timeout so it's be moved to wait
-            a little bit before trying again
-            Try_recv without the timeout causes preformance issues on the host's PC
-
-            Time wasted trying to make await work = 3 hours
-            */
-            if let Ok((index, chunk_size)) = prog_rx.try_recv() {
-                match ui_weak.upgrade_in_event_loop(move |ui| {
-                    let downloads = ui.get_downloads_list();
-                    if let Some(downloads) = downloads.as_any().downcast_ref::<VecModel<Download>>()
-                    {
-                        if let Some(mut download) = downloads.row_data(index as usize) {
-                            download.progress += chunk_size as i32;
-                            downloads.set_row_data(index as usize, download);
-                        }
-                    }
-                }) {
-                    Err(e) => {
-                        eprintln!("{}", e);
-                    }
-                    _ => {}
-                };
-            } else {
-                sleep(wait_time);
-            }
-        }
-        println!("Progress listener Closed");
-    });
 }
 
 pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), EventLoopError> {

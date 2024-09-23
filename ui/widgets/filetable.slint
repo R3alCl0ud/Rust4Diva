@@ -415,7 +415,7 @@ export component GbFileTable {
                     preferred-width: self.min-width;
                     max-width: (2 < columns.length && columns[2].width >= 1px) ? max(columns[2].min-width, columns[2].width) : 100000px;
                     // width: root.column_sizes[2];
-                    if file.inprogress && !file.failed: ProgressIndicator {
+                    if (file.inprogress || file.progress != 0) && !file.failed: ProgressIndicator {
                         indeterminate: file.progress == 0;
                         height: 32px;
                         progress: file.progress / file.size;
@@ -424,7 +424,7 @@ export component GbFileTable {
                         text: "FAILED";
                     }
 
-                    if !file.inprogress && !file.failed: Button {
+                    if !file.inprogress && file.progress == 0 && !file.failed: Button {
                         text: "Download";
                         clicked => {
                             file.inprogress = true;
