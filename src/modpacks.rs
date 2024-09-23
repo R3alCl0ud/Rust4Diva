@@ -1,7 +1,7 @@
 use base64ct::{Base64, Encoding};
 use filenamify::filenamify;
 use sha2::{Digest, Sha256};
-use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelExt, ModelRc, SharedString, VecModel};
 use sonic_rs::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -101,13 +101,20 @@ pub async fn init(ui: &App) {
         Ok(packs) => {
             let mut gpacks = MOD_PACKS.lock().unwrap();
             *gpacks = packs.clone();
-            let binding = ui.get_modpacks();
-            match binding.as_any().downcast_ref::<VecModel<SharedString>>() {
-                None => {}
-                Some(ui_packs) => {
-                    ui_packs.push("All Mods".into());
-                    for (pack, _mods) in gpacks.iter() {
-                        ui_packs.push(pack.into());
+
+            let mut vec: Vec<SharedString> = vec![];
+            for (pack, _mods) in gpacks.iter() {
+                vec.push(pack.into());
+            }
+            vec.sort_by_key(|s| s.to_lowercase());
+
+            vec.insert(0, "All Mods".into());
+            ui.set_modpacks(ModelRc::new(VecModel::from(vec.clone())));
+            if let Ok(cfg) = DIVA_CFG.try_lock() {
+                if cfg.applied_pack != "All Mods" && cfg.applied_pack != "" {
+                    if let Some(idx) = vec.iter().position(|p| p.to_string() == cfg.applied_pack) {
+                        println!("idx: {idx}");
+                        ui.set_current_pack_idx(idx as i32);
                     }
                 }
             }
@@ -165,8 +172,8 @@ pub async fn init(ui: &App) {
         .on_change_modpack(move |mod_pack| {
             let ui_change_handle = ui_change_handle.clone();
             // make sure that the mutex is unlocked after we are done with it
+            println!("Change Modpack: Locking CFG");
             {
-                println!("Change Modpack: Locking CFG");
                 let mut cfg = match DIVA_CFG.try_lock() {
                     Ok(cfg) => cfg,
                     _ => {
@@ -183,9 +190,8 @@ pub async fn init(ui: &App) {
 
             let mut mods = get_mods_in_order();
             // make sure that the mutex is unlocked after we are done with it
+            println!("Change Modpack: Locking ModPacks");
             {
-                println!("Change Modpack: Locking ModPacks");
-
                 let mut packs = match MOD_PACKS.try_lock() {
                     Ok(packs) => packs,
                     Err(_) => return,
@@ -228,7 +234,12 @@ pub async fn init(ui: &App) {
             let ui = ui_change_handle.unwrap();
             let model = ModelRc::new(vec);
             ui.set_pack_mods(model.clone());
-            ui.set_active_pack(mod_pack);
+            ui.set_active_pack(mod_pack.clone());
+            let packs = ui.get_modpacks();
+            if let Some(idx) = packs.iter().position(|p| p.to_string() == mod_pack.to_string()) {
+                ui.set_current_pack_idx(idx as i32);
+            }
+
             ui.global::<ModpackLogic>().invoke_apply_modpack(model);
         });
 
@@ -297,7 +308,7 @@ pub async fn init(ui: &App) {
                         vec_mods = cfg.priority.clone();
                         cfg.applied_pack = "".to_string();
                     } else {
-                        cfg.applied_pack = ui.get_current_pack().to_string();
+                        cfg.applied_pack = ui.get_active_pack().to_string();
                     }
                     ui.set_active_pack(cfg.applied_pack.clone().into());
                     let cfg = cfg.clone();
@@ -404,7 +415,7 @@ pub async fn init(ui: &App) {
     {
         let pack = match DIVA_CFG.try_lock() {
             Ok(cfg) => cfg.applied_pack.clone(),
-            Err(_) => "".to_owned(),
+            Err(_) => "All Mods".to_owned(),
         };
         ui.global::<ModpackLogic>()
             .invoke_change_modpack(pack.into());
@@ -438,12 +449,12 @@ pub fn get_modpacks_folder() -> std::io::Result<PathBuf> {
                 Some(diva_dir) => diva_dir,
                 None => "DefaultPath".to_owned(),
             };
-            config_dir.push(hash_dir_name(diva_dir.clone()));
-            if !config_dir.exists() {
+            config_dir.push(filenamify(hash_dir_name(diva_dir.clone())));
+            if !config_dir.try_exists()? {
                 std::fs::create_dir(config_dir.clone())?
             }
             config_dir.push("modpacks");
-            if !config_dir.exists() {
+            if !config_dir.try_exists()? {
                 std::fs::create_dir(config_dir.clone())?
             }
             Ok(config_dir)

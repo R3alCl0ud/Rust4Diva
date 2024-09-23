@@ -227,7 +227,7 @@ pub fn get_config_dir() -> std::io::Result<PathBuf> {
             if !buf.exists() {
                 fs::create_dir(buf.clone())?;
             }
-            Ok(buf.clone())
+            Ok(buf)
         }
         None => Err(Error::new(
             ErrorKind::NotFound,

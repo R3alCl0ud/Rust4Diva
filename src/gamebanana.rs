@@ -348,25 +348,6 @@ pub async fn init(
         let deets = create_deets_window(item, weak, dark_rx);
         deets.show().unwrap();
     });
-
-    let ui_download_handle = ui.as_weak();
-    ui.on_download_file(move |file, file_row| {
-        let ui_file = file.clone();
-        let _ = ui_download_handle.clone().upgrade_in_event_loop(move |ui| {
-            let file = ui_file.clone();
-            let downloads = ui.get_downloads_list();
-            let dc = downloads.as_any().downcast_ref::<VecModel<Download>>();
-            match dc {
-                Some(downloads) => {
-                    downloads.push(file);
-                }
-                None => {
-                    println!("wasn't able to downcast wtf");
-                }
-            }
-        });
-        let _ = dl_tx.clone().try_send((file_row, file));
-    });
     let ui_oneclick_handle = ui.as_weak();
     let _ = handle_dmm_oneclick(url_rx, ui_oneclick_handle, dark_rx.resubscribe());
 }

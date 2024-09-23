@@ -5,14 +5,20 @@ import { TextEntryDialog } from "../widgets/text-entry-dialog.slint";
 import { ModpackLogic, ModLogic, WindowLogic } from "../applogic.slint";
 import { ModTable } from "../widgets/mod-table.slint";
 export component ModPacksTab {
-    in-out property <[string]> modpacks: [];
-    in-out property <[DivaModElement]> mods;
+    in-out property <[string]> modpacks: ["All Mods"];
+    in-out property <[DivaModElement]> mods: [];
     in-out property <[DivaModElement]> pack-mods: [];
-    in-out property <bool> pack-modified;
+    in-out property <bool> pack-modified: false;
     in-out property <string> current-pack <=> packs.current-value;
+    in property <int> current-pack-idx;
     callback show-text-entry();
     property <length> btn-height: 36px;
     callback open-module-ctx(DivaModElement, int, Point);
+
+    changed current-pack-idx => {
+        debug("Modpacks: " + self.current-pack-idx);
+        packs.current-index = self.current-pack-idx;
+    }
 
     layout := GridBox {
         selection-controls := Row {
@@ -40,6 +46,15 @@ export component ModPacksTab {
                 model: modpacks;
                 colspan: 8;
                 height: btn-height;
+
+                changed current-index => {
+                    debug("ComboBox: " + self.current-index);
+                }
+
+                init => {
+                    debug("Cur Idx: " + self.current-index);
+                    debug("Cur Val: " + self.current-value);
+                }
                 selected(pack) => {
                     ModpackLogic.change-modpack(pack);
                     in-pack.viewport-y = 0;
@@ -78,7 +93,7 @@ export component ModPacksTab {
                 col: 2;
                 width: 10%;
                 Button {
-                    enabled: packs.current-index != 0 && packs.current-value != "All Mods" && packs.current-value != "";
+                    enabled: packs.current-index != 0 || (packs.current-value != "All Mods" && packs.current-value != "");
                     height: 48%;
                     colorize-icon: true;
                     icon: @image-url("../assets/right-long-solid.svg");
@@ -96,7 +111,7 @@ export component ModPacksTab {
                 Button {
                     height: 48%;
                     colorize-icon: true;
-                    enabled: pack-mods.length > 0 && packs.current-index != 0 && packs.current-value != "All Mods" && packs.current-value != "";
+                    enabled: pack-mods.length > 0 && (packs.current-index != 0 || (packs.current-value != "All Mods" && packs.current-value != ""));
                     icon: @image-url("../assets/left-long-solid.svg");
                     clicked => {
                         if packs.current-index != -1 {

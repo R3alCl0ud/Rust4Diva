@@ -748,23 +748,25 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
             prio.push(m.dir_name().unwrap_or_default());
         }
     }
-    println!("Locking mods");
-    let gmods = match MODS.try_lock() {
-        Ok(gmods) => gmods.clone(),
-        Err(e) => {
-            eprintln!("{e}");
-            return mods;
-        }
-    };
-    for p in prio {
-        match gmods.get(&p) {
-            Some(m) => {
-                mods.push(m.clone());
+    println!("Locking MODS @ modmanagement.rs get_mods_in_order()");
+    {
+        let gmods = match MODS.try_lock() {
+            Ok(gmods) => gmods.clone(),
+            Err(e) => {
+                eprintln!("{e}");
+                return mods;
             }
-            None => {}
+        };
+        for p in prio {
+            match gmods.get(&p) {
+                Some(m) => {
+                    mods.push(m.clone());
+                }
+                None => {}
+            }
         }
     }
-    println!("done with mods");
+    println!("Unlocked MODS @ modmanagement.rs get_mods_in_order()");
 
     mods
 }
