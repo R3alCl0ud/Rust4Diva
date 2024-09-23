@@ -20,7 +20,7 @@ use crate::{
     DIVA_CFG,
 };
 use slint::{ComponentHandle, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel, Weak};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{channel, Receiver};
 
 const GB_DOMAIN: &str = "https://gamebanana.com";
 const GB_DIVA_ID: i32 = 16522;
@@ -288,7 +288,6 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
 
 pub async fn init(
     ui: &App,
-    dl_tx: Sender<(i32, Download)>,
     url_rx: Receiver<String>,
     dark_rx: broadcast::Receiver<ColorScheme>,
 ) {

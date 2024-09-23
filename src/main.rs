@@ -98,7 +98,6 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     }
 
     let (url_tx, url_rx) = tokio::sync::mpsc::channel(2048);
-    let (dl_tx, dl_rx) = tokio::sync::mpsc::channel::<(i32, Download)>(2048);
     app.window().on_close_requested(move || {
         std::process::exit(0);
     });
@@ -145,9 +144,9 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     app.set_r4d_version(env!("CARGO_PKG_VERSION").into());
 
     config::init_ui(&app, dark_tx).await;
-    modmanagement::init(&app, dl_rx, dark_rx.resubscribe()).await;
+    modmanagement::init(&app, dark_rx.resubscribe()).await;
     modpacks::init(&app).await;
-    gamebanana::init(&app, dl_tx, url_rx, dark_rx.resubscribe()).await;
+    gamebanana::init(&app, url_rx, dark_rx.resubscribe()).await;
 
     println!("Does the app run?");
 

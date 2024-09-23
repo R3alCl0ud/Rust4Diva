@@ -1,7 +1,7 @@
 use base64ct::{Base64, Encoding};
 use filenamify::filenamify;
 use sha2::{Digest, Sha256};
-use slint::{ComponentHandle, Model, ModelExt, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use sonic_rs::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -236,7 +236,10 @@ pub async fn init(ui: &App) {
             ui.set_pack_mods(model.clone());
             ui.set_active_pack(mod_pack.clone());
             let packs = ui.get_modpacks();
-            if let Some(idx) = packs.iter().position(|p| p.to_string() == mod_pack.to_string()) {
+            if let Some(idx) = packs
+                .iter()
+                .position(|p| p.to_string() == mod_pack.to_string())
+            {
                 ui.set_current_pack_idx(idx as i32);
             }
 

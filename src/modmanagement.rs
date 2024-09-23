@@ -14,7 +14,6 @@ use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint::{ComponentHandle, EventLoopError, ModelRc, VecModel, Weak};
-use tokio::sync::mpsc::Receiver;
 
 use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{find_diva_folder, get_diva_folder, get_temp_folder, open_error_window};
@@ -24,7 +23,7 @@ use crate::{
     ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, ModpackLogic, WindowLogic,
     DIVA_DIR, MOD_PACKS,
 };
-use crate::{Download, DIVA_CFG, DML_CFG, MODS};
+use crate::{ DIVA_CFG, DML_CFG, MODS};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
@@ -154,7 +153,6 @@ impl DivaModElement {
 
 pub async fn init(
     ui: &App,
-    _dl_rx: Receiver<(i32, Download)>,
     dark_rx: tokio::sync::broadcast::Receiver<ColorScheme>,
 ) {
     let ui_toggle_handle = ui.as_weak();
