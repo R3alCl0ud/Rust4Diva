@@ -88,11 +88,14 @@ jobs:
       - name: Bundle Rust4Diva
         run: cargo bundle
 
+      - name: Zip App to preserve permissions
+        run: zip ./rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.zip target/debug/bundle/osx/*
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}
-          path: target/debug/bundle/osx/*
+          path: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.zip
   build-macos-arm:
     name: Build MacOS Arm
     runs-on: macos-14    
@@ -130,12 +133,14 @@ jobs:
 
       - name: Bundle Rust4Diva
         run: cargo bundle
+      - name: Zip App to preserve permissions
+        run: zip ./rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.zip target/debug/bundle/osx/*
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}
-          path: target/debug/bundle/osx/*
+          path: rust4diva-${{steps.slugify.outputs.sha}}-macos-${{ runner.arch }}.zip
 
   build-windows-x86_64:
     name: Build Windows x86_64
