@@ -184,6 +184,24 @@ pub async fn init(_diva_ui: &App) -> Result<(), slint::PlatformError> {
                 let dark_mode = ui.get_dark_mode();
                 println!("Dark Mode: {}", dark_mode);
                 println!("PDMM+: {}", diva_buf.display());
+                {
+                    let mut cfg = match DIVA_CFG.try_lock() {
+                        Ok(cfg) => cfg,
+                        Err(_) => {
+                            open_error_window("Unable to lock config".to_string());
+                            return;
+                        }
+                    };
+                    cfg.dark_mode = dark_mode;
+                    cfg.diva_dir = diva_buf.display().to_string();
+                    cfg.diva_dirs = vec![cfg.diva_dir.clone()];
+                    cfg.first_run = false;
+                    let cfg = cfg.clone();
+                    match write_config_sync(cfg) {
+                        Ok(_) => ui.hide().unwrap(),
+                        Err(e) => open_error_window(e.to_string()),
+                    }
+                }
                 if let Ok(dmm_cfg_opt) = DMM_CFG.try_lock() {
                     let mut loadouts: Vec<ModPack> = Vec::new();
                     if let Some(dmm_cfg) = dmm_cfg_opt.as_ref() {
@@ -230,23 +248,6 @@ pub async fn init(_diva_ui: &App) -> Result<(), slint::PlatformError> {
                             }
                         });
                     }
-                }
-
-                let mut cfg = match DIVA_CFG.try_lock() {
-                    Ok(cfg) => cfg,
-                    Err(_) => {
-                        open_error_window("Unable to lock config".to_string());
-                        return;
-                    }
-                };
-                cfg.dark_mode = dark_mode;
-                cfg.diva_dir = diva_buf.display().to_string();
-                cfg.diva_dirs = vec![cfg.diva_dir.clone()];
-                cfg.first_run = false;
-                let cfg = cfg.clone();
-                match write_config_sync(cfg) {
-                    Ok(_) => ui.hide().unwrap(),
-                    Err(e) => open_error_window(e.to_string()),
                 }
             });
             setup.show()?;
