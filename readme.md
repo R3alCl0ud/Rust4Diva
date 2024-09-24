@@ -1,4 +1,4 @@
-# Rust4Diva [![release](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/release.yml/badge.svg)](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/main.yml) [![debug](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/debug.yml/badge.svg)](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/main.yml)
+# Rust4Diva [![release](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/release.yml/badge.svg)](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/release.yml) [![debug](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/debug.yml/badge.svg)](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/debug.yml)
 
 A Fast cross-platform mod manager written in rust for the steam version of Hatsune Miku Project Diva Mega Mix +
 
@@ -12,7 +12,11 @@ Get new mods online directly in the app
 
 # Planned Features / To-Do List
  * [ ] Change how global `All Mods` priority is stored to better support multiple installs of MM+
- 
+
+# Steam Deck Users Scaling issue
+ - Add Rust4Diva to steam as a non-steam game
+ - Add `'--env=SLINT_SCALE_FACTOR=0.75'` to launch options right after `run`
+
 ## Modpack JSON Format
 ```json
 {
@@ -20,7 +24,7 @@ Get new mods online directly in the app
   "mods": [
     {
       "name": "test",
-      "enabled": true, // this currently doesn't do anything
+      "enabled": true,
       "path":"/absolute/path/to/mod"
     }
   ]

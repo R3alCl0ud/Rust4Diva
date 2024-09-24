@@ -62,6 +62,15 @@
   </screenshots>
 
   <releases>
+    <release date="2024-09-25" version="0.4.2">
+      <description>
+        <p>0.4.2 Changes:</p>
+        <p>Bug Fixes</p>
+        <ul>
+          <li>Bad scaling on Large Hiresolution screens</li>
+        </ul>
+      </description>
+    </release>
     <release date="2024-09-25" version="0.4.1">
       <description>
         <p>0.4.1 Changes:</p>

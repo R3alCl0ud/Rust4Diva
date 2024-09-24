@@ -7,8 +7,7 @@ use winresource::WindowsResource;
 
 fn main() -> io::Result<()> {
     let config = slint_build::CompilerConfiguration::new()
-        .with_style("cosmic".into())
-        .with_scale_factor(0.75);
+        .with_style("cosmic".into());
     slint_build::compile_with_config("ui/appwindow.slint", config).unwrap();
 
     #[cfg(debug_assertions)]
