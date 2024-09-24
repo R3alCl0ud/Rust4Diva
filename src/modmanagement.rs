@@ -129,6 +129,13 @@ impl DivaMod {
     pub fn dir_name(self: &Self) -> Option<String> {
         let mut buf = PathBuf::from(self.path.clone());
         buf.pop();
+        buf = match buf.canonicalize() {
+            Ok(buf) => buf,
+            Err(e) => {
+                eprintln!("{e}");
+                return None;
+            }
+        };
         if buf.exists() {
             return match buf.file_name() {
                 Some(s) => Some(s.to_str().unwrap().to_string()),
@@ -789,7 +796,7 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
             }
         };
         for p in prio {
-            match gmods.get(&p.dir_name().expect("")) {
+            match gmods.get(&p.dir_name().expect("dir name should unwrap")) {
                 Some(m) => {
                     mods.push(m.clone());
                 }

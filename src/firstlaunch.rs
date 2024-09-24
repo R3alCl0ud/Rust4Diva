@@ -49,11 +49,13 @@ pub struct DmmLoadoutMod {
 impl DmmLoadoutMod {
     pub fn to_packmod(self: &Self, mut mods_dir: PathBuf) -> ModPackMod {
         // let mut buf = PathBuf::from(mods_dir.clone());
+        mods_dir.push("mods");
         mods_dir.push(self.name.clone());
+        mods_dir.push("config.toml");
         ModPackMod {
             name: self.name.clone(),
             enabled: self.enabled.clone(),
-            path: mods_dir.display().to_string(),
+            path: mods_dir.to_str().unwrap().to_owned(),
         }
     }
 }
@@ -229,9 +231,8 @@ pub async fn init(_diva_ui: &App) -> Result<(), slint::PlatformError> {
                                         for module in
                                             config.loadouts.get(&loadout.name.to_string()).unwrap()
                                         {
-                                            if module.enabled {
-                                                pack.mods.push(module.to_packmod(diva_buf.clone()))
-                                            }
+                                            println!("{}", module.name);
+                                            pack.mods.push(module.to_packmod(diva_buf.clone()))
                                         }
                                         loadouts.push(pack.clone());
                                     }
