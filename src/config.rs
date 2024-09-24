@@ -14,7 +14,7 @@ use crate::diva::{
     find_diva_folder, get_config_dir_sync, get_diva_folder, get_steam_folder, open_error_window,
 };
 use crate::modmanagement::{get_mods_in_order, load_mods, set_mods_table, DivaModLoader};
-use crate::modpacks::load_mod_packs;
+use crate::modpacks::{load_mod_packs, ModPackMod};
 use crate::slint_generatedApp::App;
 use crate::{DML_CFG, MOD_PACKS};
 
@@ -23,7 +23,7 @@ use crate::{
 };
 
 #[derive(Deserialize, Serialize, Clone)]
-pub struct DivaConfig {
+pub struct OldDivaConfig {
     /// this is the global priority order, this is used when no modpack is applied
     pub priority: Vec<String>,
     pub diva_dir: String,
@@ -45,11 +45,81 @@ pub struct DivaConfig {
     pub diva_dirs: Vec<String>,
 }
 
+#[derive(Deserialize, Serialize, Clone)]
+pub struct DivaConfig {
+    /// this is the global priority order, this is used when no modpack is applied
+    pub priority: Vec<ModPackMod>,
+    pub diva_dir: String,
+    #[serde(default)]
+    pub steam_dir: String,
+    #[serde(default)]
+    pub aft_dir: String,
+    #[serde(default)]
+    pub applied_pack: String,
+    #[serde(default)]
+    pub aft_mode: bool,
+    #[serde(default = "yes")]
+    pub dark_mode: bool,
+    #[serde(default = "yes")]
+    pub first_run: bool,
+    #[serde(default)]
+    pub dml_version: String,
+    #[serde(default)]
+    pub diva_dirs: Vec<String>,
+}
+impl DivaConfig {
+    pub fn new() -> Self {
+        Self {
+            priority: vec![],
+            diva_dir: "".to_string(),
+            steam_dir: "".to_string(),
+            aft_dir: "".to_string(),
+            applied_pack: "".to_string(),
+            aft_mode: false,
+            dark_mode: true,
+            first_run: true,
+            dml_version: "".to_owned(),
+            diva_dirs: vec![],
+        }
+    }
+}
+
+impl From<OldDivaConfig> for DivaConfig {
+    fn from(value: OldDivaConfig) -> Self {
+        let mut prio = vec![];
+        let diva_dir = value.diva_dir.clone();
+        for p in value.priority {
+            let mut buf = PathBuf::from(diva_dir.clone());
+            buf.push(p);
+            if buf.exists() {
+                prio.push(ModPackMod {
+                    name: "".to_owned(),
+                    enabled: true,
+                    path: buf.to_str().unwrap().to_owned(),
+                });
+            }
+        }
+
+        Self {
+            priority: prio,
+            diva_dir: value.diva_dir.clone(),
+            steam_dir: value.steam_dir.clone(),
+            aft_dir: value.aft_dir.clone(),
+            applied_pack: value.applied_pack.clone(),
+            aft_mode: value.aft_mode.clone(),
+            dark_mode: value.dark_mode.clone(),
+            first_run: value.first_run.clone(),
+            dml_version: value.dml_version.clone(),
+            diva_dirs: value.diva_dirs.clone(),
+        }
+    }
+}
+
 fn yes() -> bool {
     true
 }
 
-impl DivaConfig {
+impl OldDivaConfig {
     pub fn new() -> Self {
         Self {
             priority: vec![],
@@ -80,8 +150,7 @@ pub async fn load_diva_config() -> std::io::Result<DivaConfig> {
         };
     }
     if let Ok(cfg_str) = fs::read_to_string(cfg_dir).await {
-        let res: Result<DivaConfig, _> = toml::from_str(cfg_str.as_str());
-        match res {
+        match toml::from_str::<DivaConfig>(&cfg_str) {
             Ok(mut cfg) => {
                 if cfg.diva_dirs.is_empty() && !cfg.diva_dir.is_empty() {
                     cfg.diva_dirs.push(cfg.diva_dir.clone());
@@ -90,6 +159,11 @@ pub async fn load_diva_config() -> std::io::Result<DivaConfig> {
                 return Ok(cfg);
             }
             Err(e) => {
+                println!("Failed to parse config\nTrying to update config to new version");
+                if let Ok(cfg) = toml::from_str::<OldDivaConfig>(&cfg_str) {
+                    println!("Config Updated");
+                    return Ok(cfg.into());
+                }
                 eprintln!("{e}");
                 return Err(std::io::Error::new(ErrorKind::Other, e.to_string()));
             }

@@ -426,6 +426,9 @@ export component GbFileTable {
 
                     if !file.inprogress && file.progress == 0 && !file.failed: Button {
                         text: "Download";
+                        primary: true;
+                        icon: @image-url("../assets/download-solid.svg");
+                        colorize-icon: true;
                         clicked => {
                             file.inprogress = true;
                             GameBananaLogic.download(file);

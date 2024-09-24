@@ -16,7 +16,6 @@ export component ModPacksTab {
     callback open-module-ctx(DivaModElement, int, Point);
 
     changed current-pack-idx => {
-        debug("Modpacks: " + self.current-pack-idx);
         packs.current-index = self.current-pack-idx;
     }
 
@@ -27,6 +26,8 @@ export component ModPacksTab {
                 height: btn-height;
                 colspan: 1;
                 text: "Add New Pack";
+                colorize-icon: true;
+                icon: @image-url("../assets/plus-solid.svg");
                 clicked => {
                     show-text-entry();
                 }
@@ -37,6 +38,8 @@ export component ModPacksTab {
                 colspan: 1;
                 text: "Delete Modpack";
                 enabled: packs.current-index != -1;
+                colorize-icon: true;
+                icon: @image-url("../assets/trash-can-solid.svg");
                 clicked => {
                     WindowLogic.open-delete-dialog(packs.current-value);
                 }
@@ -46,15 +49,6 @@ export component ModPacksTab {
                 model: modpacks;
                 colspan: 8;
                 height: btn-height;
-
-                changed current-index => {
-                    debug("ComboBox: " + self.current-index);
-                }
-
-                init => {
-                    debug("Cur Idx: " + self.current-index);
-                    debug("Cur Val: " + self.current-value);
-                }
                 selected(pack) => {
                     ModpackLogic.change-modpack(pack);
                     in-pack.viewport-y = 0;
@@ -151,6 +145,8 @@ export component ModPacksTab {
                 colspan: 2;
                 height: btn-height;
                 text: "Reload";
+                icon: @image-url("../assets/repeat-solid.svg");
+                colorize-icon: true;
                 clicked => {
                     ModLogic.load-mods();
                 }
@@ -161,6 +157,8 @@ export component ModPacksTab {
                 colspan: 7;
                 height: btn-height;
                 text: "Save";
+                icon: @image-url("../assets/file-pen-solid.svg");
+                colorize-icon: true;
                 clicked => {
                     if packs.current-index > -1 {
                         ModpackLogic.save-modpack(packs.current-value, pack-mods);

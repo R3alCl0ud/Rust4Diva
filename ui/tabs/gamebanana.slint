@@ -5,6 +5,22 @@ import { GbPreviewData, GbSearchSort } from "../diva-types.slint";
 import { GbSearchTable } from "../widgets/search-table.slint";
 
 
+component ToggleGrid {
+    in-out property <bool> checked: true;
+    TouchArea {
+        clicked => {
+            checked = !checked;
+        }
+    }
+
+    Image {
+        height: 35px;
+        width: 30px;
+        source: checked ? @image-url("../assets/border-all-solid.svg") : @image-url("../assets/grip-lines-solid.svg");
+        colorize: Palette.foreground;
+    }
+}
+
 export component GameBanana {
 
     out property <string> s-term;
@@ -21,7 +37,6 @@ export component GameBanana {
             item-type:"Mod",
             image-loaded: true,
             updated: "Never",
-            
         },
         {
             image: @image-url("../assets/test-preview.jpg"),
@@ -83,6 +98,18 @@ export component GameBanana {
     }
     GridBox {
         Row {
+
+            Text {
+                vertical-alignment: center;
+                text: "Sort: ";
+                font-size: 16px;
+            }
+
+            sort-select := ComboBox {
+                model: ["Relevance", "Popularity", "New", "Updated"];
+                current-index: 0;
+            }
+
             Text {
                 vertical-alignment: center;
                 text: "Search:";
@@ -91,7 +118,7 @@ export component GameBanana {
 
             s-box := LineEdit {
                 // col: 1;
-                colspan: 3;
+                colspan: 5;
                 accepted(search) => {
                     page = 1;
                     s-term = search;
@@ -100,34 +127,22 @@ export component GameBanana {
                 }
             }
 
-            HorizontalLayout {
-                col: 4;
-                Text {
-                    vertical-alignment: center;
-                    text: "Sort: ";
-                    font-size: 16px;
-                }
-
-                sort-select := ComboBox {
-                    model: ["Relevance", "Popularity", "New", "Updated"];
-                    current-index: 0;
-                }
-            }
-
             ProgressIndicator {
-                col: 5;
+                col: 7;
                 indeterminate: loading;
+                visible: loading;
             }
 
-            grid-list := Switch {
-                col: 6;
+            grid-list := ToggleGrid {
+                width: 40px;
+                col: 8;
                 checked: true;
             }
         }
 
         Row {
             card-view := Rectangle {
-                colspan: 7;
+                colspan: 9;
                 if grid-list.checked: 
                 Rectangle {
                     background: Palette.control-background;
@@ -153,7 +168,7 @@ export component GameBanana {
         Row {
             Button {
                 col: 1;
-                colspan: 5;
+                colspan: 7;
                 icon: @image-url("../assets/cloud-arrow-down-solid.svg");
                 colorize-icon: true;
                 text: "Load More";
@@ -167,7 +182,7 @@ export component GameBanana {
             }
 
             Text {
-                col: 6;
+                col: 8;
                 text: "Results: " + results.length + "/" + n-results;
                 vertical-alignment: center;
             }

@@ -23,6 +23,8 @@ pub struct ModPack {
     pub mods: Vec<ModPackMod>,
 }
 
+// impl ModPAc
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModPackMod {
     pub name: String,
@@ -172,7 +174,9 @@ pub async fn init(ui: &App) {
         .on_change_modpack(move |mod_pack| {
             let ui_change_handle = ui_change_handle.clone();
             // make sure that the mutex is unlocked after we are done with it
-            println!("Change Modpack: Locking CFG");
+            let mut pack = ModPack::new("All Mods".to_owned());
+            #[cfg(debug_assertions)]
+            println!("Locking CFG @ modpacks.rs::on_change_modpack()");
             {
                 let mut cfg = match DIVA_CFG.try_lock() {
                     Ok(cfg) => cfg,
@@ -182,50 +186,61 @@ pub async fn init(ui: &App) {
                     }
                 };
                 cfg.applied_pack = mod_pack.to_string();
+                pack.mods = cfg.priority.clone();
                 if write_config_sync(cfg.clone()).is_err() {
                     return;
                 }
             }
-            println!("Change Modpack: Unlocked CFG");
+            #[cfg(debug_assertions)]
+            println!("Unlocked CFG @ modpacks.rs::on_change_modpack()");
 
             let mut mods = get_mods_in_order();
             // make sure that the mutex is unlocked after we are done with it
-            println!("Change Modpack: Locking ModPacks");
+            #[cfg(debug_assertions)]
+            println!("Locking MOD_PACKS @ modpacks.rs::on_change_modpack()");
             {
                 let mut packs = match MOD_PACKS.try_lock() {
                     Ok(packs) => packs,
                     Err(_) => return,
                 };
-                println!("Change Modpack: Locking Mods");
+                #[cfg(debug_assertions)]
+                println!("Locking MODS @ modpacks.rs::on_change_modpack()");
 
                 let mut gmods = match MODS.try_lock() {
                     Ok(ms) => ms,
                     Err(_) => return,
                 };
-                if let Some(pack) = packs.get_mut(&mod_pack.to_string()) {
-                    for m in mods.iter_mut() {
-                        if let Some(pm) = pack.mods.iter().find(|p| p.path == m.path) {
-                            if m.config.enabled != pm.enabled {
-                                m.config.enabled = pm.enabled;
-                                if let Err(e) =
-                                    save_mod_config(PathBuf::from(m.path.clone()), &m.config)
-                                {
-                                    eprintln!("{e}");
-                                }
-                                gmods.insert(m.dir_name().unwrap(), m.clone());
+                match packs.get_mut(&mod_pack.to_string()) {
+                    Some(p) => {
+                        if p.mods.len() != mods.len() {
+                            p.mods = mods.iter().map(|m| m.to_packmod()).collect();
+                            match save_modpack_sync(p.clone()) {
+                                Err(e) => eprintln!("{e}"),
+                                _ => {}
                             }
                         }
+                        pack = p.clone();
                     }
-                    if pack.mods.len() != mods.len() {
-                        pack.mods = mods.iter().map(|m| m.to_packmod()).collect();
-                        match save_modpack_sync(pack.clone()) {
-                            Err(e) => eprintln!("{e}"),
-                            _ => {}
+                    None => {}
+                }
+                for m in mods.iter_mut() {
+                    if let Some(pm) = pack.mods.iter().find(|p| p.path == m.path) {
+                        if m.config.enabled != pm.enabled {
+                            m.config.enabled = pm.enabled;
+                            if let Err(e) =
+                                save_mod_config(PathBuf::from(m.path.clone()), &m.config)
+                            {
+                                eprintln!("{e}");
+                            }
+                            gmods.insert(m.dir_name().unwrap(), m.clone());
                         }
                     }
                 }
             }
-
+            #[cfg(debug_assertions)]
+            println!("Unlocked MOD_PACKS @ modpacks.rs::on_change_modpack()");
+            #[cfg(debug_assertions)]
+            println!("Unlocked MODS @ modpacks.rs::on_change_modpack()");
             // actually create the model now
             let vec: VecModel<DivaModElement> = Default::default();
             for m in mods {
@@ -308,7 +323,13 @@ pub async fn init(ui: &App) {
                 if let Ok(mut cfg) = DIVA_CFG.try_lock() {
                     let ui = ui_apply_handle.upgrade().unwrap();
                     if vec_mods.is_empty() {
-                        vec_mods = cfg.priority.clone();
+                        vec_mods = cfg
+                            .priority
+                            .clone()
+                            .iter()
+                            .map(|v| v.dir_name())
+                            .flatten()
+                            .collect();
                         cfg.applied_pack = "".to_string();
                     } else {
                         cfg.applied_pack = ui.get_active_pack().to_string();
@@ -503,7 +524,13 @@ pub async fn apply_mod_priority() -> Result<(), Box<dyn std::error::Error + Send
                 }
             }
         } else {
-            prio = cfg.priority.clone();
+            prio = cfg
+                .priority
+                .clone()
+                .iter()
+                .map(|v| v.dir_name())
+                .flatten()
+                .collect();
         }
         if let Ok(mut dml) = DML_CFG.try_lock() {
             dml.priority = prio;

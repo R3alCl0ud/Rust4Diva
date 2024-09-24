@@ -83,6 +83,8 @@ export component GbDetailsWindow inherits Dialog {
             Button {
                 col: 1;
                 text: "View on GameBanana";
+                colorize-icon: true;
+                icon: @image-url("../assets/cloud-solid.svg");
                 clicked => {
                     debug("https://gamebanana.com/mods/" + data.id);
                     HyperLink.open-hyperlink("https://gamebanana.com/mods/" + data.id);

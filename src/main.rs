@@ -5,6 +5,8 @@ use std::env;
 use std::error::Error;
 use std::sync::{LazyLock, Mutex};
 
+use config::write_config;
+use diva::get_rust4diva_version;
 use modmanagement::is_dml_installed;
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint_interpreter::ComponentHandle;
@@ -122,6 +124,11 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         if !gcfg.dark_mode {
             app.invoke_set_color_scheme(ColorScheme::Light);
         }
+        if !is_dml_installed() {
+            gcfg.dml_version = "".to_owned();
+            let _ = write_config(gcfg.clone()).await;
+            app.invoke_ask_install_dml();
+        }
         app.set_dml_version(cfg.dml_version.clone().into());
     }
 
@@ -130,18 +137,17 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         *dir = diva_dir;
     }
 
-    if !is_dml_installed() {
-        app.invoke_ask_install_dml();
-    }
-
     let _ = load_mods();
     let _ = set_mods_table(&get_mods(), app_weak.clone());
-
-    if let Ok(dml) = DML_CFG.try_lock() {
-        app.set_dml_enabled(dml.enabled);
+    if is_dml_installed() {
+        if let Ok(dml) = DML_CFG.try_lock() {
+            app.set_dml_enabled(dml.enabled);
+        }
+    } else {
+        app.set_dml_enabled(false);
     }
 
-    app.set_r4d_version(env!("CARGO_PKG_VERSION").into());
+    app.set_r4d_version(get_rust4diva_version().into());
 
     config::init_ui(&app, dark_tx).await;
     modmanagement::init(&app, dark_rx.resubscribe()).await;
@@ -161,6 +167,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     }
 
     app.show().expect("Window should have opened");
+    println!("{}", app.window().scale_factor());
     let _ = firstlaunch::init(&app).await;
     slint::run_event_loop()?;
     println!("OMG Migu says \"goodbye\"");

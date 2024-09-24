@@ -291,3 +291,8 @@ pub fn open_error_window(message: String) {
         }
     });
 }
+
+
+pub fn get_rust4diva_version() -> String {
+    format!("{}{}", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"))
+}

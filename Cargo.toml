@@ -22,8 +22,8 @@ reqwest-streams = "0.8.0"
 tokio = { version = "1.40.0", features = ["full"] }
 interprocess = { version = "2.2.1", features = ["tokio"] }
 tokio-macros = { version = "2.4.0" }
-slint = "1.7.2"
-slint-interpreter = "1.7.2"
+slint = "1.8.0"
+slint-interpreter = "1.8.0"
 futures-util = "0.3.30"
 cfg-if = "1.0.0"
 rfd = "0.15.0"
@@ -38,7 +38,7 @@ open = "5.3.0"
 winreg = "0.52.0"
 
 [build-dependencies]
-slint-build = "1.7.2"
+slint-build = "1.8.0"
 winresource = "0.1.17"
 
 [package.metadata.bundle]
