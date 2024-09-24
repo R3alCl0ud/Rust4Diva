@@ -1,29 +1,38 @@
 import { Palette, Button, VerticalBox, HorizontalBox, StandardTableView, TabWidget, TextEdit, CheckBox, ProgressIndicator, GridBox, Switch } from "std-widgets.slint";
-import { FileTable, Download } from "widgets/filetable.slint";
+
 import { Palette as CosmicPalette } from "styling.slint";
-import { ErrorDialog } from "dialogs/errordialog.slint";
-import { ModTable } from "widgets/mod-table.slint";
 import { DivaModElement, ModPackElement } from "diva-types.slint";
+import { GbPreviewData, Download } from "diva-types.slint";
+
+
+import { FileTable } from "widgets/filetable.slint";
+import { ModTable } from "widgets/mod-table.slint";
 import { ModPickTable, PackTable } from "widgets/modpack-tables.slint";
 import { TextEntryDialog } from "widgets/text-entry-dialog.slint";
-import { ModpackLogic, ModLogic, WindowLogic, DivaLogic } from "applogic.slint";
 import { InfoDialog } from "widgets/info-dialog.slint";
 import { TextBox } from "widgets/text-box.slint";
 import { DeletePackDialog } from "widgets/delete-pack-dialog.slint";
-import { SettingsWindow, SettingsLogic } from "subwindows/settings.slint";
-import { ModManager } from "tabs/modmanager.slint";
-import { ModPacksTab } from "tabs/modpacks.slint";
-import { ConfirmDeletePack } from "dialogs/deletepack.slint";
+import { ModCtxMenu } from "widgets/modctxmenu.slint";
+import { GbPreviewCard } from "widgets/gb-search-card.slint";
 
+
+import { SettingsWindow, SettingsLogic } from "subwindows/settings.slint";
+import { EditModDialog } from "subwindows/editmod.slint";
 import { FirstSetup, SetupLogic } from "subwindows/setup.slint";
 
+import { ModPacksTab } from "tabs/modpacks.slint";
+import { GameBanana } from "tabs/gamebanana.slint";
+
+import { ConfirmDeletePack } from "dialogs/deletepack.slint";
 import { ErrorMessageWindow } from "dialogs/errormsg.slint";
-import { ModCtxMenu } from "widgets/modctxmenu.slint";
-import { EditModDialog } from "subwindows/editmod.slint";
 import { ConfirmDelete } from "dialogs/confirmdelete.slint";
 
-export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack }
-export { WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic, ConfirmDelete, DivaLogic }
+import { ModpackLogic, ModLogic, WindowLogic, DivaLogic, GameBananaLogic, HyperLink } from "applogic.slint";
+import { GbDetailsWindow } from "subwindows/gb-item.slint";
+
+export { GbPreviewData, GameBananaLogic, GbDetailsWindow }
+export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack, HyperLink }
+export { WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic, ConfirmDelete, DivaLogic, Palette }
 
 export struct SlintModConfig {
     enabled: bool,
@@ -50,24 +59,18 @@ export component App inherits Window {
     in property <int> counter: 4;
     in property <[int]> fs: [1, 2, 3];
 
-    in property <[[StandardListViewItem]]> search-results: [];
-
     in property <[Download]> file-results: [];
-    in property <[{key: int, value: Download}]> downloads-map;
-    in-out property <[Download]> downloads-list: [];
-    in property <[[StandardListViewItem]]> stuff: [];
-
     in property <string> dml-version: "";
     in property <string> r4d-version: "";
     in-out property <bool> dml-enabled: false;
-    in-out property <string> selected-search: "";
-    in-out property <string> selected-file: "";
-
     in-out property <int> temp-pos;
+
+    in property <[GbPreviewData]> s-results:[];
     in property <bool> s-prog-vis: false;
+    in property <int> n-results: 0;
+    in-out property <int> s-page: 0;
 
     in-out property <bool> pack-modified: false;
-    in-out property <string> error-msg: "This is a test message";
     out property <ColorScheme> color-scheme: Palette.color-scheme;
 
     property window_width <=> self.width;
@@ -76,10 +79,10 @@ export component App inherits Window {
     in property <[DivaModElement]> mods: [];
     in-out property <[DivaModElement]> pack-mods: [];
     in-out property <[string]> modpacks: [];
-    in-out property <string> active-pack;
-    out property <string> current-pack: mpmgmt-tab.current-pack;
+    in-out property <string> active-pack <=> mpmgmt-tab.current-pack;
+    in-out property <int> current-pack-idx <=> mpmgmt-tab.current-pack-idx;
 
-    callback load-mods <=> mgmt-tab.clicked;
+    callback load-mods();
     callback toggle-mod(int);
     callback search-gb(string);
     callback list-files(int);
@@ -90,7 +93,6 @@ export component App inherits Window {
     callback modpack-changed(string);
     callback save-modpack(string, [DivaModElement]);
     callback apply-modpack([DivaModElement]);
-
     callback close-windows();
 
     public function set-color-scheme(scheme: ColorScheme) {
@@ -98,19 +100,9 @@ export component App inherits Window {
     }
 
     public function ask-install-dml() {
-        
     }
 
-    // ConfirmDelete {}
-
-    // EditModDialog {}
     default-font-size: 16px;
-    errordialog := ErrorDialog {
-        x: (window_width / 2) - 100px;
-        y: (window_height / 2) - 100px;
-
-        msg: error-msg;
-    }
 
     packcreator := TextEntryDialog {
         offset_x: -100px;
@@ -136,6 +128,8 @@ export component App inherits Window {
                 Button {
                     horizontal-stretch: 0;
                     text: "Install Mod Archive";
+                    colorize-icon: true;
+                    icon: @image-url("assets/file-zipper-solid.svg");
                     clicked => {
                         open-file-picker();
                     }
@@ -144,6 +138,8 @@ export component App inherits Window {
                 Button {
                     horizontal-stretch: 0;
                     text: "About Rust4Diva";
+                    colorize-icon: true;
+                    icon: @image-url("assets/circle-info-solid.svg");
                     clicked => {
                         aboutdialog.show();
                     }
@@ -166,6 +162,8 @@ export component App inherits Window {
 
                     Button {
                         text: "Update DML";
+                        colorize-icon: true;
+                        icon: @image-url("assets/download-solid.svg");
                         clicked => {
                             DivaLogic.download-dml();
                         }
@@ -175,6 +173,8 @@ export component App inherits Window {
                 Button {
                     horizontal-stretch: 0;
                     text: "Open Settings";
+                    colorize-icon: true;
+                    icon: @image-url("assets/sliders-solid.svg");
                     clicked => {
                         WindowLogic.open-settings();
                     }
@@ -183,21 +183,8 @@ export component App inherits Window {
         }
 
         TabWidget {
-            manager := Tab {
-                title: "Mods";
-                mgmt-tab := ModManager {
-                    active-pack: active-pack;
-                    width: 100%;
-                    height: (window_height - parent.absolute-position.y) - 5px;
-                    mods: mods;
-                    open-module-ctx(m, i, p) => {
-                        mod-ctx-menu.show(m, i, p);
-                    }
-                }
-            }
-
             packs-tab := Tab {
-                title: "Modpacks";
+                title: "Manage Mods";
                 mpmgmt-tab := ModPacksTab {
                     width: 100%;
                     height: (window_height - parent.absolute-position.y) - 5px;
@@ -207,97 +194,35 @@ export component App inherits Window {
                     show-text-entry => {
                         packcreator.show();
                     }
+                    open-module-ctx(m, i, p) => {
+                        mod-ctx-menu.show(m, i, p);
+                    }
                 }
             }
 
             search-tab := Tab {
                 title: "Search Online";
-                VerticalBox {
-                    HorizontalBox {
-                        search := Text {
-                            height: 36px;
-                            y: 3px;
-                            font-size: 22px;
-                            text: "Search: ";
-                            vertical-alignment: TextVerticalAlignment.center;
-                        }
-
-                        TextBox {
-                            accepted(text) => {
-                                search-gb(text);
-                            }
-                        }
-
-                        search-prog := ProgressIndicator {
-                            visible: s-prog-vis;
-                            height: 32px;
-                            width: 100px;
-                            indeterminate: true;
-                            progress: 0;
-                        }
-                    }
-
-                    search-table := StandardTableView {
-                        columns: [{ title: "Name" }, { title: "Authors" }, { title: "Category" }];
-                        rows: search-results;
-                        current-row-changed(row) => {
-                            selected-search = search-results[row][0].text;
-                        }
-                    }
-
-                    HorizontalBox {
-                        Text {
-                            text: "Selected Mod: " + selected-search;
-                        }
-
-                        Button {
-                            text: "List files";
-                            width: (window_width / 2) - 40px;
-                            clicked => {
-                                list-files(search-table.current-row);
-                            }
-                        }
-                    }
-
-                    files-table := FileTable {
-                        columns: [{ title: "Name" }, { title: "Size" }];
-                        files: file-results;
-                        current-row-changed(row) => {
-                            // selected-file = row;
-                            selected-file = file-results[row].name;
-                        }
-                    }
-
-                    HorizontalBox {
-                        Text {
-                            text: "Selected File: " + selected-file;
-                        }
-
-                        Button {
-                            text: "Download and Install";
-                            width: (window_width / 2) - 40px;
-                            clicked => {
-                                if file-results.length != 0 && files-table.current-row != -1 {
-                                    download-file(file-results[files-table.current-row], downloads-list.length);
-                                }
-                            }
-                        }
-                    }
+                GameBanana {
+                    height: 100%;
+                    width: 100%;
+                    results: s-results;
+                    loading: s-prog-vis;
+                    n-results: n-results;
                 }
             }
 
-            downloads := Tab {
-                title: "Downloads";
-                VerticalBox {
-                    for dl in downloads-map: Text {
-                        text: dl.value.name;
-                    }
-                    FileTable {
-                        columns: [{ title: "Name" }, { title: "Size" }, { title: "Progress" }];
-                        files: downloads-list;
-                    }
-                }
-            }
+            // downloads := Tab {
+            //     title: "Downloads";
+            //     VerticalBox {
+            //         for dl in downloads-map: Text {
+            //             text: dl.value.name;
+            //         }
+            //         FileTable {
+            //             columns: [{ title: "Name" }, { title: "Size" }, { title: "Progress" }];
+            //             files: downloads-list;
+            //         }
+            //     }
+            // }
         }
     }
 }

@@ -66,6 +66,7 @@ export component LineEditBase inherits Rectangle {
 
     public function paste() {
         i-text-input.paste();
+        // i-text-input.edited();
     }
 
     min-height: i-text-input.preferred-height;
@@ -110,6 +111,7 @@ export component LineEditBase inherits Rectangle {
             root.accepted(self.text);
         }
 
+        // paste
         edited => {
             root.edited(self.text);
         }
@@ -119,6 +121,7 @@ export component LineEditBase inherits Rectangle {
 export component FilePathEdit {
     callback accepted(string);
     callback edited(/* text */ string);
+
     callback open-picker();
     in-out property <string> default-path;
 
@@ -170,6 +173,7 @@ export component FilePathEdit {
                 accepted => {
                     accepted(self.text);
                 }
+                // past
                 edited(t) => {
                     root.edited(t);
                 }

@@ -88,7 +88,16 @@ export component TableViewCell inherits Rectangle {
     }
 }
 
-export component TableViewRow inherits Rectangle {
+export component TableViewCellNoTouch inherits Rectangle {
+    clip: true;
+
+    HorizontalLayout {
+        padding: 8px;
+        @children
+    }
+}
+
+export component SelectableTableViewRow inherits Rectangle {
     in property <bool> selected;
     in property <bool> even;
 
@@ -105,7 +114,7 @@ export component TableViewRow inherits Rectangle {
 
     StateLayerBase {
         checked: root.selected;
-        focus-boder-margin: 0;
+        focus-border-margin: 0;
         border-radius: root.border-radius;
         pressed: touch-area.pressed;
         has-hover: touch-area.has-hover;
@@ -118,5 +127,26 @@ export component TableViewRow inherits Rectangle {
                 y: self.absolute-position.y + self.mouse-y,
             });
         }
+    }
+}
+
+
+export component TableViewRow inherits Rectangle {
+    in property <bool> selected;
+    in property <bool> even;
+    callback pointer-event(/* event */ PointerEvent, /* absolute mouse position */ Point);
+    min-width: layout.min-width;
+    min-height: max(24px, layout.min-height);
+    background: root.even ? Palette.alternate-background : Palette.background;
+    StateLayerBase {
+        checked: root.selected;
+        focus-border-margin: 0;
+        border-radius: root.border-radius;
+        // pressed: touch-area.pressed;
+        // has-hover: touch-area.has-hover;
+    }
+
+    layout := HorizontalLayout {
+        @children
     }
 }

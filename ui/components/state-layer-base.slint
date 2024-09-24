@@ -7,7 +7,7 @@ export component StateLayerBase {
     in property <bool> has-hover;
     in property <bool> checked;
     in property <bool> enabled: true;
-    in property <length> focus-boder-margin: 3px;
+    in property <length> focus-border-margin: 3px;
     out property <brush> background <=> overlay.background;
 
     @children
@@ -15,10 +15,10 @@ export component StateLayerBase {
     overlay := Rectangle {}
 
     if (root.has-focus && root.enabled) : Rectangle {
-        width: root.width + root.focus-boder-margin * 2;
-        height: root.height + root.focus-boder-margin * 2;
+        width: root.width + root.focus-border-margin * 2;
+        height: root.height + root.focus-border-margin * 2;
         border-width: 1px;
-        border-radius: root.border-radius + root.focus-boder-margin;
+        border-radius: root.border-radius + root.focus-border-margin;
         border-color: CosmicPalette.state-focus;
     }
 

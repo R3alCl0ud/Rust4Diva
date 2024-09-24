@@ -1,5 +1,6 @@
-import { VerticalBox, Button, Palette } from "std-widgets.slint";
+import { VerticalBox, Button, Palette, HorizontalBox, StandardButton } from "std-widgets.slint";
 import { ModpackLogic, ModLogic } from "../applogic.slint";
+import { ConfirmDeleteButton } from "../widgets/buttons.slint";
 export component ConfirmDelete inherits Dialog {
     in-out property <string> item;
 
@@ -10,7 +11,10 @@ export component ConfirmDelete inherits Dialog {
         Palette.color-scheme = scheme;
     }
 
+    title: "Confirm Delete: " + item;
+
     VerticalBox {
+        padding-bottom: 0px;
         Text {
             // min-height: 100px;
             min-width: 200px;
@@ -20,18 +24,20 @@ export component ConfirmDelete inherits Dialog {
             font-size: 24px;
         }
 
-        HorizontalLayout {
-            Button {
-                text: "Cancel";
+        HorizontalBox {
+            padding-bottom: 0px;
+            ConfirmDeleteButton {
+                text: "Confirm";
+                // colorize-icon: 
                 clicked => {
-                    root.close();
+                    root.confirm();
                 }
             }
 
             Button {
-                text: "Confirm";
+                text: "Cancel";
                 clicked => {
-                    root.confirm();
+                    root.close();
                 }
             }
         }

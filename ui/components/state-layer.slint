@@ -1,47 +1,39 @@
 import { Palette } from "std-widgets.slint";
 import { EditorPalette, EditorAnimationSettings } from "../styling.slint";
+import { StateLayerBase } from "state-layer-base.slint";
 
-export component StateLayer {
-    // styling
-    in property <length> border-radius <=> state-layer.border-radius;
+export component StateLayer inherits TouchArea {
+    in property <length> border-radius <=> base.border-radius;
+    out property <bool> has-focus: focus-scope.has-focus;
+    in-out property <bool> checked;
+    in property <length> focus-boder-margin <=> base.focus-border-margin;
 
-    // states
-    in property <bool> pressed;
-    in property <bool> has-hover;
-    in property <bool> has-focus;
-    in property <length> focus-padding: 2px;
-    focus-border := Rectangle {
-        x: (root.width - self.width) / 2;
-        y: (root.height - self.height) / 2;
-        width: root.width + 2 * root.focus-padding;
-        height: root.height + 2 * root.focus-padding;
-        border-radius: state-layer.border-radius + root.focus-padding;
-        border-width: 1px;
-        border-color: Palette.accent-background;
-        opacity: 0;
+    forward-focus: focus-scope;
 
-        states [
-            focused when root.has-focus: {
-                opacity: 1;
+    focus-scope := FocusScope {
+        x: 0;
+        width: 0; // Do not react on clicks
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                root.clicked();
+                 return accept;
             }
-        ]
 
-        animate opacity { duration: EditorAnimationSettings.color-duration; }
+            return reject;
+        }
     }
 
-    state-layer := Rectangle {
+   base := StateLayerBase {
         width: 100%;
         height: 100%;
+        has-focus: root.has-focus;
+        pressed: root.pressed;
+        has-hover: root.has-hover;
+        checked: root.checked;
+        enabled: root.enabled;
 
-        animate background { duration: EditorAnimationSettings.color-duration; }
-    }
-
-    states [
-        pressed when root.pressed: {
-            state-layer.background: EditorPalette.state-pressed;
-        }
-        hoverd when root.has-hover: {
-            state-layer.background: EditorPalette.state-hovered;
-        }
-    ]
+        @children
+   }
 }

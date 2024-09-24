@@ -4,7 +4,7 @@ use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::{ErrorMessageWindow, DIVA_CFG, MAIN_UI_WEAK};
+use crate::{ErrorMessageWindow, DIVA_CFG, DIVA_DIR, MAIN_UI_WEAK};
 use slint::ComponentHandle;
 
 cfg_if::cfg_if! {
@@ -123,6 +123,14 @@ pub fn get_steam_folder() -> Option<String> {
 }
 
 pub fn get_diva_folder() -> Option<String> {
+    if let Ok(dir) = DIVA_DIR.try_lock() {
+        return Some(dir.clone());
+    }
+    return find_diva_folder();
+}
+
+pub fn find_diva_folder() -> Option<String> {
+    // try retreiving from the config second
     if let Ok(cfg) = DIVA_CFG.try_lock() {
         let mut buf = PathBuf::from(cfg.diva_dir.clone());
         if !cfg.diva_dir.is_empty() && buf.exists() {
@@ -132,9 +140,10 @@ pub fn get_diva_folder() -> Option<String> {
                 return Some(cfg.diva_dir.clone());
             }
         }
+    } else {
+        println!("couldn't lock, Looking for Project Diva folder");
     }
 
-    println!("Looking for Project Diva folder");
     match get_steam_folder() {
         Some(steam_folder) => {
             let mut path = "".to_owned();
@@ -211,14 +220,14 @@ pub fn get_diva_folder() -> Option<String> {
     }
 }
 
-pub async fn get_config_dir() -> std::io::Result<PathBuf> {
+pub fn get_config_dir() -> std::io::Result<PathBuf> {
     match dirs::config_dir() {
         Some(mut buf) => {
             buf.push("rust4diva");
             if !buf.exists() {
                 fs::create_dir(buf.clone())?;
             }
-            Ok(buf.clone())
+            Ok(buf)
         }
         None => Err(Error::new(
             ErrorKind::NotFound,
@@ -257,7 +266,6 @@ pub static MIKU_ART: &'static str = r#"
 　　🟦　🟦　　　🟦🟦　　　　🟦　　　　　　🟦　　　　　　　　　　　　　　　　　🟦🟦　　　　　"#;
 
 pub fn open_error_window(message: String) {
-    // tokio::spawn(async move {
     println!("{message}");
     let _ = invoke_from_event_loop(move || match ErrorMessageWindow::new() {
         Ok(error_win) => {
@@ -282,4 +290,9 @@ pub fn open_error_window(message: String) {
             eprintln!("{e}");
         }
     });
+}
+
+
+pub fn get_rust4diva_version() -> String {
+    format!("{}{}", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"))
 }

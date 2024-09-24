@@ -1,7 +1,7 @@
 import { ListView, VerticalBox, ProgressIndicator,CheckBox,Palette  } from "std-widgets.slint";
 import { StateLayerBase } from "../components/state-layer-base.slint";
 import { FontSettings} from "../styling.slint";
-import { TableViewColumn, TableViewCell, TableViewRow} from "./common-table.slint";
+import { TableViewColumn, TableViewCell, SelectableTableViewRow} from "./common-table.slint";
 // import {Icons} from ""
 import {DivaModElement} from "../diva-types.slint";
 
@@ -54,7 +54,7 @@ export component ModPickTable {
         root.current-sort-column = index;
     }
 
-    min-width: 400px;
+    // min-width: 400px;
     min-height: 300px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
@@ -105,7 +105,7 @@ export component ModPickTable {
         }
 
         scroll-view := ListView {
-            for module[idx] in root.mods: TableViewRow {
+            for module[idx] in root.mods: SelectableTableViewRow {
 
                 selected: idx == root.current-row;
                 even: mod(idx, 2) == 0;
@@ -281,7 +281,7 @@ export component PackTable {
         }
 
         scroll-view := ListView {
-            for module[idx] in root.mods: TableViewRow {
+            for module[idx] in root.mods: SelectableTableViewRow {
 
                 selected: idx == root.current-row;
                 even: mod(idx, 2) == 0;

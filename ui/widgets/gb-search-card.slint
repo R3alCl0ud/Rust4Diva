@@ -1,0 +1,78 @@
+import { VerticalBox, Palette, Button, Spinner } from "std-widgets.slint";
+import { GameBananaLogic } from "../applogic.slint";
+import { GbPreviewData } from "../diva-types.slint";
+
+
+export component GbPreviewCard {
+    in property <GbPreviewData> data: {
+        image: @image-url("../assets/test-preview.jpg"),
+        name:"Onneb's Song Pack",
+        author: { name: "Onneb" },
+        item-type:"Mod",
+        image-loaded: true,
+        submitted: "09-19-2024",
+        updated: "Never"
+    };
+
+    // height: 285px;
+    width: 236px;
+    Rectangle {
+        border-width: 1px;
+        border-radius: 5px;
+        border-color: Palette.border;
+        background: Palette.alternate-background;
+        VerticalBox {
+            alignment: start;
+            if  data.image-loaded: 
+            Image {
+                image-fit: ImageFit.cover;
+                source: data.image;
+                height: 124px;
+                width: 220px;
+            }
+            if !data.image-loaded: Spinner {
+                height: 124px;
+                width: 220px;
+                indeterminate: true;
+            }
+
+            Text {
+                text: data.name;
+                overflow: TextOverflow.elide;
+                font-size: 20px;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                horizontal-alignment: center;
+                overflow: TextOverflow.elide;
+                font-size: 14px;
+                text: "Author: " + data.author.name;
+            }
+
+            Text {
+                horizontal-alignment: center;
+                overflow: TextOverflow.elide;
+                font-size: 14px;
+                text: "Type: " + data.item-type;
+            }
+
+            Text {
+                horizontal-alignment: center;
+                overflow: TextOverflow.elide;
+                font-size: 14px;
+                text: data.updated != "Never" ? "Updated: " + data.updated : "Submitted: " + data.submitted;
+            }
+
+            Button {
+                text: "Check Files";
+                primary: true;
+                colorize-icon: true;
+                icon: @image-url("../assets/cloud-arrow-down-solid.svg");
+                clicked => {
+                    GameBananaLogic.list-files(data);
+                }
+            }
+        }
+    }
+}

@@ -1,6 +1,6 @@
 [package]
 name = "rust4diva"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2021"
 build = "build.rs"
 readme = "readme.md"
@@ -11,29 +11,41 @@ description = "Cross-platform mod manager for Hatsune Miku Project Diva Mega Mix
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 regex = "1.10.6"
-curl = "0.4.46"
-sonic-rs = "0.3.12 "
+sonic-rs = "0.3.13 "
 serde = { version = "1.0.210", features = ["derive"] }
-env_logger = "0.11.5"
 toml = "0.8.19"
 dirs = "5.0.1"
 keyvalues-parser = "0.2.0"
 compress-tools = "0.15.1"
 reqwest = { version = "0.12.7", features = ["stream"] }
-reqwest-streams = "0.7.0"
+reqwest-streams = "0.8.0"
 tokio = { version = "1.40.0", features = ["full"] }
 interprocess = { version = "2.2.1", features = ["tokio"] }
 tokio-macros = { version = "2.4.0" }
-slint = "1.7.2"
-slint-interpreter = "1.7.2"
+slint = "1.8.0"
+slint-interpreter = "1.8.0"
 futures-util = "0.3.30"
 cfg-if = "1.0.0"
-rfd = "0.14.1"
+rfd = "0.15.0"
 filenamify = "0.1.2"
+image = "0.25.2"
+chrono = "0.4.38"
+sha2 = "0.10.8"
+base64ct = { version = "1.6.0", features = ["alloc"] }
+open = "5.3.0"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52.0"
 
 [build-dependencies]
-slint-build = "1.7.2"
+slint-build = "1.8.0"
 winresource = "0.1.17"
+
+[package.metadata.bundle]
+name = "Rust4Diva"
+identifier = "xyz.rust4diva.Rust4Diva"
+resources = ["assets"]
+deb_depends = ["libarchive"]
+osx_url_schemes = ["divamodmanager"]
+linux_mime_types = ["x-scheme-handler/divamodmanager"]
+icon = ["assets/rust4diva-32x32.png", "assets/rust4diva-128.png", "assets/rust4diva-1024.png", "assets/icon.icns"]

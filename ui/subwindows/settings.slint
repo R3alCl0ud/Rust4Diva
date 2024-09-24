@@ -1,4 +1,4 @@
-import { Switch, GridBox, Button,Palette } from "std-widgets.slint";
+import { Switch, GridBox, Button,Palette, ListView, HorizontalBox, CheckBox, StandardButton, VerticalBox, ComboBox } from "std-widgets.slint";
 import { FilePathEdit } from "../widgets/text-box.slint";
 
 export struct SettingsData {
@@ -6,15 +6,24 @@ export struct SettingsData {
     steam-dir: string,
     aft-dir: string,
     aft-mode: bool,
-    dark-mode: bool}
+    dark-mode: bool,
+    diva-dirs:[string],
+}
 
+export struct PdDir {
+    path: string,
+    enabled: bool,
+}
 
 export global SettingsLogic {
     callback apply-settings(SettingsData);
     callback cancel();
-    callback open-diva-picker(/* Default/Current Path*/ string);
+    callback open-diva-picker(/* Default/Current Path*/ string, int);
     callback open-steam-picker(/* Default/Current Path*/ string);
     callback open-aft-picker(/* Default/Current Path*/ string);
+    callback add-pdmm-location();
+    callback remove-pdmm-location(int);
+    callback change-active(int);
 }
 
 export component SettingsWindow inherits Dialog {
@@ -24,11 +33,18 @@ export component SettingsWindow inherits Dialog {
     in-out property <string> steam-dir: "/path/to/steam";
     in-out property <string> diva-dir: "/path/to/pdx";
     in-out property <string> aft-dir: "/path/to/aft";
+    in-out property <[string]> pdmm-dirs:["/path/to/pdx", "/path/to/pdx2", "/path/to/pdx3"];
+    // in-out property <int> active-pdmm <=> active-dir.current-index;
+    in-out property <string> active-pdmm <=> active-dir.current-value;
+
     property <length> control-text-size: 16px;
     default-font-size: 16px;
 
     public function set-color-scheme(scheme: ColorScheme) {
         Palette.color-scheme = scheme;
+    }
+    pure function checked(num: int) -> bool {
+        return active-pdmm == num;
     }
 
     callback cancel();
@@ -46,7 +62,8 @@ export component SettingsWindow inherits Dialog {
                 checked: Palette.color-scheme == ColorScheme.dark;
             }
         }
-        Row {
+
+        easter-row := Row {
             Text {
                 text: "AFT Mode: ";
                 font-size: control-text-size;
@@ -59,7 +76,7 @@ export component SettingsWindow inherits Dialog {
             }
         }
 
-        Row {
+        steam-row := Row {
             Text {
                 text: "Steam Location: ";
                 vertical-alignment: center;
@@ -80,44 +97,90 @@ export component SettingsWindow inherits Dialog {
 
         Row {
             Text {
-                text: "PDMM+ Location: ";
+                text: "Active PDMM+ Location: ";
                 vertical-alignment: center;
                 font-size: control-text-size;
             }
 
-            diva-loc := FilePathEdit {
+            active-dir := ComboBox {
+                model: pdmm-dirs;
                 colspan: 3;
-                default-path: diva-dir;
-                open-picker => {
-                    SettingsLogic.open-diva-picker(diva-dir);
-                }
-                edited(t) => {
-                    diva-dir = t;
-                }
             }
         }
 
-        Row {
+        pdmm-row := Row {
             Text {
-                text: "AFT Location: ";
-                vertical-alignment: center;
+                padding-top: 10px;
+                text: "PDMM+ Location(s): ";
+                vertical-alignment: top;
                 font-size: control-text-size;
             }
 
-            aft-loc := FilePathEdit {
+            VerticalBox {
+                padding-left: 0px;
+                padding-right: 0px;
                 colspan: 3;
-                default-path: aft-dir;
-                open-picker => {
-                    SettingsLogic.open-aft-picker(aft-dir);
+                Rectangle {
+                    background: Palette.control-background;
+                    border-radius: 5px;
+                    border-color: Palette.border;
+                    min-height: clamp(51px * pdmm-dirs.length, 50px, 155px);
+                    ListView {
+                        for loc[idx] in pdmm-dirs: HorizontalBox {
+                            padding: 1px;
+                            spacing: 2px;
+
+                            FilePathEdit {
+                                default-path: loc;
+                                open-picker => {
+                                    SettingsLogic.open-diva-picker(pdmm-dirs[idx], idx);
+                                }
+                                edited(path) => {
+                                    root.pdmm-dirs[idx] = path;
+                                    if active-dir.current-index == idx {
+                                        active-dir.current-value = path;
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                width: 40px;
+                                background: Palette.alternate-background;
+                                border-radius: 10px;
+                                border-color: Palette.border;
+                                border-width: 1px;
+                                Image {
+                                    height: 20px;
+                                    source: @image-url("../assets/trash-can-solid.svg");
+                                }
+
+                                i-ta := TouchArea {
+                                    clicked => {
+                                        if pdmm-dirs.length > 1 {
+                                            SettingsLogic.remove-pdmm-location(idx);
+                                        }
+                                    }
+                                }
+
+                                states [
+                                    // i-ta.
+                                    active when i-ta.has-hover: {
+                                        background: Palette.background;
+                                    }
+                                    // active when i-ta.
+                                ]
+                            }
+                        }
+                    }
                 }
-                edited(t) => {}
+
+                Button {
+                    text: "Add";
+                    clicked => {
+                        SettingsLogic.add-pdmm-location();
+                    }
+                }
             }
-        }
-
-
-
-        Row {
-            Rectangle { }
         }
 
         Row {
@@ -126,12 +189,15 @@ export component SettingsWindow inherits Dialog {
                 colspan: 3;
                 height: 35px;
                 clicked => {
+                    debug(active-pdmm);
                     SettingsLogic.apply-settings({
                         aft-mode: aft-mode.checked,
                         steam-dir: steam-dir,
-                        diva-dir: diva-dir,
-                        aft-dir: aft-loc.default-path,
-                        dark-mode: dark-mode.checked
+                        diva-dir: active-pdmm,
+                        //diva-dir: active-pdmm != -1 ? active-dir.current-value : pdmm-dirs[0], // default to first value if it's not selected for some reason
+                        aft-dir: aft-dir,
+                        dark-mode: dark-mode.checked,
+                        diva-dirs: pdmm-dirs,
                     });
                 }
             }

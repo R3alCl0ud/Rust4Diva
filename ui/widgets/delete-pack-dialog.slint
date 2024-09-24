@@ -33,6 +33,7 @@ export component DeletePackDialog {
 
                 Button {
                     text: "Confirm";
+                    primary: true;
                     clicked => {
                         root.close();
                         ModpackLogic.delete-modpack(root.modpack);

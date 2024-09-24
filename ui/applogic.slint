@@ -1,9 +1,16 @@
-import { DivaModElement, ModPackElement } from "diva-types.slint";
+import { DivaModElement, ModPackElement, GbPreviewData } from "diva-types.slint";
+import { Download } from "diva-types.slint";
 
 
 export global DivaLogic {
     callback toggle-dml();
     callback download-dml();
+}
+
+export global GameBananaLogic {
+    callback search(string, int, int);
+    callback list-files(GbPreviewData);
+    callback download(Download);
 }
 
 export global WindowLogic {
@@ -29,6 +36,10 @@ export global ModLogic {
     callback move-mod-down(int, int);
     callback load-mods();
     callback mod-toggled(int, DivaModElement);
-    callback set-priority(DivaModElement, int, int);
+    callback set-priority(int, int);
     callback delete-mod(DivaModElement);
+}
+
+export global HyperLink {
+    callback open-hyperlink(string);
 }

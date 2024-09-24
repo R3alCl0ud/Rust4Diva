@@ -1,0 +1,191 @@
+import { GbPreviewCard } from "../widgets/gb-search-card.slint";
+import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch, Button, ComboBox } from "std-widgets.slint";
+import { GameBananaLogic } from "../applogic.slint";
+import { GbPreviewData, GbSearchSort } from "../diva-types.slint";
+import { GbSearchTable } from "../widgets/search-table.slint";
+
+
+component ToggleGrid {
+    in-out property <bool> checked: true;
+    TouchArea {
+        clicked => {
+            checked = !checked;
+        }
+    }
+
+    Image {
+        height: 35px;
+        width: 30px;
+        source: checked ? @image-url("../assets/border-all-solid.svg") : @image-url("../assets/bars-solid.svg");
+        colorize: Palette.foreground;
+    }
+}
+
+export component GameBanana {
+
+    out property <string> s-term;
+    out property <int> s-sort;
+    in property <bool> loading: false;
+    in property <int> n-results: 0;
+    in-out property <int> page: 0;
+    out property <int> x-displays: 4;
+    in property <[GbPreviewData]> results: [
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack",
+            author:  { name: "Onneb" },
+            item-type:"Mod",
+            image-loaded: true,
+            updated: "Never",
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack2",
+            author:  { name: "Onneb" },
+            item-type:"Mod",
+            image-loaded: true,
+            updated: "01-10-1969",
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack3",
+            author:  { name: "Onneb" },
+            item-type:"Mod",
+            image-loaded: true,
+            submitted: "09-19-2024",
+            updated: "Never"
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack4",
+            author: { name: "Onneb" },
+            item-type:"Mod",
+            image-loaded: true,
+            submitted: "09-19-2024",
+            updated: "Never"
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack5",
+            author:  { name: "Onneb" },
+            item-type:"Mod",
+            submitted: "09-19-2024",
+            updated: "Never"
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack6",
+            author:  { name: "Onneb" },
+            item-type:"Mod",
+            submitted: "09-19-2024",
+            updated: "Never"
+        },
+        {
+            image: @image-url("../assets/test-preview.jpg"),
+            name:"Onneb's Song Pack7",
+            author: { name: "Onneb" },
+            item-type:"Mod",
+            submitted: "09-19-2024",
+            updated: "Never"
+        },
+    ];
+    init => {
+        x-displays = root.width / 245px;
+    }
+
+    changed width => {
+        x-displays = root.width / 245px;
+    }
+    GridBox {
+        Row {
+
+            Text {
+                vertical-alignment: center;
+                text: "Sort: ";
+                font-size: 16px;
+            }
+
+            sort-select := ComboBox {
+                model: ["Relevance", "Popularity", "New", "Updated"];
+                current-index: 0;
+            }
+
+            Text {
+                vertical-alignment: center;
+                text: "Search:";
+                font-size: 16px;
+            }
+
+            s-box := LineEdit {
+                // col: 1;
+                colspan: 5;
+                accepted(search) => {
+                    page = 1;
+                    s-term = search;
+                    s-sort = sort-select.current-index;
+                    GameBananaLogic.search(s-term, page, s-sort);
+                }
+            }
+
+            ProgressIndicator {
+                col: 7;
+                indeterminate: loading;
+                visible: loading;
+            }
+
+            grid-list := ToggleGrid {
+                width: 40px;
+                col: 8;
+                checked: true;
+            }
+        }
+
+        Row {
+            card-view := Rectangle {
+                colspan: 9;
+                if grid-list.checked: 
+                Rectangle {
+                    background: Palette.control-background;
+                    ListView {
+                        padding-bottom: 2px;
+                        for idy in results.length / x-displays + (mod(results.length, x-displays) == 0 ? 0 : 1): HorizontalBox {
+                            spacing: max(mod(root.width / x-displays, 245px),8px);
+                            padding-left: (card-view.width - ((236px + self.spacing) * x-displays - self.spacing)) / 2;
+                            for idx in min(results.length - x-displays * idy, x-displays): GbPreviewCard {
+                                data: results[idy * x-displays + idx];
+                            }
+                        }
+                    }
+                }
+                if !grid-list.checked: GbSearchTable {
+                    results: results;
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+        }
+
+        Row {
+            Button {
+                col: 1;
+                colspan: 7;
+                icon: @image-url("../assets/cloud-arrow-down-solid.svg");
+                colorize-icon: true;
+                text: "Load More";
+                enabled: n-results > results.length && !loading;
+                clicked => {
+                    if !loading {
+                        page += 1;
+                        GameBananaLogic.search(s-term, page, s-sort);
+                    }
+                }
+            }
+
+            Text {
+                col: 8;
+                text: "Results: " + results.length + "/" + n-results;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

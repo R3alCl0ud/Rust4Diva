@@ -4,11 +4,43 @@ export struct DivaModElement {
     version: string,
     description: string,
     enabled: bool,
-    path: string
+    path: string,
 }
 
 export struct ModPackElement {
     name: string,
     mods: [DivaModElement],
-    path: string
+    path: string,
+}
+
+
+export struct SlGbSubmitter {
+    name: string,
+    avatar_url: string,
+}
+
+export struct GbPreviewData {
+    name: string,
+    author: SlGbSubmitter,
+    updated: string,
+    item-type: string,
+    id: int,
+    image: image,
+    image-url: string,
+    image-loaded: bool,
+    submitted: string,
+}
+
+export enum GbSearchSort {
+    default, new, updated,
+}
+
+export struct Download {
+    id: int,
+    url: string,
+    name: string,
+    size: int,
+    progress: int,
+    failed: bool,
+    inprogress: bool,
 }

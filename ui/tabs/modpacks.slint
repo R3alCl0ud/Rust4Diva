@@ -3,32 +3,31 @@ import { DivaModElement, ModPackElement } from "../diva-types.slint";
 import { ModPickTable } from "../widgets/modpack-tables.slint";
 import { TextEntryDialog } from "../widgets/text-entry-dialog.slint";
 import { ModpackLogic, ModLogic, WindowLogic } from "../applogic.slint";
+import { ModTable } from "../widgets/mod-table.slint";
 export component ModPacksTab {
-    in-out property <[string]> modpacks: [];
-    in-out property <[DivaModElement]> mods;
+    in-out property <[string]> modpacks: ["All Mods"];
+    in-out property <[DivaModElement]> mods: [];
     in-out property <[DivaModElement]> pack-mods: [];
-    in-out property <bool> pack-modified;
-    out property <string> current-pack: packs.current-value;
+    in-out property <bool> pack-modified: false;
+    in-out property <string> current-pack <=> packs.current-value;
+    in property <int> current-pack-idx;
     callback show-text-entry();
     property <length> btn-height: 36px;
+    callback open-module-ctx(DivaModElement, int, Point);
+
+    changed current-pack-idx => {
+        packs.current-index = self.current-pack-idx;
+    }
 
     layout := GridBox {
         selection-controls := Row {
 
-            packs := ComboBox {
-                model: modpacks;
-                colspan: 5;
-                height: btn-height;
-                selected(pack) => {
-                    ModpackLogic.change-modpack(pack);
-                }
-            }
-
             add-pack-bnt := Button {
                 height: btn-height;
-                col: 5;
                 colspan: 1;
                 text: "Add New Pack";
+                colorize-icon: true;
+                icon: @image-url("../assets/plus-solid.svg");
                 clicked => {
                     show-text-entry();
                 }
@@ -36,12 +35,23 @@ export component ModPacksTab {
 
             Button {
                 height: btn-height;
-                col: 6;
                 colspan: 1;
                 text: "Delete Modpack";
                 enabled: packs.current-index != -1;
+                colorize-icon: true;
+                icon: @image-url("../assets/trash-can-solid.svg");
                 clicked => {
                     WindowLogic.open-delete-dialog(packs.current-value);
+                }
+            }
+
+            packs := ComboBox {
+                model: modpacks;
+                colspan: 8;
+                height: btn-height;
+                selected(pack) => {
+                    ModpackLogic.change-modpack(pack);
+                    in-pack.viewport-y = 0;
                 }
             }
         }
@@ -55,8 +65,8 @@ export component ModPacksTab {
             }
 
             Text {
-                col: 4;
-                colspan: 3;
+                col: 3;
+                colspan: 7;
                 height: 20px;
                 text: "In Modpack";
             }
@@ -65,19 +75,19 @@ export component ModPacksTab {
         main-contents := Row {
 
             mod-picker := ModPickTable {
-                col: 0;
-                colspan: 3;
-                horizontal-stretch: 0.5;
+                colspan: 2;
+                min-width: 200px;
+                horizontal-stretch: 3;
                 preferred-height: 500px;
                 columns: [{ title :"Name" }];
                 mods: mods;
             }
 
             move-btns := VerticalBox {
-                col: 3;
-                rowspan: 1;
+                col: 2;
                 width: 10%;
                 Button {
+                    enabled: packs.current-index != 0 || (packs.current-value != "All Mods" && packs.current-value != "");
                     height: 48%;
                     colorize-icon: true;
                     icon: @image-url("../assets/right-long-solid.svg");
@@ -95,7 +105,7 @@ export component ModPacksTab {
                 Button {
                     height: 48%;
                     colorize-icon: true;
-                    enabled: pack-mods.length > 0;
+                    enabled: pack-mods.length > 0 && (packs.current-index != 0 || (packs.current-value != "All Mods" && packs.current-value != ""));
                     icon: @image-url("../assets/left-long-solid.svg");
                     clicked => {
                         if packs.current-index != -1 {
@@ -109,57 +119,51 @@ export component ModPacksTab {
                 }
             }
 
-            in-pack := ModPickTable {
-                preferred-height: 500px;
-                col: 4;
-                colspan: 3;
-                columns: [{ title :"Name" }];
+            in-pack := ModTable {
+                col: 3;
+                colspan: 7;
+                columns: [
+                    { title: "Enabled", width: 100px },
+                    { title: "Priority", width: 100px },
+                    { title: "Name" },
+                    { title: "Authors" },
+                    { title: "Version", width: 100px },
+                    { title: "Description" }
+                ];
                 mods: pack-mods;
+                mod-toggled(index, module) => {
+                    ModLogic.toggle-mod(module);
+                }
+                open-ctx-menu(module, idx, pos) => {
+                    open-module-ctx(module, idx, pos);
+                }
             }
         }
 
         packactns := Row {
             Button {
-                colspan: 3;
+                colspan: 2;
                 height: btn-height;
                 text: "Reload";
+                icon: @image-url("../assets/repeat-solid.svg");
+                colorize-icon: true;
                 clicked => {
                     ModLogic.load-mods();
                 }
             }
 
             Button {
-                col: 4;
-                colspan: 3;
+                col: 3;
+                colspan: 7;
                 height: btn-height;
                 text: "Save";
+                icon: @image-url("../assets/file-pen-solid.svg");
+                colorize-icon: true;
                 clicked => {
                     if packs.current-index > -1 {
                         ModpackLogic.save-modpack(packs.current-value, pack-mods);
                         pack-modified = false;
                     }
-                }
-            }
-        }
-
-        applyactns := Row {
-            Button {
-                colspan: 3;
-                height: btn-height;
-                enabled: packs.current-index != -1 && !pack-modified;
-                text: "Activate Modpack";
-                clicked => {
-                    ModpackLogic.apply-modpack(pack-mods);
-                }
-            }
-
-            Button {
-                col: 4;
-                colspan: 3;
-                height: btn-height;
-                text: "Deactivate Modpacks";
-                clicked => {
-                    ModpackLogic.apply-modpack([]);
                 }
             }
         }

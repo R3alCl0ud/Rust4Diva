@@ -1,0 +1,95 @@
+import { GbFileTable} from "../widgets/filetable.slint";
+import { Download, GbPreviewData } from "../diva-types.slint";
+import { GridBox, VerticalBox, Palette, ScrollView, Button } from "std-widgets.slint";
+import { HyperLink } from "../applogic.slint";
+
+export component GbDetailsWindow inherits Dialog {
+    public function set-color-scheme(scheme: ColorScheme) {
+        Palette.color-scheme = scheme;
+    }
+
+    in-out property <[Download]> files;
+    in property <GbPreviewData> data;
+    in property <string> description;
+    out property <bool> downloading: false;
+    title: data.name;
+    GridBox {
+        Row {
+            Image {
+                source: data.image;
+                height: 248px;
+                width: 440px;
+            }
+
+            Rectangle {
+                border-color: Palette.border;
+                border-width: 1px;
+                border-radius: 5px;
+                vbox := VerticalBox {
+                    Text {
+                        horizontal-alignment: left;
+                        text: data.name;
+                        font-size: 20px;
+                    }
+
+                    Text {
+                        horizontal-alignment: left;
+                        text: "Type: " + data.item-type;
+                        font-size: 20px;
+                    }
+
+                    Text {
+                        horizontal-alignment: left;
+                        text: "Author: " + data.author.name;
+                        font-size: 20px;
+                    }
+
+                    ScrollView {
+                        min-width: 300px;
+                        viewport-height: t-desc.height;
+                        t-desc := Text {
+                            y: 0;
+                            x: 0;
+                            text: description;
+                            wrap: TextWrap.word-wrap;
+                            overflow: TextOverflow.clip;
+                            width: vbox.width - 20px;
+                        }
+                    }
+                }
+            }
+        }
+
+        Row {
+            Text {
+                text: "Files:";
+            }
+        }
+
+        Row {
+            HorizontalLayout {
+                colspan: 2;
+                if files.length > 0: GbFileTable {
+                    columns: [{ title: "Name" }, { title: "Size" }, { title:"Download" }];
+                    files: files;
+                }
+                if files.length == 0: Text {
+                    text: "No files";
+                }
+            }
+        }
+
+        Row {
+            Button {
+                col: 1;
+                text: "View on GameBanana";
+                colorize-icon: true;
+                icon: @image-url("../assets/cloud-solid.svg");
+                clicked => {
+                    debug("https://gamebanana.com/mods/" + data.id);
+                    HyperLink.open-hyperlink("https://gamebanana.com/mods/" + data.id);
+                }
+            }
+        }
+    }
+}
