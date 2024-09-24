@@ -128,6 +128,8 @@ export component App inherits Window {
                 Button {
                     horizontal-stretch: 0;
                     text: "Install Mod Archive";
+                    colorize-icon: true;
+                    icon: @image-url("assets/file-zipper-solid.svg");
                     clicked => {
                         open-file-picker();
                     }
@@ -136,6 +138,8 @@ export component App inherits Window {
                 Button {
                     horizontal-stretch: 0;
                     text: "About Rust4Diva";
+                    colorize-icon: true;
+                    icon: @image-url("assets/circle-info-solid.svg");
                     clicked => {
                         aboutdialog.show();
                     }
@@ -158,6 +162,8 @@ export component App inherits Window {
 
                     Button {
                         text: "Update DML";
+                        colorize-icon: true;
+                        icon: @image-url("assets/download-solid.svg");
                         clicked => {
                             DivaLogic.download-dml();
                         }
@@ -167,6 +173,8 @@ export component App inherits Window {
                 Button {
                     horizontal-stretch: 0;
                     text: "Open Settings";
+                    colorize-icon: true;
+                    icon: @image-url("assets/sliders-solid.svg");
                     clicked => {
                         WindowLogic.open-settings();
                     }
