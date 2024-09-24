@@ -50,7 +50,7 @@ jobs:
       - name: Upload To Release
         uses: softprops/action-gh-release@v2.0.8
         with:
-          path: target/release/bundle/deb/*
+          files: target/release/bundle/deb/*
 
   build-macos-x86_64:
     name: Build MacOS x86_64
@@ -102,7 +102,7 @@ jobs:
       - name: Upload To Release
         uses: softprops/action-gh-release@v2.0.8
         with:
-          path: rust4diva-${{ github.event.release.tag_name}}-macos-${{ runner.arch }}.dmg
+          files: rust4diva-${{ github.event.release.tag_name}}-macos-${{ runner.arch }}.dmg
   build-macos-arm:
     name: Build MacOS Arm
     runs-on: macos-14    
@@ -151,7 +151,7 @@ jobs:
       - name: Upload To Release
         uses: softprops/action-gh-release@v2.0.8
         with:
-          path: rust4diva-${{ github.event.release.tag_name}}-macos-${{ runner.arch }}.dmg
+          files: rust4diva-${{ github.event.release.tag_name}}-macos-${{ runner.arch }}.dmg
 
   build-windows-x86_64:
     name: Build Windows x86_64
@@ -187,4 +187,4 @@ jobs:
         uses: softprops/action-gh-release@v2.0.8
         with:
           name: rust4diva-${{ github.event.release.tag_name}}-windows-x86_64
-          path: windows/output/*
+          files: windows/output/*
