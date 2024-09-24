@@ -186,5 +186,4 @@ jobs:
       - name: Upload To Release
         uses: softprops/action-gh-release@v2.0.8
         with:
-          name: rust4diva-${{ github.event.release.tag_name}}-windows-x86_64
           files: windows/output/*
