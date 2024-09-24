@@ -38,7 +38,7 @@
                 {
                     "type": "git",
                     "url": "https://github.com/R3alCl0ud/Rust4Diva.git",
-                    "commit": "v0.2.2"
+                    "commit": "v0.4.0"
                 },
                 "rust4diva-sources.json"
             ]

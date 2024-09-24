@@ -37,31 +37,52 @@
   <screenshots>
     <screenshot type="default">
       <caption>Main app window Mod priority screen - Dark Mode</caption>
-      <image>https://rust4diva.xyz/media/dark/main.png</image>
+      <image>https://rust4diva.xyz/media/dark/main-v040.png</image>
     </screenshot>
     <screenshot type="default">
       <caption>Main app window Mod priority screen - Light Mode</caption>
-      <image>https://rust4diva.xyz/media/light/main.png</image>
-    </screenshot>
-    <screenshot type="default">
-      <caption>Main app window Mod Pack creation and editing screen</caption>
-      <image>https://rust4diva.xyz/media/light/modpacks.png</image>
+      <image>https://rust4diva.xyz/media/light/main-v040.png</image>
     </screenshot>
     <screenshot type="default">
       <caption>Settings Window - Light Mode</caption>
-      <image>https://rust4diva.xyz/media/light/settings.png</image>
+      <image>https://rust4diva.xyz/media/light/settings-v040.png</image>
     </screenshot>
     <screenshot type="default">
-      <caption>Online Mod search screen</caption>
-      <image>https://rust4diva.xyz/media/search.png</image>
+      <caption>Online Mod Search Screen - Grid - Dark Mode</caption>
+      <image>https://rust4diva.xyz/media/dark/search-grid-v040.png</image>
     </screenshot>
     <screenshot type="default">
-      <caption>Current downloads screen</caption>
-      <image>https://rust4diva.xyz/media/downloads.png</image>
+      <caption>Online Mod Search Screen - List - Light Mode</caption>
+      <image>https://rust4diva.xyz/media/light/search-list-v040.png</image>
+    </screenshot>
+    <screenshot type="default">
+      <caption>Mod Downloads Window - Light Mode</caption>
+      <image>https://rust4diva.xyz/media/light/download-v040.png</image>
     </screenshot>
   </screenshots>
 
   <releases>
+    <release date="2024-09-24" version="0.4.0">
+      <description>
+        <p>0.4.0 Changes:</p>
+        <p>Search has been overhauled</p>
+        <ul>
+          <li>Grid view and list view with more info and even a preview image</li>
+          <li>Searches now open into a new window that'll display more information and list it's available files for you to choose from</li>
+        </ul>
+        <p>Settings Changes:</p>
+        <ul>
+          <li>You can now specify multiple Mega Mix installs and switch between them.</li>
+          <li>Rust4Diva can now install and update DML directly within the app</li>
+        </ul>
+        <p>Overhauled Mod Management and Mod Pack screen</p>
+        <ul>
+          <li>The mod management and mod packs tabs have been combined into a single tab</li>
+          <li>Default `All Mods` pack that will always contain all of your installed mods</li>
+          <li>Add additional modpacks to save enabled states and ensure that you are only running the mods you want to run.</li>
+        </ul>
+      </description>
+    </release>
     <release date="2024-09-10" version="0.3.1">
       <description>
         <p>Hotfix for windowing issues</p>
