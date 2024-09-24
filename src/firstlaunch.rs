@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 
 use filenamify::filenamify;
+use futures_util::future::try_join_all;
 
 use crate::config::write_config_sync;
 use crate::diva::{get_diva_folder, open_error_window};
@@ -242,10 +243,13 @@ pub async fn init(_diva_ui: &App) -> Result<(), slint::PlatformError> {
                         }
 
                         tokio::spawn(async move {
+                            let mut handles = vec![];
                             for pack in loadouts {
-                                if let Err(e) = modpacks::save_modpack(pack).await {
-                                    open_error_window(e.to_string());
-                                }
+                                handles.push(modpacks::save_modpack(pack));
+                            }
+                            match try_join_all(handles).await {
+                                Ok(_) => {}
+                                Err(e) => open_error_window(e.to_string()),
                             }
                         });
                     }
