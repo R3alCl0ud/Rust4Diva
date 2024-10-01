@@ -436,10 +436,7 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                             open_error_window(e.to_string());
                         } else {
                             if let Ok(_) = load_mods() {
-                                let _ = set_mods_table(
-                                    &get_mods(),
-                                    ui_edit_handle.clone(),
-                                );
+                                let _ = set_mods_table(&get_mods(), ui_edit_handle.clone());
                                 ui.hide().unwrap();
                             }
                         }

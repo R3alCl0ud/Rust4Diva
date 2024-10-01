@@ -38,9 +38,6 @@ pub static MODS: LazyLock<Mutex<HashMap<String, DivaMod>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 pub static DIVA_DIR: LazyLock<Mutex<String>> = LazyLock::new(|| {
     let str = String::new();
-    // if let Some(dir_str) = find_diva_folder() {
-    //     str = dir_str;
-    // }
     Mutex::new(str)
 });
 pub static MODS_DIR: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new("mods".to_string()));
@@ -124,17 +121,19 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         if !gcfg.dark_mode {
             app.invoke_set_color_scheme(ColorScheme::Light);
         }
+
+        if let Some(diva_dir) = find_diva_folder() {
+            let mut dir = DIVA_DIR.lock()?;
+            *dir = diva_dir;
+        }
+
         if !is_dml_installed() {
+            println!("DML Not installed");
             gcfg.dml_version = "".to_owned();
             let _ = write_config(gcfg.clone()).await;
             app.invoke_ask_install_dml();
         }
         app.set_dml_version(cfg.dml_version.clone().into());
-    }
-
-    if let Some(diva_dir) = find_diva_folder() {
-        let mut dir = DIVA_DIR.lock()?;
-        *dir = diva_dir;
     }
 
     let _ = load_mods();

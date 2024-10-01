@@ -63,19 +63,6 @@ export component SettingsWindow inherits Dialog {
             }
         }
 
-        easter-row := Row {
-            Text {
-                text: "AFT Mode: ";
-                font-size: control-text-size;
-            }
-
-            aft-mode := Switch {
-                col: 3;
-                height: 30px;
-                enabled: false;
-            }
-        }
-
         steam-row := Row {
             Text {
                 text: "Steam Location: ";
@@ -191,7 +178,7 @@ export component SettingsWindow inherits Dialog {
                 clicked => {
                     debug(active-pdmm);
                     SettingsLogic.apply-settings({
-                        aft-mode: aft-mode.checked,
+                        aft-mode: false,
                         steam-dir: steam-dir,
                         diva-dir: active-pdmm,
                         //diva-dir: active-pdmm != -1 ? active-dir.current-value : pdmm-dirs[0], // default to first value if it's not selected for some reason
