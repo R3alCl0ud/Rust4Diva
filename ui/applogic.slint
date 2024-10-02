@@ -38,6 +38,9 @@ export global ModLogic {
     callback mod-toggled(int, DivaModElement);
     callback set-priority(int, int);
     callback delete-mod(DivaModElement);
+    callback set-search(string);
+
+    pure callback get-dir-name(DivaModElement) -> string;
 }
 
 export global HyperLink {

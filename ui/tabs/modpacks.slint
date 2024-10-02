@@ -1,4 +1,4 @@
-import { GridBox, Button, HorizontalBox, VerticalBox, ComboBox } from "std-widgets.slint";
+import { GridBox, Button, HorizontalBox, VerticalBox, ComboBox, LineEdit } from "std-widgets.slint";
 import { DivaModElement, ModPackElement } from "../diva-types.slint";
 import { ModPickTable } from "../widgets/modpack-tables.slint";
 import { TextEntryDialog } from "../widgets/text-entry-dialog.slint";
@@ -11,6 +11,7 @@ export component ModPacksTab {
     in-out property <bool> pack-modified: false;
     in-out property <string> current-pack <=> packs.current-value;
     in property <int> current-pack-idx;
+    in-out property <string> search-term <=> installed-search.text;
     callback show-text-entry();
     property <length> btn-height: 36px;
     callback open-module-ctx(DivaModElement, int, Point);
@@ -57,17 +58,28 @@ export component ModPacksTab {
         }
 
         labels := Row {
-            Text {
-                col: 0;
-                colspan: 3;
-                height: 20px;
-                text: "Installed";
+            // height: 20px;
+            HorizontalLayout {
+                colspan: 2;
+                Text {
+                    text: "Installed: ";
+                    vertical-alignment: center;
+                }
+
+                installed-search := LineEdit {
+                    height: 35px;
+                    // col: 1;
+                    edited(search) => {
+                        ModLogic.set-search(search);
+                    }
+                }
             }
 
             Text {
                 col: 3;
                 colspan: 7;
-                height: 20px;
+                // height: 20px;
+                vertical-alignment: center;
                 text: "In Modpack";
             }
         }
@@ -125,7 +137,7 @@ export component ModPacksTab {
                 columns: [
                     { title: "Enabled", width: 100px },
                     { title: "Priority", width: 100px },
-                    { title: "Name" },
+                    { title: "Name", min-width: 200px },
                     { title: "Authors" },
                     { title: "Version", width: 100px },
                     { title: "Description" }

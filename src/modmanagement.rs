@@ -107,6 +107,15 @@ impl From<DivaMod> for ModPackMod {
 }
 
 impl DivaMod {
+    pub fn search(self: &Self, term: &String) -> bool {
+        let right = match self.dir_name() {
+            Some(name) => name,
+            None => self.config.name.clone(),
+        };
+        let name = self.config.name.to_lowercase();
+        right.to_lowercase().contains(term) || name.contains(term)
+    }
+
     pub fn to_element(self: &Self) -> DivaModElement {
         let this = self.clone();
         DivaModElement {
@@ -187,6 +196,17 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
     let ui_scheme_handle = ui.as_weak();
     let ui_edit_handle = ui.as_weak();
     // setup thread for downloading, this will listen for Download objects sent on a tokio channel
+
+    let weak = ui.as_weak();
+    ui.global::<ModLogic>().on_set_search(move |term| {
+        let term = term.to_string().to_lowercase();
+        let mods = get_mods()
+            .iter()
+            .cloned()
+            .filter(|m| m.search(&term))
+            .collect();
+        let _ = set_mods_table(&mods, weak.clone());
+    });
 
     ui.global::<ModLogic>().on_load_mods(move || {
         println!("Loading mods");
