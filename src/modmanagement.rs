@@ -154,6 +154,17 @@ impl DivaModElement {
             path: self.path.to_string(),
         }
     }
+    pub fn is_same_as(&self, other: &Self) -> bool {
+        let left = match self.dir_name() {
+            Some(name) => name,
+            None => self.name.to_string(),
+        };
+        let right = match other.dir_name() {
+            Some(name) => name,
+            None => other.name.to_string(),
+        };
+        left == right
+    }
 
     pub fn dir_name(self: &Self) -> Option<String> {
         let mut buf = PathBuf::from(self.path.to_string().clone());
@@ -275,7 +286,8 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
             let msg = format!("Unable to save mod config: \n{}", e.to_string());
             open_error_window(msg);
         }
-        let mut applied = "".to_owned();
+        #[allow(unused_assignments)]
+        let mut applied: String = "".to_owned();
         {
             let mut cfg = match DIVA_CFG.try_lock() {
                 Ok(cfg) => cfg,

@@ -35,19 +35,43 @@ pub struct ModPackMod {
 
 impl PartialEq for ModPackMod {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
+        let left = match self.dir_name() {
+            Some(name) => name,
+            None => self.name.clone(),
+        };
+        let right = match other.dir_name() {
+            Some(name) => name,
+            None => other.name.clone(),
+        };
+        left == right
     }
 }
 
 impl PartialEq<DivaMod> for ModPackMod {
     fn eq(&self, other: &DivaMod) -> bool {
-        self.name == other.config.name
+        let left = match self.dir_name() {
+            Some(name) => name,
+            None => self.name.clone(),
+        };
+        let right = match other.dir_name() {
+            Some(name) => name,
+            None => other.config.name.clone(),
+        };
+        left == right
     }
 }
 
 impl PartialEq<ModPackMod> for DivaMod {
     fn eq(&self, other: &ModPackMod) -> bool {
-        self.config.name == other.name
+        let left = match self.dir_name() {
+            Some(name) => name,
+            None => self.config.name.clone(),
+        };
+        let right = match other.dir_name() {
+            Some(name) => name,
+            None => other.name.clone(),
+        };
+        left == right
     }
 }
 
@@ -127,18 +151,16 @@ pub async fn init(ui: &App) {
         }
     }
 
-    ui.global::<ModpackLogic>().on_add_mod_to_pack(
-        move |diva_mod_element: DivaModElement, mod_pack| {
+    ui.global::<ModpackLogic>()
+        .on_add_mod_to_pack(move |to_add: DivaModElement, mod_pack| {
             let ui = ui_add_mod_handle.upgrade().unwrap();
             let model = ui.get_pack_mods();
             if let Some(pack_mods) = model.as_any().downcast_ref::<VecModel<DivaModElement>>() {
-                for element in pack_mods.iter() {
-                    if element.name == diva_mod_element.name {
-                        return;
-                    }
+                if pack_mods.iter().find(|e| e.is_same_as(&to_add)).is_some() {
+                    return;
                 }
                 println!("Pushing mod @ modpacks.rs 80");
-                pack_mods.push(diva_mod_element);
+                pack_mods.push(to_add);
                 let vec = VecModel::default();
                 for m in pack_mods.iter() {
                     vec.push(m);
@@ -146,20 +168,17 @@ pub async fn init(ui: &App) {
                 ui.global::<ModpackLogic>()
                     .invoke_save_modpack(mod_pack, ModelRc::new(vec));
             }
-        },
-    );
+        });
 
     ui.global::<ModpackLogic>().on_remove_mod_from_pack(
-        move |diva_mod_element: DivaModElement, mod_pack| {
+        move |to_remove: DivaModElement, mod_pack| {
             let ui = ui_remove_mod_handle.upgrade().unwrap();
             let pack_mods = ui.get_pack_mods();
             if let Some(pack_mods) = pack_mods
                 .as_any()
                 .downcast_ref::<VecModel<DivaModElement>>()
             {
-                let filtered = pack_mods
-                    .iter()
-                    .filter(|item| item.name != diva_mod_element.name);
+                let filtered = pack_mods.iter().filter(|item| item.is_same_as(&to_remove));
                 let new_vec: Vec<DivaModElement> = filtered.collect();
                 let vec_mod = VecModel::from(new_vec);
                 let model = ModelRc::new(vec_mod);
@@ -458,8 +477,8 @@ pub async fn load_mod_packs() -> std::io::Result<HashMap<String, ModPack>> {
         if entry.path().is_dir() {
             continue;
         }
-        let fuck = fs::read_to_string(entry.path()).await?;
-        let pack: ModPack = sonic_rs::from_str(fuck.as_str())?;
+        let lines = fs::read_to_string(entry.path()).await?;
+        let pack: ModPack = sonic_rs::from_str(lines.as_str())?;
         packs.insert(pack.name.clone(), pack);
     }
 
