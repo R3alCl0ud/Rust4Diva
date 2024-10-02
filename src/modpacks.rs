@@ -178,7 +178,7 @@ pub async fn init(ui: &App) {
                 .as_any()
                 .downcast_ref::<VecModel<DivaModElement>>()
             {
-                let filtered = pack_mods.iter().filter(|item| item.is_same_as(&to_remove));
+                let filtered = pack_mods.iter().filter(|item| !item.is_same_as(&to_remove));
                 let new_vec: Vec<DivaModElement> = filtered.collect();
                 let vec_mod = VecModel::from(new_vec);
                 let model = ModelRc::new(vec_mod);
