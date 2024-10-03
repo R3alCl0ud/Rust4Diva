@@ -10,14 +10,14 @@ description = "Cross-platform mod manager for Hatsune Miku Project Diva Mega Mix
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-regex = "1.10.6"
+regex = "1.11.0"
 sonic-rs = "0.3.13 "
 serde = { version = "1.0.210", features = ["derive"] }
 toml = "0.8.19"
 dirs = "5.0.1"
 keyvalues-parser = "0.2.0"
 compress-tools = "0.15.1"
-reqwest = { version = "0.12.7", features = ["stream"] }
+reqwest = { version = "0.12.8", features = ["stream"] }
 reqwest-streams = "0.8.0"
 tokio = { version = "1.40.0", features = ["full"] }
 interprocess = { version = "2.2.1", features = ["tokio"] }

@@ -810,7 +810,8 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
             return mods;
         }
     };
-    println!("{}", cfg.applied_pack);
+    #[cfg(debug_assertions)]
+    println!("Retriving mods in order for: {}", cfg.applied_pack);
     let mut prio = vec![];
     if cfg.applied_pack == "All Mods" || cfg.applied_pack == "" {
         prio = cfg.priority.clone();
@@ -830,6 +831,7 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
             prio.push(m.clone());
         }
     }
+    #[cfg(debug_assertions)]
     println!("Locking MODS @ modmanagement.rs::get_mods_in_order()");
     {
         let gmods = match MODS.try_lock() {
@@ -848,6 +850,7 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
             }
         }
     }
+    #[cfg(debug_assertions)]
     println!("Unlocked MODS @ modmanagement.rs::get_mods_in_order()");
 
     mods

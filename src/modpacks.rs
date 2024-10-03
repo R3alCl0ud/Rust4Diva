@@ -139,6 +139,7 @@ pub async fn init(ui: &App) {
             if let Ok(cfg) = DIVA_CFG.try_lock() {
                 if cfg.applied_pack != "All Mods" && cfg.applied_pack != "" {
                     if let Some(idx) = vec.iter().position(|p| p.to_string() == cfg.applied_pack) {
+                        #[cfg(debug_assertions)]
                         println!("idx: {idx}");
                         ui.set_current_pack_idx(idx as i32);
                     }
@@ -188,6 +189,20 @@ pub async fn init(ui: &App) {
             }
         },
     );
+
+    let weak = ui.as_weak();
+    ui.global::<ModpackLogic>().on_set_search(move |term| {
+        let term = term.to_string();
+        let mods = get_mods_in_order();
+        let filtered: Vec<DivaModElement> = mods
+            .iter()
+            .cloned()
+            .filter(|m| m.search(&term))
+            .map(|m| m.into())
+            .collect();
+        let vecmod = VecModel::from(filtered);
+        weak.unwrap().set_pack_mods(ModelRc::new(vecmod));
+    });
 
     ui.global::<ModpackLogic>()
         .on_change_modpack(move |mod_pack| {
@@ -457,6 +472,7 @@ pub async fn init(ui: &App) {
                 });
         });
 
+    // Finish init of modpacks screen
     {
         let pack = match DIVA_CFG.try_lock() {
             Ok(cfg) => cfg.applied_pack.clone(),

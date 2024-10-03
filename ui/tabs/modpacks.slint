@@ -76,12 +76,22 @@ export component ModPacksTab {
                 }
             }
 
-            Text {
+            HorizontalLayout {
                 col: 3;
                 colspan: 7;
-                // height: 20px;
-                vertical-alignment: center;
-                text: "In Modpack";
+                Text {
+                    vertical-alignment: center;
+                    text: "In Modpack: ";
+                }
+
+                inpack-search := LineEdit {
+                    height: 35px;
+                    placeholder-text: "Search";
+                    edited(search) => {
+                        ModpackLogic.set-search(search);
+                        // ModLogic.set-search(search);
+                    }
+                }
             }
         }
 
@@ -98,7 +108,7 @@ export component ModPacksTab {
 
             move-btns := VerticalBox {
                 col: 2;
-                width: 10%;
+                width: 5%;
                 Button {
                     enabled: packs.current-index != 0 || (packs.current-value != "All Mods" && packs.current-value != "");
                     height: 48%;
@@ -143,6 +153,7 @@ export component ModPacksTab {
                     { title: "Version", width: 100px },
                     { title: "Description" }
                 ];
+                allow-drag: inpack-search.text == "";
                 mods: pack-mods;
                 mod-toggled(index, module) => {
                     ModLogic.toggle-mod(module);

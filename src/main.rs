@@ -13,7 +13,9 @@ use slint_interpreter::ComponentHandle;
 use tokio::sync::broadcast;
 
 use crate::config::{load_diva_config, DivaConfig};
-use crate::diva::{create_tmp_if_not, find_diva_folder, open_error_window, MIKU_ART};
+#[cfg(not(debug_assertions))]
+use crate::diva::MIKU_ART;
+use crate::diva::{create_tmp_if_not, find_diva_folder, open_error_window};
 use crate::gamebanana::parse_dmm_url;
 use crate::modmanagement::{
     get_mods, load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
@@ -62,6 +64,7 @@ pub static MAIN_UI_WEAK: Mutex<Option<Weak<App>>> = Mutex::new(None);
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
     println!("Starting Rust4Diva Slint Edition");
+    #[cfg(not(debug_assertions))]
     println!("{}", MIKU_ART);
     let args = env::args();
 
@@ -166,7 +169,8 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     }
 
     app.show().expect("Window should have opened");
-    println!("{}", app.window().scale_factor());
+    #[cfg(debug_assertions)]
+    println!("Current Window Scale: {}", app.window().scale_factor());
     let _ = firstlaunch::init(&app).await;
     slint::run_event_loop()?;
     println!("OMG Migu says \"goodbye\"");

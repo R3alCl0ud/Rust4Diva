@@ -14,6 +14,7 @@ export component MoveBtns {
     in property <int> idx;
     in property <MoveBtnType> type;
     in property <bool> alt;
+    in property <bool> enabled: true;
 
     Rectangle {
         border-color: Palette.border;
@@ -21,7 +22,7 @@ export component MoveBtns {
         HorizontalLayout {
             Rectangle {
                 up-ta := TouchArea {
-                    enabled: type == MoveBtnType.start ? false : true;
+                    enabled: (type == MoveBtnType.start ? false : true) && enabled;
                     pointer-event(e) => {
                         if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
                             if e.modifiers.alt {
@@ -48,7 +49,7 @@ export component MoveBtns {
             Rectangle {
                 background: alt ? Palette.alternate-background : Palette.control-background;
                 TouchArea {
-                    enabled: type == MoveBtnType.end ? false : true;
+                    enabled: (type == MoveBtnType.end ? false : true) && enabled;
                     pointer-event(e) => {
                         if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
                             if e.modifiers.alt {
@@ -82,6 +83,7 @@ export component ModTableRow inherits Rectangle {
     in property <int> idx;
     in property <MoveBtnType> list-position;
     in-out property <bool> should-move: false;
+    in property <bool> allow-move: true;
     out property <length> m-offset;
     in property <int> current-row;
 
@@ -118,6 +120,7 @@ export component ModTableRow inherits Rectangle {
             preferred-width: self.min-width;
             max-width: (1 < columns.length && columns[1].width >= 1px) ? max(columns[1].min-width, columns[1].width) : 100000px;
             MoveBtns {
+                enabled: allow-move;
                 idx: idx;
                 alt: mod(idx, 2) == 0;
                 type: list-position;
@@ -297,6 +300,9 @@ export component ModTable {
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
     out property <int> current-sort-column: -1;
+
+    in property <bool> allow-drag: true;
+
     callback row-pointer-event(int/* row-index */, PointerEvent/* event */, Point/* absolute mouse position */);
     callback current-row-changed(int/* current-row */);
     callback sort-ascending(/* column-index */ int);
@@ -411,9 +417,10 @@ export component ModTable {
                 height: max(45px, item-height);
                 list-position: idx == 0 ? start : idx == mods.length - 1 ? end : normal;
                 columns: columns;
+                allow-move: root.allow-drag;
                 moved(mouse, pos) => {
 
-                    if self.should-move {
+                    if self.should-move && allow-drag {
                         self.y += mouse.y - (self.height / 2);
                         if scroll-view.viewport-height > scroll-view.height {
                             if self.y - abs(scroll-view.viewport-y) < 20px {
@@ -442,31 +449,33 @@ export component ModTable {
                         x: pos.x - root.absolute-position.x,
                         y: pos.y - root.absolute-position.y,
                     });
-                    if pe.kind == PointerEventKind.down {
-                        if pe.button == PointerEventButton.left {
-                            self.should-move = true;
-                            self.y += mouse.y - (self.height / 2);
-                            self.opacity = 0;
-                            self.y = clamp(self.y, min(0px, abs(scroll-view.viewport-y)), scroll-view.viewport-height - self.height);
-                            i-shadow-mod.module = module;
-                            i-shadow-mod.y = self.y;
-                            i-shadow-mod.even = self.even;
-                            i-shadow-mod.idx = idx;
-                            i-shadow-mod.list-position = self.list-position;
-                            i-shadow-mod.visible = true;
-                        } else if pe.button == PointerEventButton.right {
-                            open-ctx-menu(self.module, idx, {
-                                x: root.absolute-position.x + pos.x - 10px,
-                                y: pos.y,
-                            });
+                    if allow-drag {
+                        if pe.kind == PointerEventKind.down {
+                            if pe.button == PointerEventButton.left {
+                                self.should-move = true;
+                                self.y += mouse.y - (self.height / 2);
+                                self.opacity = 0;
+                                self.y = clamp(self.y, min(0px, abs(scroll-view.viewport-y)), scroll-view.viewport-height - self.height);
+                                i-shadow-mod.module = module;
+                                i-shadow-mod.y = self.y;
+                                i-shadow-mod.even = self.even;
+                                i-shadow-mod.idx = idx;
+                                i-shadow-mod.list-position = self.list-position;
+                                i-shadow-mod.visible = true;
+                            } else if pe.button == PointerEventButton.right {
+                                open-ctx-menu(self.module, idx, {
+                                    x: root.absolute-position.x + pos.x - 10px,
+                                    y: pos.y,
+                                });
+                            }
                         }
-                    }
-                    if pe.kind == PointerEventKind.up && pe.button == PointerEventButton.left {
-                        self.should-move = true;
-                        i-shadow-mod.visible = false;
-                        ModLogic.set-priority( idx, max(0, round((self.y / 1px) / (self.height / 1px))));
-                        self.y = max(0px, round((self.y / 1px) / (self.height / 1px)) * self.height);
-                        self.opacity = 1;
+                        if pe.kind == PointerEventKind.up && pe.button == PointerEventButton.left {
+                            self.should-move = true;
+                            i-shadow-mod.visible = false;
+                            ModLogic.set-priority( idx, max(0, round((self.y / 1px) / (self.height / 1px))));
+                            self.y = max(0px, round((self.y / 1px) / (self.height / 1px)) * self.height);
+                            self.opacity = 1;
+                        }
                     }
                 }
                 states [
