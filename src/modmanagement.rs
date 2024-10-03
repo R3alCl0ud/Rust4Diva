@@ -288,23 +288,41 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
     });
 
     ui.global::<ModLogic>().on_toggle_mod(move |module| {
-        let mut gmods = match MODS.try_lock() {
-            Ok(mods) => mods,
-            Err(_) => return,
-        };
-        let m = match gmods.get_mut(&module.dir_name().unwrap()) {
-            Some(m) => m,
-            None => return,
-        };
-        m.config.enabled = !m.config.enabled;
-        let buf = PathBuf::from(m.path.clone());
-        println!("{}", buf.display());
-        if let Err(e) = save_mod_config(buf, &mut m.config.clone()) {
-            let msg = format!("Unable to save mod config: \n{}", e.to_string());
-            open_error_window(msg);
+        println!(
+            "Toggling enabled for mod: {}",
+            module.dir_name().unwrap_or(module.name.to_string())
+        );
+        #[cfg(debug_assertions)]
+        println!("Locking MODS @ modmanagement.rs::on_toggle_mod()");
+        // let mut m
+        #[allow(unused_assignments)]
+        let mut module_opt = None;
+        {
+            let mut gmods = match MODS.try_lock() {
+                Ok(mods) => mods,
+                Err(_) => return,
+            };
+            let m = match gmods.get_mut(&module.dir_name().unwrap()) {
+                Some(m) => m,
+                None => return,
+            };
+            m.config.enabled = !m.config.enabled;
+            let buf = PathBuf::from(m.path.clone());
+            #[cfg(debug_assertions)]
+            println!("{}", buf.display());
+            if let Err(e) = save_mod_config(buf, &mut m.config.clone()) {
+                let msg = format!("Unable to save mod config: \n{}", e.to_string());
+                open_error_window(msg);
+            }
+            module_opt = Some(m.clone());
         }
+        let m = module_opt.unwrap();
+        #[cfg(debug_assertions)]
+        println!("Unlocked MODS @ modmanagement.rs::on_toggle_mod()");
         #[allow(unused_assignments)]
         let mut applied: String = "".to_owned();
+        #[cfg(debug_assertions)]
+        println!("Locking CFG @ modmanagement.rs::on_toggle_mod()");
         {
             let mut cfg = match DIVA_CFG.try_lock() {
                 Ok(cfg) => cfg,
@@ -352,7 +370,8 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                 }
             }
         }
-        println!("Gets here");
+        #[cfg(debug_assertions)]
+        println!("Unlocked CFG @ modmanagement.rs::on_toggle_mod()");
         ui_toggle_handle
             .unwrap()
             .global::<ModpackLogic>()

@@ -191,6 +191,8 @@ pub async fn init(ui: &App) {
 
     ui.global::<ModpackLogic>()
         .on_change_modpack(move |mod_pack| {
+            #[cfg(debug_assertions)]
+            println!("Change Modpack called for: {mod_pack}");
             let ui_change_handle = ui_change_handle.clone();
             // make sure that the mutex is unlocked after we are done with it
             let mut pack = ModPack::new("All Mods".to_owned());

@@ -69,6 +69,7 @@ export component ModPacksTab {
                 installed-search := LineEdit {
                     height: 35px;
                     // col: 1;
+                    placeholder-text: "Search";
                     edited(search) => {
                         ModLogic.set-search(search);
                     }
