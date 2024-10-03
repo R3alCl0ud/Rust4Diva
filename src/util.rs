@@ -8,5 +8,5 @@ pub fn reqwest_client() -> Client {
             env!("CARGO_PKG_VERSION")
         ))
         .build()
-        .unwrap()
+        .expect("Something went horrible wrong when constructing our reqwest client")
 }

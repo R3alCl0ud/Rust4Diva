@@ -19,6 +19,7 @@ use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{find_diva_folder, get_diva_folder, get_temp_folder, open_error_window};
 use crate::modpacks::{apply_mod_priority, save_modpack, save_modpack_sync, ModPackMod};
 use crate::slint_generatedApp::App;
+use crate::util::reqwest_client;
 use crate::{
     ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, ModpackLogic, WindowLogic,
     DIVA_DIR, MOD_PACKS,
@@ -210,10 +211,6 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
 
     ui.global::<ModLogic>().on_load_mods(move || {
         println!("Loading mods");
-        println!(
-            "{}",
-            ui_load_handle.clone().unwrap().window().scale_factor()
-        );
         match load_mods() {
             Ok(_) => {
                 let mods = get_mods();
@@ -399,7 +396,6 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                 tokio::spawn(async move {
                     match write_config(lcfg).await {
                         Ok(_) => {
-                            // let gmods = MODS.lock().unwrap();
                             let mods = get_mods_in_order();
                             let _ = set_mods_table(&mods, ui_priority_handle.clone());
                             let _ = ui_priority_handle.upgrade_in_event_loop(move |ui| {
@@ -884,16 +880,14 @@ pub async fn download_dml(asset: GhReleaseAsset) -> Result<PathBuf, Box<dyn Erro
             "Unable to get temp folder",
         )))
     }
-    // Ok(PathBuf::new())
 }
 
 pub async fn get_latest_dml() -> Result<GhRelease, Box<dyn Error + Send + Sync>> {
-    let builder = reqwest::ClientBuilder::new().user_agent(concat!(
-        env!("CARGO_PKG_NAME"),
-        ":",
-        env!("CARGO_PKG_VERSION")
-    ));
-    let client = builder.build()?;
-    let text = client.get(DML_LATEST_RELEASE).send().await?.text().await?;
+    let text = reqwest_client()
+        .get(DML_LATEST_RELEASE)
+        .send()
+        .await?
+        .text()
+        .await?;
     Ok(sonic_rs::from_str::<GhRelease>(&text)?)
 }
