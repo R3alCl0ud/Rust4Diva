@@ -119,19 +119,17 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     if let Ok(scale) = env::var("SLINT_SCALE_FACTOR") {
         println!("Got scale from env: {scale}");
     }
-    // env::
+
+    env::set_var("SLINT_BACKEND", "winit");
 
     let app = App::new()?;
 
-    if !r4d_config.use_system_theme {
-        if r4d_config.dark_mode {
-            app.invoke_set_color_scheme(ColorScheme::Dark);
-        }
-        if !r4d_config.dark_mode {
-            app.invoke_set_color_scheme(ColorScheme::Light);
-        }
-    } else {
+    if r4d_config.use_system_theme {
         app.invoke_set_color_scheme(ColorScheme::Unknown);
+    } else if r4d_config.dark_mode {
+        app.invoke_set_color_scheme(ColorScheme::Dark);
+    } else {
+        app.invoke_set_color_scheme(ColorScheme::Light);
     }
 
     if let Some(diva_dir) = find_diva_folder() {
@@ -144,9 +142,11 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     } else {
         app.set_dml_version(r4d_config.dml_version.clone().into());
     }
+
     app.window().on_close_requested(move || {
         std::process::exit(0);
     });
+
     let app_weak = app.as_weak();
 
     match spawn_listener(url_tx.clone(), app_weak.clone()).await {
