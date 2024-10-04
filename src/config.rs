@@ -276,6 +276,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                     settings.set_active_pdmm(cfg.diva_dir.clone().into());
                     settings.set_b_system_theme(cfg.use_system_theme);
                     settings.set_b_system_scale(cfg.use_system_scaling);
+                    settings.set_b_dark_theme(cfg.dark_mode);
                     settings.set_f_scale(cfg.scale);
                 }
 

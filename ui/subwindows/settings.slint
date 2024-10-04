@@ -41,6 +41,7 @@ export component SettingsWindow inherits Dialog {
     in-out property <string> active-pdmm <=> active-dir.current-value;
     in-out property <bool> b-system-theme;
     in-out property <bool> b-system-scale;
+    in-out property <bool> b-dark-theme <=> dark-mode.checked;
     in-out property <float> f-scale;
 
     property <length> control-text-size: 16px;
@@ -65,7 +66,7 @@ export component SettingsWindow inherits Dialog {
             system-theme := Switch {
                 col: 3;
                 height: 30px;
-                // checked: Palette.color-scheme == ColorScheme.dark;
+                checked: b-system-theme;
             }
         }
 
@@ -93,7 +94,6 @@ export component SettingsWindow inherits Dialog {
                 col: 3;
                 height: 30px;
                 checked: b-system-scale;
-                // checked: Palette.color-scheme == ColorScheme.dark;
             }
         }
 
