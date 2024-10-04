@@ -24,7 +24,7 @@ use crate::{
     ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, ModpackLogic, WindowLogic,
     DIVA_DIR, MOD_PACKS,
 };
-use crate::{DIVA_CFG, DML_CFG, MODS};
+use crate::{R4D_CFG, DML_CFG, MODS};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
@@ -231,7 +231,7 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                     let release = release.clone();
                     let mut version_opt = None;
                     {
-                        if let Ok(cfg) = DIVA_CFG.try_lock() {
+                        if let Ok(cfg) = R4D_CFG.try_lock() {
                             version_opt = Some(cfg.dml_version.clone());
                         }
                     }
@@ -250,7 +250,7 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                                                 Ownership::Ignore,
                                             ) {
                                                 Ok(_) => {
-                                                    if let Ok(mut cfg) = DIVA_CFG.try_lock() {
+                                                    if let Ok(mut cfg) = R4D_CFG.try_lock() {
                                                         cfg.dml_version = release.name.clone();
                                                         let cfg = cfg.clone();
                                                         if let Err(e) = write_config_sync(cfg) {
@@ -324,7 +324,7 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
         #[cfg(debug_assertions)]
         println!("Locking CFG @ modmanagement.rs::on_toggle_mod()");
         {
-            let mut cfg = match DIVA_CFG.try_lock() {
+            let mut cfg = match R4D_CFG.try_lock() {
                 Ok(cfg) => cfg,
                 Err(_) => return,
             };
@@ -404,7 +404,7 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
     });
 
     ui.global::<ModLogic>().on_set_priority(move |old, new| {
-        if let Ok(mut cfg) = DIVA_CFG.lock() {
+        if let Ok(mut cfg) = R4D_CFG.lock() {
             if cfg.applied_pack == "" || cfg.applied_pack == "All Mods" {
                 let old = min(old as usize, cfg.priority.len() - 1);
                 let item = cfg.priority.remove(old);
@@ -734,7 +734,7 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), E
 pub fn load_mods() -> Result<(), Box<dyn Error + Send + Sync>> {
     let dir = DIVA_DIR.try_lock().unwrap().clone();
     let mut buf = PathBuf::from(dir);
-    let mut gconf = DIVA_CFG.try_lock().unwrap();
+    let mut gconf = R4D_CFG.try_lock().unwrap();
     buf.push("mods");
     let buf = buf.canonicalize()?;
     buf.display().to_string();
@@ -803,7 +803,7 @@ pub fn get_mods() -> Vec<DivaMod> {
 
 pub fn get_mods_in_order() -> Vec<DivaMod> {
     let mut mods = vec![];
-    let cfg = match DIVA_CFG.try_lock() {
+    let cfg = match R4D_CFG.try_lock() {
         Ok(cfg) => cfg,
         Err(e) => {
             eprintln!("{e}");
@@ -856,12 +856,16 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
     mods
 }
 
+pub fn is_dml_installed_at(dir: &String) -> bool {
+    let mut buf = PathBuf::from(dir);
+    buf.push("dinput8.dll");
+    buf.exists()
+}
+
 pub fn is_dml_installed() -> bool {
     return match get_diva_folder() {
         Some(dir) => {
-            let mut buf = PathBuf::from(dir);
-            buf.push("dinput8.dll");
-            buf.exists()
+            is_dml_installed_at(&dir)
         }
         None => false,
     };

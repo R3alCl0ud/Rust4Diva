@@ -4,7 +4,7 @@ use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::{ErrorMessageWindow, DIVA_CFG, DIVA_DIR, MAIN_UI_WEAK};
+use crate::{ErrorMessageWindow, R4D_CFG, DIVA_DIR};
 use slint::ComponentHandle;
 
 cfg_if::cfg_if! {
@@ -60,7 +60,7 @@ pub fn get_temp_folder() -> Option<String> {
 }
 
 pub fn get_steam_folder() -> Option<String> {
-    if let Ok(cfg) = DIVA_CFG.try_lock() {
+    if let Ok(cfg) = R4D_CFG.try_lock() {
         if !cfg.steam_dir.is_empty() && PathBuf::from(cfg.steam_dir.clone()).exists() {
             return Some(cfg.steam_dir.clone());
         }
@@ -131,7 +131,7 @@ pub fn get_diva_folder() -> Option<String> {
 
 pub fn find_diva_folder() -> Option<String> {
     // try retreiving from the config second
-    if let Ok(cfg) = DIVA_CFG.try_lock() {
+    if let Ok(cfg) = R4D_CFG.try_lock() {
         let mut buf = PathBuf::from(cfg.diva_dir.clone());
         if !cfg.diva_dir.is_empty() && buf.exists() {
             buf.push("DivaMegaMix.exe");
@@ -269,29 +269,18 @@ pub fn open_error_window(message: String) {
     println!("{message}");
     let _ = invoke_from_event_loop(move || match ErrorMessageWindow::new() {
         Ok(error_win) => {
-            if let Ok(opt) = MAIN_UI_WEAK.try_lock() {
-                if let Some(main_ui_weak) = opt.clone() {
-                    if let Some(main_ui) = main_ui_weak.upgrade() {
-                        let error_weak = error_win.as_weak();
-                        main_ui.on_close_windows(move || {
-                            error_weak.unwrap().hide().unwrap();
-                        });
-                    }
-                    error_win.set_msg(message.into());
-                    let close_handle = error_win.as_weak();
-                    error_win.on_close(move || {
-                        close_handle.upgrade().unwrap().hide().unwrap();
-                    });
-                    error_win.show().unwrap();
-                }
-            }
+            error_win.set_msg(message.into());
+            let close_handle = error_win.as_weak();
+            error_win.on_close(move || {
+                close_handle.upgrade().unwrap().hide().unwrap();
+            });
+            error_win.show().unwrap();
         }
         Err(e) => {
             eprintln!("{e}");
         }
     });
 }
-
 
 pub fn get_rust4diva_version() -> String {
     format!("{}{}", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"))

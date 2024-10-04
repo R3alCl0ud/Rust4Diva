@@ -7,7 +7,7 @@ use std::sync::{LazyLock, Mutex};
 
 use config::write_config;
 use diva::get_rust4diva_version;
-use modmanagement::is_dml_installed;
+use modmanagement::{is_dml_installed, is_dml_installed_at};
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint_interpreter::ComponentHandle;
 use tokio::sync::broadcast;
@@ -22,8 +22,6 @@ use crate::modmanagement::{
 };
 use crate::modpacks::ModPack;
 use crate::oneclick::{spawn_listener, try_send_mmdl};
-
-use slint::Weak;
 
 mod config;
 mod diva;
@@ -45,7 +43,7 @@ pub static DIVA_DIR: LazyLock<Mutex<String>> = LazyLock::new(|| {
 pub static MODS_DIR: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new("mods".to_string()));
 
 /// Global config object
-pub static DIVA_CFG: LazyLock<Mutex<DivaConfig>> = LazyLock::new(|| Mutex::new(DivaConfig::new()));
+pub static R4D_CFG: LazyLock<Mutex<DivaConfig>> = LazyLock::new(|| Mutex::new(DivaConfig::new()));
 
 /// Global HashMap of ModPacks key'd by modpack name
 pub static MOD_PACKS: LazyLock<Mutex<HashMap<String, ModPack>>> =
@@ -58,8 +56,6 @@ pub static DML_CFG: LazyLock<Mutex<DivaModLoader>> = LazyLock::new(|| {
     }
     Mutex::new(cfg.unwrap_or(DivaModLoader::new()))
 });
-
-pub static MAIN_UI_WEAK: Mutex<Option<Weak<App>>> = Mutex::new(None);
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
@@ -92,14 +88,62 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
 
     let (dark_tx, dark_rx) = broadcast::channel::<ColorScheme>(200);
 
-    let app = App::new()?;
-    let app_weak = app.as_weak();
+    let (url_tx, url_rx) = tokio::sync::mpsc::channel(2048);
 
-    if let Ok(mut weak_opt) = MAIN_UI_WEAK.try_lock() {
-        *weak_opt = Some(app_weak.clone());
+    let mut r4d_config = match load_diva_config().await {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            eprintln!("{e}");
+            DivaConfig::new()
+        }
+    };
+
+    {
+        let mut gcfg = R4D_CFG
+            .lock()
+            .expect("Config should not have panic already");
+        if !is_dml_installed_at(&r4d_config.diva_dir) {
+            println!("DML Not installed");
+            r4d_config.dml_version = "".to_owned();
+            let _ = write_config(r4d_config.clone()).await;
+        }
+        *gcfg = r4d_config.clone();
     }
 
-    let (url_tx, url_rx) = tokio::sync::mpsc::channel(2048);
+    if !r4d_config.use_system_scaling {
+        #[cfg(debug_assertions)]
+        println!("Trying to set scale factor: {}", r4d_config.scale);
+        env::set_var("SLINT_SCALE_FACTOR", r4d_config.scale.to_string());
+    }
+
+    if let Ok(scale) = env::var("SLINT_SCALE_FACTOR") {
+        println!("Got scale from env: {scale}");
+    }
+    // env::
+
+    let app = App::new()?;
+
+    if !r4d_config.use_system_theme {
+        if r4d_config.dark_mode {
+            app.invoke_set_color_scheme(ColorScheme::Dark);
+        }
+        if !r4d_config.dark_mode {
+            app.invoke_set_color_scheme(ColorScheme::Light);
+        }
+    } else {
+        app.invoke_set_color_scheme(ColorScheme::Unknown);
+    }
+
+    if let Some(diva_dir) = find_diva_folder() {
+        let mut dir = DIVA_DIR.lock()?;
+        *dir = diva_dir;
+    }
+
+    if !is_dml_installed() {
+        app.invoke_ask_install_dml();
+    } else {
+        app.set_dml_version(r4d_config.dml_version.clone().into());
+    }
     app.window().on_close_requested(move || {
         std::process::exit(0);
     });
@@ -112,33 +156,6 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
             open_error_window(msg);
         }
     }
-
-    if let Ok(cfg) = load_diva_config().await {
-        let mut gcfg = DIVA_CFG
-            .lock()
-            .expect("Config should not have panic already");
-        *gcfg = cfg.clone();
-        if gcfg.dark_mode {
-            app.invoke_set_color_scheme(ColorScheme::Dark);
-        }
-        if !gcfg.dark_mode {
-            app.invoke_set_color_scheme(ColorScheme::Light);
-        }
-
-        if let Some(diva_dir) = find_diva_folder() {
-            let mut dir = DIVA_DIR.lock()?;
-            *dir = diva_dir;
-        }
-
-        if !is_dml_installed() {
-            println!("DML Not installed");
-            gcfg.dml_version = "".to_owned();
-            let _ = write_config(gcfg.clone()).await;
-            app.invoke_ask_install_dml();
-        }
-        app.set_dml_version(cfg.dml_version.clone().into());
-    }
-
     let _ = load_mods();
     let _ = set_mods_table(&get_mods(), app_weak.clone());
     if is_dml_installed() {

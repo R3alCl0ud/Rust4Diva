@@ -37,11 +37,11 @@
   <screenshots>
     <screenshot type="default">
       <caption>Main app window Mod priority screen - Dark Mode</caption>
-      <image>https://rust4diva.xyz/media/dark/main-v040.png</image>
+      <image>https://rust4diva.xyz/media/dark/main-v042.png</image>
     </screenshot>
     <screenshot type="default">
       <caption>Main app window Mod priority screen - Light Mode</caption>
-      <image>https://rust4diva.xyz/media/light/main-v040.png</image>
+      <image>https://rust4diva.xyz/media/light/main-v042.png</image>
     </screenshot>
     <screenshot type="default">
       <caption>Settings Window - Light Mode</caption>
@@ -62,11 +62,18 @@
   </screenshots>
 
   <releases>
-    <release date="2024-09-25" version="0.4.2">
+    <release date="2024-10-4" version="0.4.2">
       <description>
         <p>0.4.2 Changes:</p>
+        <p>New</p>
+        <ul>
+          <li>search installed mods and mods that are in the current pack</li>
+          <li>Option to follow system color scheme</li>
+        </ul>
         <p>Bug Fixes</p>
         <ul>
+          <li>It is now possible to add more than one mod with the same name to a pack</li>
+          <li>Fix DML version getting forgotten after relaunching Rust4Diva</li>
           <li>Bad scaling on Large Hiresolution screens</li>
         </ul>
       </description>

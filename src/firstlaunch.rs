@@ -10,7 +10,7 @@ use crate::config::write_config_sync;
 use crate::diva::{get_diva_folder, open_error_window};
 use crate::modpacks::{self, ModPack, ModPackMod};
 use crate::slint_generatedApp::App;
-use crate::{FirstSetup, Loadout, SetupLogic, DIVA_CFG};
+use crate::{FirstSetup, Loadout, SetupLogic, R4D_CFG};
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
@@ -65,7 +65,7 @@ pub static DMM_CFG: LazyLock<Mutex<Option<DmmConfig>>> = LazyLock::new(|| Mutex:
 
 pub async fn init(_diva_ui: &App) -> Result<(), slint::PlatformError> {
     let diva_dir = get_diva_folder();
-    if let Ok(cfg) = DIVA_CFG.lock() {
+    if let Ok(cfg) = R4D_CFG.lock() {
         if cfg.first_run {
             let setup = FirstSetup::new()?;
             if cfg.dark_mode {
@@ -188,7 +188,7 @@ pub async fn init(_diva_ui: &App) -> Result<(), slint::PlatformError> {
                 println!("Dark Mode: {}", dark_mode);
                 println!("PDMM+: {}", diva_buf.display());
                 {
-                    let mut cfg = match DIVA_CFG.try_lock() {
+                    let mut cfg = match R4D_CFG.try_lock() {
                         Ok(cfg) => cfg,
                         Err(_) => {
                             open_error_window("Unable to lock config".to_string());

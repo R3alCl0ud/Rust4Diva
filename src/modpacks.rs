@@ -13,7 +13,7 @@ use crate::diva::{get_config_dir, get_diva_folder, open_error_window};
 use crate::modmanagement::{get_mods_in_order, save_mod_config, DivaMod};
 use crate::slint_generatedApp::App;
 use crate::{
-    ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, DIVA_CFG, DML_CFG, MODS,
+    ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, R4D_CFG, DML_CFG, MODS,
     MOD_PACKS,
 };
 
@@ -136,7 +136,7 @@ pub async fn init(ui: &App) {
 
             vec.insert(0, "All Mods".into());
             ui.set_modpacks(ModelRc::new(VecModel::from(vec.clone())));
-            if let Ok(cfg) = DIVA_CFG.try_lock() {
+            if let Ok(cfg) = R4D_CFG.try_lock() {
                 if cfg.applied_pack != "All Mods" && cfg.applied_pack != "" {
                     if let Some(idx) = vec.iter().position(|p| p.to_string() == cfg.applied_pack) {
                         #[cfg(debug_assertions)]
@@ -214,7 +214,7 @@ pub async fn init(ui: &App) {
             #[cfg(debug_assertions)]
             println!("Locking CFG @ modpacks.rs::on_change_modpack()");
             {
-                let mut cfg = match DIVA_CFG.try_lock() {
+                let mut cfg = match R4D_CFG.try_lock() {
                     Ok(cfg) => cfg,
                     _ => {
                         println!("Failed to lock");
@@ -356,7 +356,7 @@ pub async fn init(ui: &App) {
                         vec_mods.push(dir);
                     }
                 }
-                if let Ok(mut cfg) = DIVA_CFG.try_lock() {
+                if let Ok(mut cfg) = R4D_CFG.try_lock() {
                     let ui = ui_apply_handle.upgrade().unwrap();
                     if vec_mods.is_empty() {
                         vec_mods = cfg
@@ -474,7 +474,7 @@ pub async fn init(ui: &App) {
 
     // Finish init of modpacks screen
     {
-        let pack = match DIVA_CFG.try_lock() {
+        let pack = match R4D_CFG.try_lock() {
             Ok(cfg) => cfg.applied_pack.clone(),
             Err(_) => "All Mods".to_owned(),
         };
@@ -550,7 +550,7 @@ pub fn save_modpack_sync(pack: ModPack) -> std::io::Result<()> {
 }
 
 pub async fn apply_mod_priority() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    if let Ok(cfg) = DIVA_CFG.try_lock() {
+    if let Ok(cfg) = R4D_CFG.try_lock() {
         let mut prio = vec![];
         if cfg.applied_pack != "".to_owned() {
             if let Ok(packs) = MOD_PACKS.try_lock() {

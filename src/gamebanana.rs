@@ -17,7 +17,7 @@ use crate::modmanagement::{get_mods_in_order, load_mods, set_mods_table, unpack_
 use crate::util::reqwest_client;
 use crate::{
     App, Download, GameBananaLogic, GbDetailsWindow, GbPreviewData, HyperLink, SlGbSubmitter,
-    DIVA_CFG,
+    R4D_CFG,
 };
 use slint::{ComponentHandle, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel, Weak};
 use tokio::sync::mpsc::{channel, Receiver};
@@ -507,7 +507,7 @@ pub fn create_deets_window(
     dark_rx: broadcast::Receiver<ColorScheme>,
 ) -> GbDetailsWindow {
     let deets = GbDetailsWindow::new().unwrap();
-    if let Ok(cfg) = DIVA_CFG.try_lock() {
+    if let Ok(cfg) = R4D_CFG.try_lock() {
         deets.invoke_set_color_scheme(if cfg.dark_mode {
             ColorScheme::Dark
         } else {

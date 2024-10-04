@@ -18,9 +18,7 @@ use crate::modpacks::{load_mod_packs, ModPackMod};
 use crate::slint_generatedApp::App;
 use crate::{DML_CFG, MOD_PACKS};
 
-use crate::{
-    diva::get_config_dir, DivaLogic, SettingsLogic, SettingsWindow, WindowLogic, DIVA_CFG,
-};
+use crate::{diva::get_config_dir, DivaLogic, SettingsLogic, SettingsWindow, WindowLogic, R4D_CFG};
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct OldDivaConfig {
@@ -59,6 +57,12 @@ pub struct DivaConfig {
     #[serde(default)]
     pub aft_mode: bool,
     #[serde(default = "yes")]
+    pub use_system_theme: bool,
+    #[serde(default = "yes")]
+    pub use_system_scaling: bool,
+    #[serde(default)]
+    pub scale: f32,
+    #[serde(default = "yes")]
     pub dark_mode: bool,
     #[serde(default = "yes")]
     pub first_run: bool,
@@ -80,6 +84,9 @@ impl DivaConfig {
             first_run: true,
             dml_version: "".to_owned(),
             diva_dirs: vec![],
+            use_system_theme: true,
+            use_system_scaling: true,
+            scale: 1.0,
         }
     }
 }
@@ -111,6 +118,9 @@ impl From<OldDivaConfig> for DivaConfig {
             first_run: value.first_run.clone(),
             dml_version: value.dml_version.clone(),
             diva_dirs: value.diva_dirs.clone(),
+            use_system_theme: true,
+            use_system_scaling: true,
+            scale: 1.0,
         }
     }
 }
@@ -253,7 +263,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                 settings.set_diva_dir(diva_dir.into());
                 settings.invoke_set_color_scheme(current_scheme);
 
-                if let Ok(cfg) = DIVA_CFG.try_lock() {
+                if let Ok(cfg) = R4D_CFG.try_lock() {
                     let vec = VecModel::<SharedString>::default();
                     for dir in cfg.diva_dirs.clone() {
                         vec.push(dir.into());
@@ -264,10 +274,9 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                     }
                     settings.set_pdmm_dirs(ModelRc::new(vec));
                     settings.set_active_pdmm(cfg.diva_dir.clone().into());
-                    // if let Some(idx) = cfg.diva_dirs.iter().position(|i| *i == cfg.diva_dir) {
-                    //     println!("Active dir found: {}", idx);
-                    //     settings.set_active_pdmm(idx as i32);
-                    // }
+                    settings.set_b_system_theme(cfg.use_system_theme);
+                    settings.set_b_system_scale(cfg.use_system_scaling);
+                    settings.set_f_scale(cfg.scale);
                 }
 
                 let main_ui = main_close_handle.unwrap();
@@ -377,7 +386,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                         let color_handle = color_handle.clone();
                         let apply_handle = apply_handle.clone();
                         let mut lcfg = None;
-                        if let Ok(mut cfg) = DIVA_CFG.lock() {
+                        if let Ok(mut cfg) = R4D_CFG.lock() {
                             let mut dirs = vec![];
                             for dir in settings.diva_dirs.iter() {
                                 let mut buf = PathBuf::from(dir.clone().to_string());
@@ -404,7 +413,9 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                             cfg.diva_dirs = dirs;
                             cfg.aft_mode = settings.aft_mode;
                             cfg.dark_mode = settings.dark_mode;
-
+                            cfg.use_system_scaling = settings.system_scale;
+                            cfg.use_system_theme = settings.system_theme;
+                            cfg.scale = settings.scale.clamp(0.1, 10.0);
                             lcfg = Some(cfg.clone());
                         }
                         if let Some(cfg) = lcfg {
@@ -415,7 +426,11 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                                         println!("Config successfully updated");
                                         let _ =
                                             apply_handle.clone().upgrade_in_event_loop(move |ui| {
-                                                if cfg.dark_mode {
+                                                if cfg.use_system_theme {
+                                                    ui.invoke_set_color_scheme(
+                                                        ColorScheme::Unknown,
+                                                    );
+                                                } else if cfg.dark_mode {
                                                     ui.invoke_set_color_scheme(ColorScheme::Dark);
                                                 } else {
                                                     ui.invoke_set_color_scheme(ColorScheme::Light);
@@ -423,16 +438,24 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                                             });
                                         let _ =
                                             color_handle.clone().upgrade_in_event_loop(move |ui| {
-                                                if cfg.dark_mode {
+                                                if cfg.use_system_theme {
+                                                    ui.invoke_set_color_scheme(
+                                                        ColorScheme::Unknown,
+                                                    );
+                                                } else if cfg.dark_mode {
                                                     ui.invoke_set_color_scheme(ColorScheme::Dark);
                                                 } else {
                                                     ui.invoke_set_color_scheme(ColorScheme::Light);
                                                 }
                                             });
-                                        let _ = dark_tx.send(if cfg.dark_mode {
-                                            ColorScheme::Dark
+                                        let _ = dark_tx.send(if cfg.use_system_theme {
+                                            ColorScheme::Unknown
                                         } else {
-                                            ColorScheme::Light
+                                            if cfg.dark_mode {
+                                                ColorScheme::Dark
+                                            } else {
+                                                ColorScheme::Light
+                                            }
                                         });
                                         if load_mods().is_ok() {
                                             let _ = set_mods_table(
