@@ -7,14 +7,14 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::vec;
 use tokio::fs;
+use toml_edit::value;
 
 use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{get_config_dir, get_diva_folder, open_error_window};
 use crate::modmanagement::{get_mods_in_order, save_mod_config, DivaMod};
 use crate::slint_generatedApp::App;
 use crate::{
-    ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, R4D_CFG, DML_CFG, MODS,
-    MOD_PACKS,
+    ConfirmDeletePack, DivaModElement, ModpackLogic, WindowLogic, DML_CFG, MODS, MOD_PACKS, R4D_CFG,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -55,7 +55,7 @@ impl PartialEq<DivaMod> for ModPackMod {
         };
         let right = match other.dir_name() {
             Some(name) => name,
-            None => other.config.name.clone(),
+            None => other.config["name"].as_str().unwrap().to_string(),
         };
         left == right
     }
@@ -65,7 +65,7 @@ impl PartialEq<ModPackMod> for DivaMod {
     fn eq(&self, other: &ModPackMod) -> bool {
         let left = match self.dir_name() {
             Some(name) => name,
-            None => self.config.name.clone(),
+            None => self.config["name"].as_str().unwrap().to_string(),
         };
         let right = match other.dir_name() {
             Some(name) => name,
@@ -249,7 +249,7 @@ pub async fn init(ui: &App) {
                 match packs.get_mut(&mod_pack.to_string()) {
                     Some(p) => {
                         if p.mods.len() != mods.len() {
-                            p.mods = mods.iter().map(|m| m.to_packmod()).collect();
+                            p.mods = mods.iter().map(|m| ModPackMod::from(m.clone())).collect();
                             match save_modpack_sync(p.clone()) {
                                 Err(e) => eprintln!("{e}"),
                                 _ => {}
@@ -261,8 +261,8 @@ pub async fn init(ui: &App) {
                 }
                 for m in mods.iter_mut() {
                     if let Some(pm) = pack.mods.iter().find(|p| p.path == m.path) {
-                        if m.config.enabled != pm.enabled {
-                            m.config.enabled = pm.enabled;
+                        if m.config["enabled"].as_bool().unwrap() != pm.enabled {
+                            m.config["enabled"] = value(pm.enabled);
                             if let Err(e) =
                                 save_mod_config(PathBuf::from(m.path.clone()), &m.config)
                             {

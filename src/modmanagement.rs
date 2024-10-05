@@ -14,6 +14,7 @@ use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint::{ComponentHandle, EventLoopError, ModelRc, VecModel, Weak};
+use toml_edit::{value, DocumentMut, Item};
 
 use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{find_diva_folder, get_diva_folder, get_temp_folder, open_error_window};
@@ -47,8 +48,8 @@ pub struct DivaModConfig {
 
 #[derive(Clone)]
 pub struct DivaMod {
-    pub config: DivaModConfig,
     pub path: String,
+    pub config: DocumentMut,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -86,12 +87,27 @@ impl DivaModLoader {
 
 impl From<DivaMod> for DivaModElement {
     fn from(value: DivaMod) -> Self {
+        let version = match value.config.get("version") {
+            Some(item) => item.as_str().unwrap_or("").to_string(),
+            None => "".to_string(),
+        };
+
+        let author = match value.config.get("author") {
+            Some(item) => item.as_str().unwrap_or("").to_string(),
+            None => "".to_string(),
+        };
+
+        let description = match value.config.get("description") {
+            Some(item) => item.as_str().unwrap_or("").to_string(),
+            None => "".to_string(),
+        };
+
         DivaModElement {
-            name: value.config.name.clone().into(),
-            author: value.config.author.clone().into(),
-            description: value.config.description.escape_default().to_string().into(),
-            version: value.config.version.clone().into(),
-            enabled: value.config.enabled.clone(),
+            name: value.config["name"].as_str().unwrap().into(),
+            author: author.into(),
+            description: description.into(),
+            version: version.into(),
+            enabled: value.config["enabled"].as_bool().unwrap_or(true).clone(),
             path: value.path.clone().into(),
         }
     }
@@ -100,8 +116,8 @@ impl From<DivaMod> for DivaModElement {
 impl From<DivaMod> for ModPackMod {
     fn from(value: DivaMod) -> Self {
         ModPackMod {
-            name: value.config.name.clone(),
-            enabled: value.config.enabled.clone(),
+            name: value.config["name"].as_str().unwrap().into(),
+            enabled: value.config["enabled"].as_bool().unwrap_or(true),
             path: value.path.clone(),
         }
     }
@@ -111,29 +127,23 @@ impl DivaMod {
     pub fn search(self: &Self, term: &String) -> bool {
         let right = match self.dir_name() {
             Some(name) => name,
-            None => self.config.name.clone(),
+            None => self.config["name"]
+                .as_str()
+                .unwrap_or("")
+                .to_string()
+                .clone(),
         };
-        let name = self.config.name.to_lowercase();
+        let name = self.config["name"]
+            .as_str()
+            .unwrap_or("")
+            .to_string()
+            .to_lowercase();
         right.to_lowercase().contains(term) || name.contains(term)
     }
 
-    pub fn to_element(self: &Self) -> DivaModElement {
-        let this = self.clone();
-        DivaModElement {
-            name: this.config.name.clone().into(),
-            author: this.config.author.clone().into(),
-            description: this.config.description.clone().into(),
-            version: this.config.version.clone().into(),
-            enabled: this.config.enabled,
-            path: this.path.into(),
-        }
-    }
+    #[deprecated]
     pub fn to_packmod(self: &Self) -> ModPackMod {
-        ModPackMod {
-            name: self.config.name.clone(),
-            enabled: true,
-            path: self.path.clone(),
-        }
+        ModPackMod::from(self.clone())
     }
 
     pub fn dir_name(self: &Self) -> Option<String> {
@@ -306,11 +316,11 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                 Some(m) => m,
                 None => return,
             };
-            m.config.enabled = !m.config.enabled;
+            m.config["enabled"] = value(!m.config["enabled"].as_bool().unwrap());
             let buf = PathBuf::from(m.path.clone());
             #[cfg(debug_assertions)]
             println!("{}", buf.display());
-            if let Err(e) = save_mod_config(buf, &mut m.config.clone()) {
+            if let Err(e) = save_mod_config(buf, &mut m.config) {
                 let msg = format!("Unable to save mod config: \n{}", e.to_string());
                 open_error_window(msg);
             }
@@ -343,7 +353,7 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                     .iter()
                     .position(|m| m.name == module.name.to_string());
                 if let Some(idx) = idx {
-                    pack.mods[idx].enabled = m.config.enabled;
+                    pack.mods[idx].enabled = m.config["enabled"].as_bool().unwrap();
                 }
                 let pack = pack.clone();
                 match save_modpack_sync(pack) {
@@ -359,7 +369,7 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                     .iter()
                     .position(|m| m.name == module.name.to_string());
                 if let Some(idx) = idx {
-                    cfg.priority[idx].enabled = m.config.enabled;
+                    cfg.priority[idx].enabled = m.config["enabled"].as_bool().unwrap();
                 }
                 match write_config_sync(cfg.clone()) {
                     Ok(_) => {}
@@ -420,7 +430,7 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                             let _ = ui_priority_handle.upgrade_in_event_loop(move |ui| {
                                 let mods_model: VecModel<DivaModElement> = VecModel::default();
                                 for diva_mod in mods.clone() {
-                                    mods_model.push(diva_mod.to_element());
+                                    mods_model.push(diva_mod.into());
                                 }
                                 let model = ModelRc::new(mods_model);
                                 ui.set_pack_mods(model);
@@ -475,10 +485,10 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
             editdialog.on_apply(move || {
                 let ui = weak.upgrade().unwrap();
                 let m = ui.get_module().to_string();
-                match toml::from_str::<DivaModConfig>(m.as_str()) {
-                    Ok(mut cfg) => {
+                match m.parse::<DocumentMut>() {
+                    Ok(cfg) => {
                         if let Err(e) =
-                            save_mod_config(PathBuf::from(module.path.to_string()), &mut cfg)
+                            save_mod_config(PathBuf::from(module.path.to_string()), &cfg)
                         {
                             open_error_window(e.to_string());
                         } else {
@@ -487,7 +497,6 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                                 ui.hide().unwrap();
                             }
                         }
-                        // weak.upgrade()
                     }
                     Err(e) => open_error_window(e.to_string()),
                 }
@@ -587,17 +596,14 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
         let mod_p_str = mod_path.clone().display().to_string();
         match fs::read_to_string(mod_path.clone()) {
             Ok(s) => {
-                let mod_config_res: Result<DivaModConfig, _> = toml::from_str(s.as_str());
-                if mod_config_res.is_err() {
-                    println!(
-                        "Failed to read mod config for: {}",
-                        mod_path.clone().display().to_string()
-                    );
-                    continue;
-                }
+                // match
+                let config = match s.parse::<DocumentMut>() {
+                    Ok(cfg) => cfg,
+                    Err(_) => continue,
+                };
                 mods.push(DivaMod {
-                    config: mod_config_res.unwrap(),
                     path: mod_p_str,
+                    config,
                 });
             }
             Err(_) => {
@@ -612,20 +618,17 @@ pub fn load_mods_from_dir(dir: String) -> Vec<DivaMod> {
     mods
 }
 
-pub fn save_mod_config(
-    config_path: PathBuf,
-    diva_mod_config: &DivaModConfig,
-) -> std::io::Result<()> {
-    if let Ok(config_str) = toml::to_string(&diva_mod_config) {
-        return match fs::write(config_path, config_str) {
-            Ok(..) => {
-                println!("Successfully updated config for {}", diva_mod_config.name);
-                Ok(())
-            }
-            Err(e) => Err(e.into()),
-        };
-    }
-    return Err(std::io::Error::new(ErrorKind::Other, "IDK"));
+pub fn save_mod_config(config_path: PathBuf, config: &DocumentMut) -> std::io::Result<()> {
+    return match fs::write(config_path, config.to_string()) {
+        Ok(..) => {
+            println!(
+                "Successfully updated config for {}",
+                config["name"].as_str().unwrap().to_string()
+            );
+            Ok(())
+        }
+        Err(e) => Err(e.into()),
+    };
 }
 
 pub async fn unpack_mod_path(archive: PathBuf) -> compress_tools::Result<()> {
@@ -722,9 +725,9 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), E
     ui_handle.upgrade_in_event_loop(move |ui| {
         let mods_model: VecModel<DivaModElement> = VecModel::default();
         let mut mods = mods.clone();
-        mods.sort_by_key(|m| m.config.name.clone().to_lowercase());
+        mods.sort_by_key(|m| m.config["name"].as_str().unwrap().to_string().to_lowercase());
         for diva_mod in mods {
-            mods_model.push(diva_mod.to_element());
+            mods_model.push(diva_mod.into());
         }
         let model = ModelRc::new(mods_model);
         ui.set_mods(model);
@@ -742,11 +745,16 @@ pub fn load_mods() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut dmods = MODS.lock().unwrap();
     let mut mod_map = HashMap::new();
     for mut module in mods {
-        let dir_name = module.dir_name().unwrap_or(module.config.name.clone());
+        let dir_name = module.dir_name().expect("Dir name should have resolved");
 
         // Will make the mod's name default to the folder name if the field is blank for some reason
-        if module.config.name.is_empty() {
-            module.config.name = dir_name.clone();
+        if module.config["name"]
+            .or_insert(value(dir_name.clone()))
+            .as_str()
+            .unwrap()
+            .is_empty()
+        {
+            module.config["name"] = value(dir_name.clone());
         }
 
         mod_map.insert(dir_name.clone(), module.clone());
