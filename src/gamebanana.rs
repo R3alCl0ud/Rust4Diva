@@ -13,7 +13,7 @@ use tokio::sync::broadcast;
 use tokio::time::sleep;
 // use slint::Pal
 use crate::diva::{get_temp_folder, open_error_window};
-use crate::modmanagement::{get_mods_in_order, load_mods, set_mods_table, unpack_mod_path};
+use crate::modmanagement::{get_mods, load_mods, set_mods_table, unpack_mod_path};
 use crate::util::reqwest_client;
 use crate::{
     App, Download, GameBananaLogic, GbDetailsWindow, GbPreviewData, HyperLink, SlGbSubmitter,
@@ -26,6 +26,7 @@ const GB_DOMAIN: &str = "https://gamebanana.com";
 const GB_DIVA_ID: i32 = 16522;
 const GB_MOD_DATA: &'static str = "apiv11/Mod";
 const GB_MOD_SEARCH: &str = "apiv11/Util/Search/Results";
+#[allow(dead_code)]
 const GB_DIVA_SUBFEED: &str = "apiv11/Game/16522/Subfeed";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -211,6 +212,7 @@ pub struct GbPreviewImage {
 #[derive(Clone, Debug)]
 pub struct GbDmmItem {
     pub item_id: i32,
+    #[allow(dead_code)]
     pub itemtype: String,
     pub file_id: i32,
 }
@@ -286,11 +288,7 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     });
 }
 
-pub async fn init(
-    ui: &App,
-    url_rx: Receiver<String>,
-    dark_rx: broadcast::Receiver<ColorScheme>,
-) {
+pub async fn init(ui: &App, url_rx: Receiver<String>, dark_rx: broadcast::Receiver<ColorScheme>) {
     let ui_search_handle = ui.as_weak();
 
     ui.global::<GameBananaLogic>()
@@ -651,7 +649,7 @@ pub fn create_deets_window(
                         match unpack_mod_path(buf).await {
                             Ok(_) => {
                                 if load_mods().is_ok() {
-                                    match set_mods_table(&get_mods_in_order(), weak.clone()) {
+                                    match set_mods_table(&get_mods(), weak.clone()) {
                                         Ok(_) => {}
                                         Err(e) => eprintln!("{e}"),
                                     }

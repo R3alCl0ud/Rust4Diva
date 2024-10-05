@@ -69,6 +69,7 @@
         <ul>
           <li>search installed mods and mods that are in the current pack</li>
           <li>Option to follow system color scheme</li>
+          <li>Option to set custom scale factor</li>
         </ul>
         <p>Bug Fixes</p>
         <ul>

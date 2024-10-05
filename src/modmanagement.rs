@@ -24,7 +24,7 @@ use crate::{
     ConfirmDelete, DivaLogic, DivaModElement, EditModDialog, ModLogic, ModpackLogic, WindowLogic,
     DIVA_DIR, MOD_PACKS,
 };
-use crate::{R4D_CFG, DML_CFG, MODS};
+use crate::{DML_CFG, MODS, R4D_CFG};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModConfig {
@@ -391,7 +391,7 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                         // waiting for this because idk, sometimes something goes wrong and the table fails to load properly will need to debug later
                         tokio::time::sleep(Duration::from_millis(5)).await;
                         if load_mods().is_ok() {
-                            let _ = set_mods_table(&get_mods_in_order(), ui_file_picker_handle);
+                            let _ = set_mods_table(&get_mods(), ui_file_picker_handle);
                         }
                     }
                     Err(e) => {
@@ -536,7 +536,7 @@ pub async fn init(ui: &App, dark_rx: tokio::sync::broadcast::Receiver<ColorSchem
                 match fs::remove_dir_all(buf) {
                     Ok(_) => {
                         if let Ok(_) = load_mods() {
-                            if let Err(e) = set_mods_table(&get_mods_in_order(), ui_weak.clone()) {
+                            if let Err(e) = set_mods_table(&get_mods(), ui_weak.clone()) {
                                 open_error_window(e.to_string());
                             }
                         }
@@ -864,9 +864,7 @@ pub fn is_dml_installed_at(dir: &String) -> bool {
 
 pub fn is_dml_installed() -> bool {
     return match get_diva_folder() {
-        Some(dir) => {
-            is_dml_installed_at(&dir)
-        }
+        Some(dir) => is_dml_installed_at(&dir),
         None => false,
     };
 }
