@@ -56,11 +56,22 @@ export component SettingsWindow inherits Dialog {
         return active-pdmm == num;
     }
 
+    public function reload-translation() {
+        l-lang.text = LangTL.get-localized-string("label:language");
+        l-stheme.text = LangTL.get-localized-string("label:system-theme");
+        l-scale.text = LangTL.get-localized-string("label:scale");
+        l-sysscale.text = LangTL.get-localized-string("label:system-scale");
+        l-active-diva.text = LangTL.get-localized-string("label:active-diva");
+        l-dark.text = LangTL.get-localized-string("label:dark-mode");
+        l-steam.text = LangTL.get-localized-string("label:steam-dir");
+        l-diva-dirs.text = LangTL.get-localized-string("label:diva-dirs");
+    }
+
     callback cancel();
 
     GridBox {
         Row {
-            Text {
+            l-lang := Text {
                 text: LangTL.get-localized-string("label:language");
                 font-size: control-text-size;
             }
@@ -72,7 +83,7 @@ export component SettingsWindow inherits Dialog {
         }
 
         Row {
-            Text {
+            l-stheme := Text {
                 text: LangTL.get-localized-string("label:system-theme");
                 font-size: control-text-size;
             }
@@ -85,7 +96,7 @@ export component SettingsWindow inherits Dialog {
         }
 
         Row {
-            Text {
+            l-dark := Text {
                 text: LangTL.get-localized-string("label:dark-mode");
                 font-size: control-text-size;
             }
@@ -99,7 +110,7 @@ export component SettingsWindow inherits Dialog {
         }
 
         Row {
-            Text {
+            l-sysscale := Text {
                 text: LangTL.get-localized-string("label:system-scale");
                 font-size: control-text-size;
             }
@@ -112,7 +123,7 @@ export component SettingsWindow inherits Dialog {
         }
 
         Row {
-            Text {
+            l-scale := Text {
                 text: LangTL.get-localized-string("label:scale");
                 font-size: control-text-size;
             }
@@ -128,7 +139,7 @@ export component SettingsWindow inherits Dialog {
         }
 
         steam-row := Row {
-            Text {
+            l-steam := Text {
                 text: LangTL.get-localized-string("label:steam-dir");
                 vertical-alignment: center;
                 font-size: control-text-size;
@@ -147,7 +158,7 @@ export component SettingsWindow inherits Dialog {
         }
 
         Row {
-            Text {
+            l-active-diva := Text {
                 text: LangTL.get-localized-string("label:active-diva");
                 vertical-alignment: center;
                 font-size: control-text-size;
@@ -160,7 +171,7 @@ export component SettingsWindow inherits Dialog {
         }
 
         pdmm-row := Row {
-            Text {
+            l-diva-dirs := Text {
                 padding-top: 10px;
                 text: LangTL.get-localized-string("label:diva-dirs");
                 vertical-alignment: top;
@@ -236,7 +247,7 @@ export component SettingsWindow inherits Dialog {
         }
 
         Row {
-            Button {
+            apply-btn := Button {
                 text: LangTL.get-localized-string("button:apply");
                 colspan: 3;
                 height: 35px;
@@ -256,7 +267,7 @@ export component SettingsWindow inherits Dialog {
                 }
             }
 
-            Button {
+            cancel-btn := Button {
                 col: 3;
                 text: LangTL.get-localized-string("button:cancel");
                 height: 35px;

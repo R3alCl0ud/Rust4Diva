@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::io::ErrorKind;
+use std::io::{ErrorKind, SeekFrom};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -399,6 +399,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                     });
 
                 let apply_handle = settings.as_weak();
+                let sweak = settings.as_weak();
                 let color_handle = main_ui_handle.clone();
                 settings
                     .global::<SettingsLogic>()
@@ -457,6 +458,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                                                 } else {
                                                     ui.invoke_set_color_scheme(ColorScheme::Light);
                                                 }
+                                                // ui.invoke_reload_translation();
                                             });
                                         let _ =
                                             color_handle.clone().upgrade_in_event_loop(move |ui| {
@@ -506,6 +508,9 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                                         open_error_window(e.to_string());
                                     }
                                 }
+                                let _ = apply_handle.clone().upgrade_in_event_loop(move |ui| {
+                                    ui.invoke_reload_translation();
+                                });
                             });
                         }
                     });
