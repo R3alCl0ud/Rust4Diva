@@ -1,18 +1,18 @@
 button:about=Rust4Divaについて
-button:archive=書庫で改造を入れる
-button:update_dml=DMLアプデ
+button:archive=modインストール
+button:update_dml=DMLの更新
 button:settings=設定
-button:save=セッブ
-button:new_pack=パック作る
-button:delete_pack=パック
-button:reload=リロる
+button:save=保存
+button:new_pack=modパックの作成
+button:delete_pack=modパックの削除
+button:reload=再読み込み
 
 title:name=名前
-title:enabled=動作状態
-title:priority=優先
+title:enabled=有効
+title:priority=優先度
 title:authors=作者
-title:version=版
+title:version=バージョン
 title:description=説明
 
-tab:mods=改造
-tab:search=GameBananaで探そう
+tab:mods=mod管理
+tab:search=GameBanana検索
