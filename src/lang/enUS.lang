@@ -13,6 +13,7 @@ button:delete=Delete
 button:download=Download
 button:view_online=View on GameBanana
 button:load-more=Load More
+button:list-files=Check Files
 
 label:system-theme=Use System theme
 label:dark-mode=Dark Mode
@@ -21,8 +22,9 @@ label:scale=Scale
 label:steam-dir=Steam Location
 label:diva-dirs=PDMM+ Location(s)
 label:active-diva=Active PDMM+ Location
-label:langue=Language
+label:language=Language
 label:results=Results
+label:item-type=Type
 
 title:name=Name
 title:enabled=Enabled

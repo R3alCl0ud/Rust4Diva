@@ -48,6 +48,7 @@ pub struct OldDivaConfig {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct DivaConfig {
     /// this is the global priority order, this is used when no modpack is applied
+    #[deprecated]
     pub priority: Vec<ModPackMod>,
     pub diva_dir: String,
     #[serde(default)]
@@ -74,6 +75,8 @@ pub struct DivaConfig {
     pub diva_dirs: Vec<String>,
     #[serde(default)]
     pub lang: i32,
+    #[serde(default)]
+    pub use_dirname: bool,
 }
 impl DivaConfig {
     pub fn new() -> Self {
@@ -92,6 +95,7 @@ impl DivaConfig {
             use_system_scaling: true,
             scale: 1.0,
             lang: 1,
+            use_dirname: false,
         }
     }
 }
@@ -127,6 +131,7 @@ impl From<OldDivaConfig> for DivaConfig {
             use_system_scaling: true,
             scale: 1.0,
             lang: 1,
+            use_dirname: false,
         }
     }
 }
@@ -294,7 +299,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                     settings.set_b_system_scale(cfg.use_system_scaling);
                     settings.set_b_dark_theme(cfg.dark_mode);
                     settings.set_f_scale(cfg.scale);
-                    settings.set_i_lang(cfg.lang - 1);
+                    settings.set_i_lang(cfg.lang);
                 }
 
                 let main_ui = main_close_handle.unwrap();
@@ -322,8 +327,6 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                 });
 
                 settings.show().unwrap();
-
-                // settings.on
                 let steam_handle = settings.as_weak();
                 settings
                     .global::<SettingsLogic>()
@@ -434,6 +437,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                             cfg.use_system_scaling = settings.system_scale;
                             cfg.use_system_theme = settings.system_theme;
                             cfg.scale = settings.scale.clamp(0.1, 10.0);
+                            cfg.lang = settings.language;
                             lcfg = Some(cfg.clone());
                         }
                         if let Some(cfg) = lcfg {
@@ -492,6 +496,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                                                         ui_packs.push(pack.into());
                                                     }
                                                     ui.set_modpacks(ModelRc::new(ui_packs));
+                                                    ui.invoke_reload_translation();
                                                 },
                                             );
                                         }

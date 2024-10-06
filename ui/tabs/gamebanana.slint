@@ -98,6 +98,11 @@ export component GameBanana {
     changed width => {
         x-displays = root.width / 245px;
     }
+
+    public function reload-translation() {
+        load-btn.text = LangTL.get-localized-string("button:load-more");
+        res-txt.text = LangTL.get-localized-string("label:results") + ": " + results.length + "/" + n-results;
+    }
     GridBox {
         Row {
 
@@ -200,8 +205,7 @@ export component GameBanana {
         running: true;
         triggered => {
             self.running = false;
-            load-btn.text = LangTL.get-localized-string(load-btn.text);
-            res-txt.text = LangTL.get-localized-string("label:results") + ": " + results.length + "/" + n-results;
+            reload-translation();
         }
     }
 }

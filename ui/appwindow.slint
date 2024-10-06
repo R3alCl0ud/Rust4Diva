@@ -82,6 +82,8 @@ export component App inherits Window {
     in-out property <string> active-pack <=> mpmgmt-tab.current-pack;
     in-out property <int> current-pack-idx <=> mpmgmt-tab.current-pack-idx;
 
+    in-out property <bool> reload-lang <=> translation-timer.running;
+
     callback load-mods();
     callback toggle-mod(int);
     callback search-gb(string);
@@ -100,6 +102,16 @@ export component App inherits Window {
     }
 
     public function ask-install-dml() {
+    }
+
+    public function reload-translation() {
+        install-archive.text = LangTL.get-localized-string("button:archive");
+        about-btn.text = LangTL.get-localized-string("button:about");
+        update-dml-btn.text = LangTL.get-localized-string("button:update_dml");
+        settings-btn.text = LangTL.get-localized-string("button:settings");
+        packs-tab.title = LangTL.get-localized-string("tab:mods");
+        search-tab.title = LangTL.get-localized-string("tab:search");
+        mpmgmt-tab.reload-translation();
     }
 
     default-font-size: 16px;
@@ -218,10 +230,7 @@ export component App inherits Window {
         running: true;
         triggered => {
             self.running = false;
-            install-archive.text = LangTL.get-localized-string(install-archive.text);
-            about-btn.text = LangTL.get-localized-string(about-btn.text);
-            update-dml-btn.text = LangTL.get-localized-string(update-dml-btn.text);
-            settings-btn.text = LangTL.get-localized-string(settings-btn.text);
+            reload-translation();
         }
     }
 }

@@ -1,5 +1,5 @@
 import { VerticalBox, Palette, Button, Spinner } from "std-widgets.slint";
-import { GameBananaLogic } from "../applogic.slint";
+import { GameBananaLogic, LangTL } from "../applogic.slint";
 import { GbPreviewData } from "../diva-types.slint";
 
 
@@ -47,14 +47,14 @@ export component GbPreviewCard {
                 horizontal-alignment: center;
                 overflow: TextOverflow.elide;
                 font-size: 14px;
-                text: "Author: " + data.author.name;
+                text: LangTL.get-localized-string("title:authors") + ": " + data.author.name;
             }
 
             Text {
                 horizontal-alignment: center;
                 overflow: TextOverflow.elide;
                 font-size: 14px;
-                text: "Type: " + data.item-type;
+                text: LangTL.get-localized-string("label:item-type") + ": " + data.item-type;
             }
 
             Text {
@@ -65,7 +65,7 @@ export component GbPreviewCard {
             }
 
             Button {
-                text: "Check Files";
+                text: LangTL.get-localized-string("button:list-files");
                 primary: true;
                 colorize-icon: true;
                 icon: @image-url("../assets/cloud-arrow-down-solid.svg");

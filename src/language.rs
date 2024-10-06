@@ -19,8 +19,8 @@ table_enum::table_enum! {
 impl From<i32> for Langs {
     fn from(value: i32) -> Self {
         match value {
-            2 => Langs::JaJP,
-            3 => Langs::EsPR,
+            1 => Langs::JaJP,
+            2 => Langs::EsPR,
             _ => Langs::EnUS,
         }
     }
@@ -51,23 +51,27 @@ pub async fn init_ui(app: &App) {
 
     app.global::<LangTL>()
         .on_get_localized_string(move |unlocalized| {
-            let lang = match R4D_CFG.try_lock() {
+            let language = match R4D_CFG.try_lock() {
                 Ok(cfg) => Langs::from(cfg.lang),
                 Err(_) => todo!(),
             };
-            let tl = match TRANSLATIONS.lock() {
-                Ok(tls) => {
-                    if let Some(tl) = tls.get(&lang) {
-                        tl.clone()
-                    } else {
-                        return unlocalized;
-                    }
-                }
-                Err(_) => return unlocalized,
+            let translations = match TRANSLATIONS.lock() {
+                Ok(tls) => tls,
+                Err(_) => todo!(),
             };
-            let localized: SharedString = match tl.get(&unlocalized.to_string()) {
+
+            let dictionary = translations
+                .get(&language)
+                .expect("Should have returned a valid dictionary");
+
+            let localized: SharedString = match dictionary.get(&unlocalized.to_string()) {
                 Some(localized) => localized.into(),
-                None => unlocalized,
+                None => translations
+                    .get(&Langs::EnUS)
+                    .unwrap()
+                    .get(&unlocalized.to_string())
+                    .unwrap_or(&unlocalized.to_string())
+                    .into(),
             };
             return localized;
         });

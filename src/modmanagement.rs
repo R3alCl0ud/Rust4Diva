@@ -14,7 +14,7 @@ use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint::{ComponentHandle, EventLoopError, ModelRc, VecModel, Weak};
-use toml_edit::{value, DocumentMut, Item};
+use toml_edit::{value, DocumentMut};
 
 use crate::config::{write_config, write_config_sync, write_dml_config};
 use crate::diva::{find_diva_folder, get_diva_folder, get_temp_folder, open_error_window};
@@ -725,7 +725,13 @@ pub fn set_mods_table(mods: &Vec<DivaMod>, ui_handle: Weak<App>) -> Result<(), E
     ui_handle.upgrade_in_event_loop(move |ui| {
         let mods_model: VecModel<DivaModElement> = VecModel::default();
         let mut mods = mods.clone();
-        mods.sort_by_key(|m| m.config["name"].as_str().unwrap().to_string().to_lowercase());
+        mods.sort_by_key(|m| {
+            m.config["name"]
+                .as_str()
+                .unwrap()
+                .to_string()
+                .to_lowercase()
+        });
         for diva_mod in mods {
             mods_model.push(diva_mod.into());
         }

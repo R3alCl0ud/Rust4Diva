@@ -20,6 +20,20 @@ export component ModPacksTab {
         packs.current-index = self.current-pack-idx;
     }
 
+    public function reload-translation() {
+        add-pack-bnt.text = LangTL.get-localized-string("button:new_pack");
+        delete-btn.text = LangTL.get-localized-string("button:delete_pack");
+        reload-btn.text = LangTL.get-localized-string("button:reload");
+        save-btn.text = LangTL.get-localized-string("button:save");
+        in-pack.columns[0].title = LangTL.get-localized-string("title:enabled");
+        in-pack.columns[1].title = LangTL.get-localized-string("title:priority");
+        in-pack.columns[2].title = LangTL.get-localized-string("title:name");
+        in-pack.columns[3].title = LangTL.get-localized-string("title:authors");
+        in-pack.columns[4].title = LangTL.get-localized-string("title:version");
+        in-pack.columns[5].title = LangTL.get-localized-string("title:description");
+        mod-picker.columns[0].title = LangTL.get-localized-string("title:name");
+    }
+
     layout := GridBox {
         selection-controls := Row {
 
@@ -197,10 +211,6 @@ export component ModPacksTab {
         running: true;
         triggered => {
             self.running = false;
-            add-pack-bnt.text = LangTL.get-localized-string(add-pack-bnt.text);
-            delete-btn.text = LangTL.get-localized-string(delete-btn.text);
-            reload-btn.text = LangTL.get-localized-string(reload-btn.text);
-            save-btn.text = LangTL.get-localized-string(save-btn.text);
         }
     }
 }

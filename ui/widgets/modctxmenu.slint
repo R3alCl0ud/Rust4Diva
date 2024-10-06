@@ -2,6 +2,7 @@ import { PopupBorder, Popup } from "../components/popup.slint";
 import { ListView, Button, Palette } from "std-widgets.slint";
 import { ModLogic, WindowLogic } from "../applogic.slint";
 import { DivaModElement } from "../diva-types.slint";
+import { LangTL } from "../applogic.slint";
 export component ModCtxMenu {
     in-out property <DivaModElement> module;
     in-out property <Point> pos;
@@ -25,7 +26,6 @@ export component ModCtxMenu {
 
                     edit-ta := TouchArea {
                         clicked => {
-                            debug("Test");
                             WindowLogic.open-mod-editor(module, idx);
                         }
                         HorizontalLayout {
@@ -43,7 +43,7 @@ export component ModCtxMenu {
                             Text {
                                 vertical-alignment: center;
                                 horizontal-alignment: left;
-                                text: "Edit";
+                                text: LangTL.get-localized-string("button:edit");
                             }
                         }
                     }
@@ -73,7 +73,7 @@ export component ModCtxMenu {
                         Text {
                             horizontal-alignment: left;
                             vertical-alignment: center;
-                            text: "Delete";
+                            text: LangTL.get-localized-string("button:edit");
                         }
                     }
                 }
