@@ -22,7 +22,7 @@ label:steam-dir=Steam路径
 label:diva-dirs=PDMM+游戏路径
 label:active-diva=当前使用的PDMM+游戏路径
 label:langue=语言
-label:results=Results
+label:results=结果
 
 title:name=名称
 title:enabled=启用
