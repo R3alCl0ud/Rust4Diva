@@ -9,7 +9,7 @@ button:reload=重新加载
 
 title:name=Name
 title:enabled=启用
-title:priority=优先顺序
+title:priority=优先级
 title:authors=作者
 title:version=版本
 title:description=介绍
