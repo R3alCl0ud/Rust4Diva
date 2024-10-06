@@ -14,10 +14,10 @@ button:download=下载
 button:view_online=在Gamebnana网站上查看
 button:load-more=加载更多
 
-label:system-theme=跟随系统主题
+label:system-theme=跟随系统设置主题
 label:dark-mode=夜间主题
-label:system-scale=Use System Scale
-label:scale=Scale
+label:system-scale=跟随系统设置缩放大小
+label:scale=缩放大小
 label:steam-dir=Steam路径
 label:diva-dirs=PDMM+游戏路径
 label:active-diva=当前使用的PDMM+游戏路径
