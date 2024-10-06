@@ -70,6 +70,8 @@ pub struct DivaConfig {
     pub dml_version: String,
     #[serde(default)]
     pub diva_dirs: Vec<String>,
+    #[serde(default)]
+    pub lang: i32,
 }
 impl DivaConfig {
     pub fn new() -> Self {
@@ -87,6 +89,7 @@ impl DivaConfig {
             use_system_theme: true,
             use_system_scaling: true,
             scale: 1.0,
+            lang: 1,
         }
     }
 }
@@ -121,6 +124,7 @@ impl From<OldDivaConfig> for DivaConfig {
             use_system_theme: true,
             use_system_scaling: true,
             scale: 1.0,
+            lang: 1,
         }
     }
 }

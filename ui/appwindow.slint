@@ -27,11 +27,11 @@ import { ConfirmDeletePack } from "dialogs/deletepack.slint";
 import { ErrorMessageWindow } from "dialogs/errormsg.slint";
 import { ConfirmDelete } from "dialogs/confirmdelete.slint";
 
-import { ModpackLogic, ModLogic, WindowLogic, DivaLogic, GameBananaLogic, HyperLink } from "applogic.slint";
+import { ModpackLogic, ModLogic, WindowLogic, DivaLogic, GameBananaLogic, HyperLink, LangTL } from "applogic.slint";
 import { GbDetailsWindow } from "subwindows/gb-item.slint";
 
 export { GbPreviewData, GameBananaLogic, GbDetailsWindow }
-export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack, HyperLink }
+export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack, HyperLink, LangTL }
 export { WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic, ConfirmDelete, DivaLogic, Palette }
 
 export struct SlintModConfig {
@@ -125,9 +125,9 @@ export component App inherits Window {
     VerticalLayout {
         GridBox {
             Row {
-                Button {
+                install-archive := Button {
                     horizontal-stretch: 0;
-                    text: "Install Mod Archive";
+                    text: LangTL.get-localized-string("button:archive");
                     colorize-icon: true;
                     icon: @image-url("assets/file-zipper-solid.svg");
                     clicked => {
@@ -135,9 +135,9 @@ export component App inherits Window {
                     }
                 }
 
-                Button {
+                about-btn := Button {
                     horizontal-stretch: 0;
-                    text: "About Rust4Diva";
+                    text: LangTL.get-localized-string("button:about");
                     colorize-icon: true;
                     icon: @image-url("assets/circle-info-solid.svg");
                     clicked => {
@@ -146,7 +146,7 @@ export component App inherits Window {
                 }
 
                 HorizontalBox {
-                    Text {
+                    dml-ver := Text {
                         text: "Diva Mod Loader: " + dml-version;
                         // text: "H: " + window_height / 1px + " W: " + window_width / 1px;
                         vertical-alignment: center;
@@ -160,8 +160,8 @@ export component App inherits Window {
                         }
                     }
 
-                    Button {
-                        text: "Update DML";
+                    update-dml-btn := Button {
+                        text: LangTL.get-localized-string("button:update_dml");
                         colorize-icon: true;
                         icon: @image-url("assets/download-solid.svg");
                         clicked => {
@@ -170,9 +170,9 @@ export component App inherits Window {
                     }
                 }
 
-                Button {
+                settings-btn := Button {
                     horizontal-stretch: 0;
-                    text: "Open Settings";
+                    text: LangTL.get-localized-string("button:settings");
                     colorize-icon: true;
                     icon: @image-url("assets/sliders-solid.svg");
                     clicked => {
@@ -184,7 +184,7 @@ export component App inherits Window {
 
         TabWidget {
             packs-tab := Tab {
-                title: "Manage Mods";
+                title: LangTL.get-localized-string("tab:mods");
                 mpmgmt-tab := ModPacksTab {
                     width: 100%;
                     height: (window_height - parent.absolute-position.y) - 5px;
@@ -201,7 +201,7 @@ export component App inherits Window {
             }
 
             search-tab := Tab {
-                title: "Search Online";
+                title: LangTL.get-localized-string("tab:search");
                 GameBanana {
                     height: 100%;
                     width: 100%;
@@ -210,19 +210,18 @@ export component App inherits Window {
                     n-results: n-results;
                 }
             }
+        }
+    }
 
-            // downloads := Tab {
-            //     title: "Downloads";
-            //     VerticalBox {
-            //         for dl in downloads-map: Text {
-            //             text: dl.value.name;
-            //         }
-            //         FileTable {
-            //             columns: [{ title: "Name" }, { title: "Size" }, { title: "Progress" }];
-            //             files: downloads-list;
-            //         }
-            //     }
-            // }
+    translation-timer := Timer {
+        interval: 10ms;
+        running: true;
+        triggered => {
+            self.running = false;
+            install-archive.text = LangTL.get-localized-string(install-archive.text);
+            about-btn.text = LangTL.get-localized-string(about-btn.text);
+            update-dml-btn.text = LangTL.get-localized-string(update-dml-btn.text);
+            settings-btn.text = LangTL.get-localized-string(settings-btn.text);
         }
     }
 }

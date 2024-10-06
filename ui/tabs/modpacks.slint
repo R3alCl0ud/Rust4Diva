@@ -2,7 +2,7 @@ import { GridBox, Button, HorizontalBox, VerticalBox, ComboBox, LineEdit } from 
 import { DivaModElement, ModPackElement } from "../diva-types.slint";
 import { ModPickTable } from "../widgets/modpack-tables.slint";
 import { TextEntryDialog } from "../widgets/text-entry-dialog.slint";
-import { ModpackLogic, ModLogic, WindowLogic } from "../applogic.slint";
+import { ModpackLogic, ModLogic, WindowLogic, LangTL } from "../applogic.slint";
 import { ModTable } from "../widgets/mod-table.slint";
 export component ModPacksTab {
     in-out property <[string]> modpacks: ["All Mods"];
@@ -26,7 +26,7 @@ export component ModPacksTab {
             add-pack-bnt := Button {
                 height: btn-height;
                 colspan: 1;
-                text: "Add New Pack";
+                text: LangTL.get-localized-string("button:new_pack");
                 colorize-icon: true;
                 icon: @image-url("../assets/plus-solid.svg");
                 clicked => {
@@ -34,10 +34,10 @@ export component ModPacksTab {
                 }
             }
 
-            Button {
+            delete-btn := Button {
                 height: btn-height;
                 colspan: 1;
-                text: "Delete Modpack";
+                text: LangTL.get-localized-string("button:delete_pack");
                 enabled: packs.current-index != -1;
                 colorize-icon: true;
                 icon: @image-url("../assets/trash-can-solid.svg");
@@ -58,7 +58,6 @@ export component ModPacksTab {
         }
 
         labels := Row {
-            // height: 20px;
             HorizontalLayout {
                 colspan: 2;
                 Text {
@@ -102,7 +101,7 @@ export component ModPacksTab {
                 min-width: 200px;
                 horizontal-stretch: 3;
                 preferred-height: 500px;
-                columns: [{ title :"Name" }];
+                columns: [{ title :LangTL.get-localized-string("title:name") }];
                 mods: mods;
             }
 
@@ -146,12 +145,12 @@ export component ModPacksTab {
                 col: 3;
                 colspan: 7;
                 columns: [
-                    { title: "Enabled", width: 100px },
-                    { title: "Priority", width: 100px },
-                    { title: "Name", min-width: 200px },
-                    { title: "Authors" },
-                    { title: "Version", width: 100px },
-                    { title: "Description" }
+                    { title: LangTL.get-localized-string("title:enabled"), width: 100px },
+                    { title: LangTL.get-localized-string("title:priority"), width: 100px },
+                    { title: LangTL.get-localized-string("title:name"), min-width: 200px },
+                    { title: LangTL.get-localized-string("title:authors") },
+                    { title: LangTL.get-localized-string("title:version"), width: 100px },
+                    { title: LangTL.get-localized-string("title:description") }
                 ];
                 allow-drag: inpack-search.text == "";
                 mods: pack-mods;
@@ -165,10 +164,10 @@ export component ModPacksTab {
         }
 
         packactns := Row {
-            Button {
+            reload-btn := Button {
                 colspan: 2;
                 height: btn-height;
-                text: "Reload";
+                text: LangTL.get-localized-string("button:reload");
                 icon: @image-url("../assets/repeat-solid.svg");
                 colorize-icon: true;
                 clicked => {
@@ -176,11 +175,11 @@ export component ModPacksTab {
                 }
             }
 
-            Button {
+            save-btn := Button {
                 col: 3;
                 colspan: 7;
                 height: btn-height;
-                text: "Save";
+                text: LangTL.get-localized-string("button:save");
                 icon: @image-url("../assets/file-pen-solid.svg");
                 colorize-icon: true;
                 clicked => {
@@ -190,6 +189,18 @@ export component ModPacksTab {
                     }
                 }
             }
+        }
+    }
+
+    translation-timer := Timer {
+        interval: 10ms;
+        running: true;
+        triggered => {
+            self.running = false;
+            add-pack-bnt.text = LangTL.get-localized-string(add-pack-bnt.text);
+            delete-btn.text = LangTL.get-localized-string(delete-btn.text);
+            reload-btn.text = LangTL.get-localized-string(reload-btn.text);
+            save-btn.text = LangTL.get-localized-string(save-btn.text);
         }
     }
 }

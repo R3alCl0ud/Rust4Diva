@@ -47,3 +47,11 @@ export global ModLogic {
 export global HyperLink {
     callback open-hyperlink(string);
 }
+
+export global LangTL {
+    pure callback get-localized-string(string) -> string;
+
+    get-localized-string(unlocalized) => {
+        return unlocalized;
+    }
+}

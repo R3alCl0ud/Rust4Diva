@@ -27,6 +27,7 @@ mod config;
 mod diva;
 mod firstlaunch;
 mod gamebanana;
+mod language;
 mod modmanagement;
 mod modpacks;
 mod oneclick;
@@ -123,6 +124,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     env::set_var("SLINT_BACKEND", "winit");
 
     let app = App::new()?;
+    language::init_ui(&app).await;
 
     if r4d_config.use_system_theme {
         app.invoke_set_color_scheme(ColorScheme::Unknown);

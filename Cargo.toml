@@ -13,7 +13,7 @@ description = "Cross-platform mod manager for Hatsune Miku Project Diva Mega Mix
 regex = "1.11.0"
 sonic-rs = "0.3.13 "
 serde = { version = "1.0.210", features = ["derive"] }
-toml = { version = "0.8.19"}
+toml = { version = "0.8.19" }
 toml_edit = "0.22.22"
 dirs = "5.0.1"
 keyvalues-parser = "0.2.0"

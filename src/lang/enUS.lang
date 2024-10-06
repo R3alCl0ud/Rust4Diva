@@ -1,0 +1,18 @@
+button:about=About Rust4Diva
+button:archive=Install Mod Archive
+button:update_dml=Update DML
+button:settings=Settings
+button:save=Save
+button:new_pack=Create Pack
+button:delete_pack=Delete Pack
+button:reload=Reload
+
+title:name=Name
+title:enabled=Enabled
+title:priority=Priority
+title:authors=Authors
+title:version=Version
+title:description=Description
+
+tab:mods=Manage Mods
+tab:search=Search GameBanana

@@ -1,6 +1,6 @@
 import { GbPreviewCard } from "../widgets/gb-search-card.slint";
 import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch, Button, ComboBox } from "std-widgets.slint";
-import { GameBananaLogic } from "../applogic.slint";
+import { GameBananaLogic, LangTL } from "../applogic.slint";
 import { GbPreviewData, GbSearchSort } from "../diva-types.slint";
 import { GbSearchTable } from "../widgets/search-table.slint";
 
@@ -171,7 +171,7 @@ export component GameBanana {
                 colspan: 7;
                 icon: @image-url("../assets/cloud-arrow-down-solid.svg");
                 colorize-icon: true;
-                text: "Load More";
+                text: LangTL.get-localized-string("button:load_more");
                 enabled: n-results > results.length && !loading;
                 clicked => {
                     if !loading {
@@ -181,11 +181,22 @@ export component GameBanana {
                 }
             }
 
-            Text {
+            res-txt := Text {
                 col: 8;
-                text: "Results: " + results.length + "/" + n-results;
+                text: LangTL.get-localized-string("label:results") + ": " + results.length + "/" + n-results;
                 vertical-alignment: center;
             }
+        }
+    }
+
+    translation-timer := Timer {
+        interval: 10ms;
+        running: true;
+        triggered => {
+            self.running = false;
+            // about-btn.text = LangTL.get-localized-string(about-btn.text);
+            // update-dml-btn.text = LangTL.get-localized-string(update-dml-btn.text);
+            // settings-btn.text = LangTL.get-localized-string(settings-btn.text);
         }
     }
 }
