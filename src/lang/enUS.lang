@@ -6,6 +6,23 @@ button:save=Save
 button:new_pack=Create Pack
 button:delete_pack=Delete Pack
 button:reload=Reload
+button:apply=Apply
+button:cancel=Cancel
+button:edit=Edit
+button:delete=Delete
+button:download=Download
+button:view_online=View on GameBanana
+button:load-more=Load More
+
+label:system-theme=Use System theme
+label:dark-mode=Dark Mode
+label:system-scale=Use System Scale
+label:scale=Scale
+label:steam-dir=Steam Location
+label:diva-dirs=PDMM+ Location(s)
+label:active-diva=Active PDMM+ Location
+label:langue=Language
+label:results=Results
 
 title:name=Name
 title:enabled=Enabled

@@ -1,6 +1,6 @@
 [package]
 name = "rust4diva"
-version = "0.4.3"
+version = "0.4.4"
 edition = "2021"
 build = "build.rs"
 readme = "readme.md"
@@ -38,6 +38,7 @@ chrono = "0.4.38"
 sha2 = "0.10.8"
 base64ct = { version = "1.6.0", features = ["alloc"] }
 open = "5.3.0"
+table_enum = "0.3.0"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52.0"

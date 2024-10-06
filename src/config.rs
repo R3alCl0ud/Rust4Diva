@@ -18,7 +18,9 @@ use crate::modpacks::{load_mod_packs, ModPackMod};
 use crate::slint_generatedApp::App;
 use crate::{DML_CFG, MOD_PACKS};
 
-use crate::{diva::get_config_dir, DivaLogic, SettingsLogic, SettingsWindow, WindowLogic, R4D_CFG};
+use crate::{
+    diva::get_config_dir, DivaLogic, LangTL, SettingsLogic, SettingsWindow, WindowLogic, R4D_CFG,
+};
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct OldDivaConfig {
@@ -252,6 +254,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
         }
     });
 
+    let weak = diva_ui.as_weak();
     diva_ui.global::<WindowLogic>().on_open_settings(move || {
         if let Ok(mut open) = SETTINGS_OPEN.try_lock() {
             if !open.clone() {
@@ -262,6 +265,15 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                 let diva_dir = find_diva_folder().unwrap_or("Not Set".to_string());
                 let settings = SettingsWindow::new().unwrap();
                 // let settings = settings_weak.unwrap();
+
+                let weak = weak.clone();
+                settings
+                    .global::<LangTL>()
+                    .on_get_localized_string(move |unlocalized| {
+                        weak.unwrap()
+                            .global::<LangTL>()
+                            .invoke_get_localized_string(unlocalized)
+                    });
 
                 settings.set_steam_dir(steam_dir.into());
                 settings.set_diva_dir(diva_dir.into());
@@ -282,6 +294,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                     settings.set_b_system_scale(cfg.use_system_scaling);
                     settings.set_b_dark_theme(cfg.dark_mode);
                     settings.set_f_scale(cfg.scale);
+                    settings.set_i_lang(cfg.lang - 1);
                 }
 
                 let main_ui = main_close_handle.unwrap();

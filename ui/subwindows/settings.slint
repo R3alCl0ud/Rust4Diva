@@ -1,5 +1,6 @@
 import { Switch, GridBox, Button,Palette, ListView, HorizontalBox, CheckBox, StandardButton, VerticalBox, ComboBox, LineEdit } from "std-widgets.slint";
 import { FilePathEdit } from "../widgets/text-box.slint";
+import { LangTL } from "../applogic.slint";
 
 export struct SettingsData {
     diva-dir: string,
@@ -11,7 +12,7 @@ export struct SettingsData {
     system-scale: bool,
     scale: float,
     diva-dirs:[string],
-}
+    language: int}
 
 export struct PdDir {
     path: string,
@@ -43,6 +44,7 @@ export component SettingsWindow inherits Dialog {
     in-out property <bool> b-system-scale;
     in-out property <bool> b-dark-theme <=> dark-mode.checked;
     in-out property <float> f-scale;
+    in-out property <int> i-lang <=> language.current-index;
 
     property <length> control-text-size: 16px;
     default-font-size: 16px;
@@ -59,7 +61,19 @@ export component SettingsWindow inherits Dialog {
     GridBox {
         Row {
             Text {
-                text: "Use System Theme: ";
+                text: LangTL.get-localized-string("label:language");
+                font-size: control-text-size;
+            }
+
+            language := ComboBox {
+                colspan: 3;
+                model: ["English", "日本語", "Español"];
+            }
+        }
+
+        Row {
+            Text {
+                text: LangTL.get-localized-string("label:system-theme");
                 font-size: control-text-size;
             }
 
@@ -72,7 +86,7 @@ export component SettingsWindow inherits Dialog {
 
         Row {
             Text {
-                text: "Dark Mode: ";
+                text: LangTL.get-localized-string("label:dark-mode");
                 font-size: control-text-size;
             }
 
@@ -86,7 +100,7 @@ export component SettingsWindow inherits Dialog {
 
         Row {
             Text {
-                text: "Use System Scale: ";
+                text: LangTL.get-localized-string("label:system-scale");
                 font-size: control-text-size;
             }
 
@@ -99,7 +113,7 @@ export component SettingsWindow inherits Dialog {
 
         Row {
             Text {
-                text: "Use System Scale: ";
+                text: LangTL.get-localized-string("label:scale");
                 font-size: control-text-size;
             }
 
@@ -115,7 +129,7 @@ export component SettingsWindow inherits Dialog {
 
         steam-row := Row {
             Text {
-                text: "Steam Location: ";
+                text: LangTL.get-localized-string("label:steam-dir");
                 vertical-alignment: center;
                 font-size: control-text-size;
             }
@@ -134,7 +148,7 @@ export component SettingsWindow inherits Dialog {
 
         Row {
             Text {
-                text: "Active PDMM+ Location: ";
+                text: LangTL.get-localized-string("label:active-diva");
                 vertical-alignment: center;
                 font-size: control-text-size;
             }
@@ -148,7 +162,7 @@ export component SettingsWindow inherits Dialog {
         pdmm-row := Row {
             Text {
                 padding-top: 10px;
-                text: "PDMM+ Location(s): ";
+                text: LangTL.get-localized-string("label:diva-dirs");
                 vertical-alignment: top;
                 font-size: control-text-size;
             }
@@ -212,7 +226,8 @@ export component SettingsWindow inherits Dialog {
                 }
 
                 Button {
-                    text: "Add";
+                    icon: @image-url("../assets/plus-solid.svg");
+                    colorize-icon: true;
                     clicked => {
                         SettingsLogic.add-pdmm-location();
                     }
@@ -222,7 +237,7 @@ export component SettingsWindow inherits Dialog {
 
         Row {
             Button {
-                text: "Apply";
+                text: LangTL.get-localized-string("button:apply");
                 colspan: 3;
                 height: 35px;
                 clicked => {
@@ -242,7 +257,7 @@ export component SettingsWindow inherits Dialog {
 
             Button {
                 col: 3;
-                text: "Close";
+                text: LangTL.get-localized-string("button:cancel");
                 height: 35px;
                 clicked => {
                     cancel();

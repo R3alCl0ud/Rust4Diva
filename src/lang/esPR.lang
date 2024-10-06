@@ -1,0 +1,35 @@
+button:about=Sobre Rust4Diva
+button:archive=Instalar Archivo de Mod
+button:update_dml=Actualizar DML
+button:settings=Configuración
+button:save=Guardar
+button:new_pack=Crear Paquete
+button:delete_pack=Borrar Paquete
+button:reload=Recargar
+button:apply=Aplicar
+button:cancel=Cancelar
+button:edit=Editar
+button:delete=Borrar
+button:download=Descargar
+button:view_online=Ver en GameBanana
+button:load-more=Cargar Mas
+
+label:system-theme=ffUsar Tema de Sistema
+label:dark-mode=Modo Oscuro
+label:system-scale=Usar Escala de Sistema 
+label:scale=Escala
+label:steam-dir=Localización de Steam
+label:diva-dirs=Localización(es) de PDMM+
+label:active-diva=Localización Activo de PDMM+
+label:language=Lenguaje
+label:results=Results
+
+title:name=Nombre
+title:enabled=Habilitar
+title:priority=Prioridad
+title:authors=Autor
+title:version=Versión
+title:description=Descripción
+
+tab:mods=Manejar Mods
+tab:search=Buscar GameBanana

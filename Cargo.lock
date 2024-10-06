@@ -3829,6 +3829,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-error"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
+dependencies = [
+ "proc-macro-error-attr",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "version_check",
+]
+
+[[package]]
+name = "proc-macro-error-attr"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "version_check",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4220,7 +4244,7 @@ checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 
 [[package]]
 name = "rust4diva"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "base64ct",
  "cfg-if",
@@ -4243,6 +4267,7 @@ dependencies = [
  "slint-build",
  "slint-interpreter",
  "sonic-rs",
+ "table_enum",
  "tokio",
  "tokio-macros",
  "toml 0.8.19",
@@ -4962,6 +4987,38 @@ dependencies = [
  "pkg-config",
  "toml 0.8.19",
  "version-compare",
+]
+
+[[package]]
+name = "table-enum-core"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6585a0b06b80e04831b042c78882047f14f78bce570794c7a900a5a50be0130"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.74",
+]
+
+[[package]]
+name = "table-enum-macro"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5cad9827f3555048157e6af8044535543513cdba3f0dce58f623a4e42f22c64"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "table-enum-core",
+]
+
+[[package]]
+name = "table_enum"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2243750463ba23841cd61e0ccf5d75ec8dde9dc434f728a68cfe6a312270974c"
+dependencies = [
+ "table-enum-macro",
 ]
 
 [[package]]

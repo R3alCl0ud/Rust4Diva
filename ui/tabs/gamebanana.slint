@@ -89,6 +89,8 @@ export component GameBanana {
             updated: "Never"
         },
     ];
+
+    out property <int> i-results: results.length;
     init => {
         x-displays = root.width / 245px;
     }
@@ -166,12 +168,12 @@ export component GameBanana {
         }
 
         Row {
-            Button {
+            load-btn := Button {
                 col: 1;
                 colspan: 7;
                 icon: @image-url("../assets/cloud-arrow-down-solid.svg");
                 colorize-icon: true;
-                text: LangTL.get-localized-string("button:load_more");
+                text: LangTL.get-localized-string("button:load-more");
                 enabled: n-results > results.length && !loading;
                 clicked => {
                     if !loading {
@@ -189,14 +191,17 @@ export component GameBanana {
         }
     }
 
+    changed i-results => {
+        res-txt.text = LangTL.get-localized-string("label:results") + ": " + i-results + "/" + n-results;
+    }
+
     translation-timer := Timer {
         interval: 10ms;
         running: true;
         triggered => {
             self.running = false;
-            // about-btn.text = LangTL.get-localized-string(about-btn.text);
-            // update-dml-btn.text = LangTL.get-localized-string(update-dml-btn.text);
-            // settings-btn.text = LangTL.get-localized-string(settings-btn.text);
+            load-btn.text = LangTL.get-localized-string(load-btn.text);
+            res-txt.text = LangTL.get-localized-string("label:results") + ": " + results.length + "/" + n-results;
         }
     }
 }

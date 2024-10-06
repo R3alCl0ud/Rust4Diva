@@ -6,6 +6,23 @@ button:save=保存
 button:new_pack=modパックの作成
 button:delete_pack=modパックの削除
 button:reload=再読み込み
+button:apply=適用
+button:cancel=キャンセル
+button:edit=編集
+button:delete=削除
+button:download=ダウンロード
+button:view_online=GameBananaで見る
+button:load-more=追加読み込み
+
+label:system-theme=システムテーマ使用
+label:dark-mode=ダークテーマ
+label:system-scale=システムスケール使用
+label:scale=スケールサイズ
+label:steam-dir=Steamフォルダ
+label:diva-dirs=その他のインストールフォルダ
+label:active-diva=PDMM+ インストールフォルダ
+label:language=言語
+label:results=Results
 
 title:name=名前
 title:enabled=有効
