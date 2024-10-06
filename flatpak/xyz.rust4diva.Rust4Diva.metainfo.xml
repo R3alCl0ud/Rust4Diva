@@ -62,6 +62,19 @@
   </screenshots>
 
   <releases>
+    <release date="2024-10-5" version="0.4.3">
+      <description>
+        <p>0.4.3 Changes:</p>
+        <p>New</p>
+        <ul>
+          <li>Basic Translations (Supported languages: English, 日本語)</li>
+        </ul>
+        <p>Bug Fixes</p>
+        <ul>
+          <li>Fixed bug that caused extra settings in mod config.toml to be removed</li>
+        </ul>
+      </description>
+    </release>
     <release date="2024-10-4" version="0.4.2">
       <description>
         <p>0.4.2 Changes:</p>
@@ -95,7 +108,8 @@
         <p>Search has been overhauled</p>
         <ul>
           <li>Grid view and list view with more info and even a preview image</li>
-          <li>Searches now open into a new window that'll display more information and list it's available files for you to choose from</li>
+          <li>Searches now open into a new window that'll display more information and list it's
+            available files for you to choose from</li>
         </ul>
         <p>Settings Changes:</p>
         <ul>
@@ -106,7 +120,8 @@
         <ul>
           <li>The mod management and mod packs tabs have been combined into a single tab</li>
           <li>Default `All Mods` pack that will always contain all of your installed mods</li>
-          <li>Add additional modpacks to save enabled states and ensure that you are only running the mods you want to run.</li>
+          <li>Add additional modpacks to save enabled states and ensure that you are only running
+            the mods you want to run.</li>
         </ul>
       </description>
     </release>
@@ -120,7 +135,8 @@
           <li>There is now a button to delete an installed mod (There is a confirmation Dialog)</li>
           <li>Added a first time setup screen (this will be displayed to existing users on first
             launch of the update)</li>
-          <li>QoL Change: Hold modifier keys to change how far a mod is moved when using the priority buttons</li>
+          <li>QoL Change: Hold modifier keys to change how far a mod is moved when using the
+            priority buttons</li>
           <li>QoL: Dark Mode Toggle</li>
         </ul>
 
@@ -147,7 +163,8 @@
           <li>There is now a button to delete an installed mod (There is a confirmation Dialog)</li>
           <li>Added a first time setup screen (this will be displayed to existing users on first
             launch of the update)</li>
-          <li>QoL Change: Hold modifier keys to change how far a mod is moved when using the priority buttons</li>
+          <li>QoL Change: Hold modifier keys to change how far a mod is moved when using the
+            priority buttons</li>
           <li>QoL: Dark Mode Toggle</li>
         </ul>
 

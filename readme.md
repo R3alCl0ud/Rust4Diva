@@ -1,9 +1,10 @@
-# Rust4Diva [![release](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/release.yml/badge.svg)](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/release.yml) [![debug](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/debug.yml/badge.svg)](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/debug.yml)
+# Rust4Diva [![release](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/release.yml/badge.svg)](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/release.yml) [![debug](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/debug.yml/badge.svg)](https://github.com/R3alCl0ud/Rust4Diva/actions/workflows/debug.yml) [![]("https://gamebanana.com/tools/embeddables/17766?type=medium")](https://gamebanana.com/tools/17766)
 
 A Fast cross-platform mod manager written in rust for the steam version of Hatsune Miku Project Diva Mega Mix +
 
-Toggle mods
 
+
+Toggle and set mod priority
 ![Main Screen of R4D](https://rust4diva.xyz/media/dark/main-v040.png)
 
 Get new mods online directly in the app
@@ -62,5 +63,7 @@ PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig" cargo build
 # License
 Code: GPL-3.0 unless specified
 
-Artwork: All Rights Reserved (Use allowed in packaging the application)
+Logo: All Rights Reserved (Use allowed in packaging the application)
 Logo Artist: Shibabe
+
+UI Icons: Copyright Font Awesome
