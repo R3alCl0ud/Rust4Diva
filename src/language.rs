@@ -13,12 +13,12 @@ use crate::{LangTL, R4D_CFG};
 
 table_enum::table_enum! {
     #[derive(Hash, Eq, PartialEq, Clone)]
-    pub enum Langs(#[constructor] to_string: &'static str, file_name: &'static str) {
-        EnUS("English", "enUS"),
-        EnLEET("1337", "enLEET"),
-        JaJP("日本語", "jaJP"),
-        EsPR("español", "esPR"),
-        ZhCN("简体中文", "zhCN")
+    pub enum Langs(#[constructor]as_code: &'static str, to_string: &'static str,  default_dict: &[u8]) {
+        EnUS("enUS", "English", include_bytes!("lang/enUS.lang")),
+        EnLT("enLT", "1337", include_bytes!("lang/enLEET.lang")),
+        JaJP("jaJP", "日本語", include_bytes!("lang/jaJP.lang")),
+        EsPR("esPR", "español", include_bytes!("lang/esPR.lang")),
+        ZhCN("zhCN", "简体中文", include_bytes!("lang/zhCN.lang"))
     }
 }
 
@@ -32,7 +32,7 @@ impl Langs {
     pub fn iter() -> Iter<'static, Langs> {
         static LANGS: [Langs; 5] = [
             Langs::EnUS,
-            Langs::EnLEET,
+            Langs::EnLT,
             Langs::JaJP,
             Langs::EsPR,
             Langs::ZhCN,
@@ -47,7 +47,7 @@ impl From<i32> for Langs {
             1 => Langs::JaJP,
             2 => Langs::EsPR,
             3 => Langs::ZhCN,
-            1337 => Langs::EnLEET,
+            1337 => Langs::EnLT,
             _ => Langs::EnUS,
         }
     }
@@ -55,12 +55,6 @@ impl From<i32> for Langs {
 
 pub static TRANSLATIONS: LazyLock<Mutex<HashMap<Langs, HashMap<String, String>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
-
-const ENUS_DEFAULT: &[u8] = include_bytes!("lang/enUS.lang");
-const LEET_DEFAULT: &[u8] = include_bytes!("lang/enLEET.lang");
-const JAJP_DEFAULT: &[u8] = include_bytes!("lang/jaJP.lang");
-const ESPR_DEFAULT: &[u8] = include_bytes!("lang/esPR.lang");
-const ZHCN_DEFAULT: &[u8] = include_bytes!("lang/zhCN.lang");
 
 pub async fn load_translations() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut lang_library = get_config_dir()?;
@@ -70,7 +64,6 @@ pub async fn load_translations() -> Result<(), Box<dyn Error + Send + Sync>> {
         fs::create_dir_all(lang_library.clone())?;
     }
 
-    // Langs::
     let mut langs = match TRANSLATIONS.lock() {
         Ok(langs) => langs,
         Err(_) => {
@@ -81,8 +74,10 @@ pub async fn load_translations() -> Result<(), Box<dyn Error + Send + Sync>> {
         }
     };
     for lang in Langs::iter() {
+        let mut dictionary = parse_lang(String::from_utf8(lang.default_dict().to_vec())?);
+
         let mut dict_path = lang_library.clone();
-        dict_path.push(format!("{lang}.lang"));
+        dict_path.push(format!("{}.lang", lang.as_code()));
         let content = match dict_path.exists() {
             true => match fs::read_to_string(dict_path) {
                 Ok(s) => s,
@@ -91,16 +86,13 @@ pub async fn load_translations() -> Result<(), Box<dyn Error + Send + Sync>> {
                     "".to_owned()
                 }
             },
-            false => match lang {
-                Langs::EnUS => String::from_utf8(ENUS_DEFAULT.to_vec()).unwrap_or("".to_owned()),
-                Langs::EnLEET => String::from_utf8(LEET_DEFAULT.to_vec()).unwrap_or("".to_owned()),
-                Langs::JaJP => String::from_utf8(JAJP_DEFAULT.to_vec()).unwrap_or("".to_owned()),
-                Langs::EsPR => String::from_utf8(ESPR_DEFAULT.to_vec()).unwrap_or("".to_owned()),
-                Langs::ZhCN => String::from_utf8(ZHCN_DEFAULT.to_vec()).unwrap_or("".to_owned()),
-            },
+            false => "".to_owned(),
         };
         println!("Parsing: {lang}");
-        langs.insert(lang.clone(), parse_lang(content));
+        for (key, definition) in parse_lang(content) {
+            dictionary.insert(key, definition);
+        }
+        langs.insert(lang.clone(), dictionary);
     }
     #[cfg(debug_assertions)]
     println!("Loaded Translations");
@@ -109,9 +101,8 @@ pub async fn load_translations() -> Result<(), Box<dyn Error + Send + Sync>> {
 }
 
 pub async fn init_ui(app: &App) {
-
     match load_translations().await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => eprintln!("{e}"),
     }
 
