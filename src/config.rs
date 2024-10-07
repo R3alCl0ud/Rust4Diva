@@ -300,6 +300,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                     settings.set_b_dark_theme(cfg.dark_mode);
                     settings.set_f_scale(cfg.scale);
                     settings.set_i_lang(cfg.lang);
+                    settings.set_b_dirname(cfg.use_dirname);
                 }
 
                 let main_ui = main_close_handle.unwrap();
@@ -501,7 +502,6 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                                                     }
                                                     ui.set_modpacks(ModelRc::new(ui_packs));
                                                     ui.invoke_reload_translation();
-                                                    
                                                 },
                                             );
                                         }
