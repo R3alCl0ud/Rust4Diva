@@ -89,6 +89,7 @@ impl ModPackMod {
             description: SharedString::from(""),
             version: SharedString::from(""),
             path: self.path.clone().into(),
+            dirname: SharedString::from(self.dir_name().unwrap_or("".to_string())),
         }
     }
 

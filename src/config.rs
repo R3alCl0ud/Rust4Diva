@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::io::{ErrorKind, SeekFrom};
+use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -439,6 +439,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                             cfg.use_system_theme = settings.system_theme;
                             cfg.scale = settings.scale.clamp(0.1, 10.0);
                             cfg.lang = settings.language;
+                            cfg.use_dirname = settings.use_dirname;
                             lcfg = Some(cfg.clone());
                         }
                         if let Some(cfg) = lcfg {
@@ -462,6 +463,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                                             });
                                         let _ =
                                             color_handle.clone().upgrade_in_event_loop(move |ui| {
+                                                ui.set_b_dirname(cfg.use_dirname);
                                                 if cfg.use_system_theme {
                                                     ui.invoke_set_color_scheme(
                                                         ColorScheme::Unknown,
@@ -499,6 +501,7 @@ pub async fn init_ui(diva_ui: &App, dark_tx: Sender<ColorScheme>) {
                                                     }
                                                     ui.set_modpacks(ModelRc::new(ui_packs));
                                                     ui.invoke_reload_translation();
+                                                    
                                                 },
                                             );
                                         }

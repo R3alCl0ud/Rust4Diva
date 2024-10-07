@@ -12,6 +12,8 @@ export component ModPacksTab {
     in-out property <string> current-pack <=> packs.current-value;
     in property <int> current-pack-idx;
     in-out property <string> search-term <=> installed-search.text;
+    in-out property <bool> b-dirname;
+
     callback show-text-entry();
     property <length> btn-height: 36px;
     callback open-module-ctx(DivaModElement, int, Point);
@@ -111,6 +113,7 @@ export component ModPacksTab {
         main-contents := Row {
 
             mod-picker := ModPickTable {
+                b-dirname: b-dirname;
                 colspan: 2;
                 min-width: 200px;
                 horizontal-stretch: 3;
@@ -156,6 +159,7 @@ export component ModPacksTab {
             }
 
             in-pack := ModTable {
+                b-dirname: b-dirname;
                 col: 3;
                 colspan: 7;
                 columns: [

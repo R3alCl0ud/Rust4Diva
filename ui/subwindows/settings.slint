@@ -12,7 +12,9 @@ export struct SettingsData {
     system-scale: bool,
     scale: float,
     diva-dirs:[string],
-    language: int}
+    language: int,
+    use-dirname: bool,
+}
 
 export struct PdDir {
     path: string,
@@ -42,6 +44,7 @@ export component SettingsWindow inherits Dialog {
     in-out property <string> active-pdmm <=> active-dir.current-value;
     in-out property <bool> b-system-theme;
     in-out property <bool> b-system-scale;
+    in-out property <bool> b-dirname;
     in-out property <bool> b-dark-theme <=> dark-mode.checked;
     in-out property <float> f-scale;
     in-out property <int> i-lang <=> language.current-index;
@@ -65,6 +68,7 @@ export component SettingsWindow inherits Dialog {
         l-dark.text = LangTL.get-localized-string("label:dark-mode");
         l-steam.text = LangTL.get-localized-string("label:steam-dir");
         l-diva-dirs.text = LangTL.get-localized-string("label:diva-dirs");
+        l-dirname.text = LangTL.get-localized-string("label:dirname-toggle");
     }
 
     callback cancel();
@@ -135,6 +139,18 @@ export component SettingsWindow inherits Dialog {
                 placeholder-text: "1.0";
                 enabled: !system-scale.checked;
                 text: f-scale;
+            }
+        }
+
+        Row {
+            l-dirname := Text {
+                text: LangTL.get-localized-string("label:dirname-toggle");
+            }
+
+            switch-dirname := Switch {
+                col: 3;
+                height: 30px;
+                checked: b-dirname;
             }
         }
 
@@ -263,6 +279,7 @@ export component SettingsWindow inherits Dialog {
                         system-scale: system-scale.checked,
                         scale: scale.text.to-float(),
                         language: language.current-index,
+                        use-dirname: switch-dirname.checked,
                     });
                 }
             }

@@ -11,6 +11,8 @@ export component ModPickTable {
     in-out property <[DivaModElement]> mods;
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
+    in property <bool> b-dirname: false;
+
     out property <int> current-sort-column: -1;
     callback row-pointer-event(int/* row-index */, PointerEvent/* event */, Point/* absolute mouse position */);
     callback current-row-changed(int/* current-row */);
@@ -134,7 +136,7 @@ export component ModPickTable {
                             height: 100%;
                             overflow: elide;
                             vertical-alignment: center;
-                            text: module.name;
+                            text: b-dirname ? module.dirname : module.name;
                             font-weight: FontSettings.body.font-weight;
                             font-size: FontSettings.body.font-size;
                             color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
@@ -155,7 +157,6 @@ export component ModPickTable {
                             checked: module.enabled;
                             text: module.enabled ? "Yah" : "Nah";
                             toggled => {
-                                
                                 mod-toggled(idx, module);
                             }
                         }

@@ -86,6 +86,7 @@ export component ModTableRow inherits Rectangle {
     in property <bool> allow-move: true;
     out property <length> m-offset;
     in property <int> current-row;
+    in property <bool> b-dirname: false;
 
     callback pointer-event(/* event */ PointerEvent, /* absolute mouse position */ Point, Point);
     callback moved(/* Mouse Pos */Point, /* Abs Mouse Pos */ Point);
@@ -156,7 +157,7 @@ export component ModTableRow inherits Rectangle {
                     overflow: elide;
                     vertical-alignment: center;
                     horizontal-alignment: left;
-                    text: module.name;
+                    text: b-dirname ? module.dirname : module.name;
                     font-weight: FontSettings.body.font-weight;
                     font-size: FontSettings.body.font-size;
                     color: mod(idx, 2) == 0 ? Palette.control-foreground : Palette.foreground;
@@ -299,9 +300,11 @@ export component ModTable {
     in-out property <[DivaModElement]> mods;
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
+
     out property <int> current-sort-column: -1;
 
     in property <bool> allow-drag: true;
+    in property <bool> b-dirname: false;
 
     callback row-pointer-event(int/* row-index */, PointerEvent/* event */, Point/* absolute mouse position */);
     callback current-row-changed(int/* current-row */);
@@ -408,6 +411,7 @@ export component ModTable {
             }
 
             for module[idx] in root.mods: ModTableRow {
+                b-dirname: b-dirname;
                 module: module;
                 idx: idx;
                 selected: idx == root.current-row;
@@ -419,19 +423,16 @@ export component ModTable {
                 columns: columns;
                 allow-move: root.allow-drag;
                 moved(mouse, pos) => {
-
                     if self.should-move && allow-drag {
                         self.y += mouse.y - (self.height / 2);
                         if scroll-view.viewport-height > scroll-view.height {
                             if self.y - abs(scroll-view.viewport-y) < 20px {
                                 scroll-view.viewport-y += abs(self.y - abs(scroll-view.viewport-y)) / 2;
                                 scroll-view.viewport-y = clamp(scroll-view.viewport-y, (scroll-view.height - scroll-view.viewport-height), 0);
-                                // self.y += abs(self.y - abs(scroll-view.viewport-y)) / 2;
                             }
                             if ((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height)) < 20px {
                                 scroll-view.viewport-y -= abs((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height));
                                 scroll-view.viewport-y = clamp(scroll-view.viewport-y, (scroll-view.height - scroll-view.viewport-height), 0);
-                                // self.y += abs((abs(scroll-view.viewport-y) + scroll-view.height) - (self.y + self.height));
                             }
                         }
                         self.y = clamp(self.y, min(0px, abs(scroll-view.viewport-y)), scroll-view.viewport-height - self.height);

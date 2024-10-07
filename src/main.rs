@@ -144,6 +144,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     } else {
         app.set_dml_version(r4d_config.dml_version.clone().into());
     }
+    app.set_b_dirname(r4d_config.use_dirname);
 
     app.window().on_close_requested(move || {
         std::process::exit(0);

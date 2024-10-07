@@ -109,6 +109,7 @@ impl From<DivaMod> for DivaModElement {
             version: version.into(),
             enabled: value.config["enabled"].as_bool().unwrap_or(true).clone(),
             path: value.path.clone().into(),
+            dirname: value.dir_name().unwrap_or("".to_string()).into(),
         }
     }
 }

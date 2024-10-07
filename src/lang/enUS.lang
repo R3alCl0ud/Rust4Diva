@@ -25,6 +25,7 @@ label:active-diva=Active PDMM+ Location
 label:language=Language
 label:results=Results
 label:item-type=Type
+label:dirname-toggle=Show Dirname: 
 
 title:name=Name
 title:enabled=Enabled
