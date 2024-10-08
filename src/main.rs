@@ -115,13 +115,14 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         #[cfg(debug_assertions)]
         println!("Trying to set scale factor: {}", r4d_config.scale);
         env::set_var("SLINT_SCALE_FACTOR", r4d_config.scale.to_string());
+        env::set_var("QT_SCALE_FACTOR", r4d_config.scale.to_string());
     }
 
     if let Ok(scale) = env::var("SLINT_SCALE_FACTOR") {
         println!("Got scale from env: {scale}");
     }
 
-    env::set_var("SLINT_BACKEND", "winit");
+    // env::set_var("SLINT_BACKEND", "winit");
 
     let app = App::new()?;
     language::init_ui(&app).await;

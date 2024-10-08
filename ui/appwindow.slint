@@ -34,6 +34,10 @@ export { GbPreviewData, GameBananaLogic, GbDetailsWindow }
 export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack, HyperLink, LangTL }
 export { WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic, ConfirmDelete, DivaLogic, Palette }
 
+import "./fonts/NotoSerifCJK-VF.ttf.ttc";
+import "./fonts/NotoSansCJK-VF.ttf.ttc";
+import "./fonts/NotoSansMonoCJK-VF.ttf.ttc";
+
 export struct SlintModConfig {
     enabled: bool,
     include: [string],
@@ -56,6 +60,7 @@ export component App inherits Window {
     preferred-width: 1280px;
     preferred-height: 800px;
     title: "Rust4Diva: Project Diva MM+ Mod Manager";
+    default-font-family: "NotoSans";
     in property <int> counter: 4;
     in property <[int]> fs: [1, 2, 3];
 
