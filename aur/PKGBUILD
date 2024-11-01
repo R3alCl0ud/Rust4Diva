@@ -10,6 +10,7 @@ url="https://github.com/R3alCl0ud/Rust4Diva"
 license=('GPL-3.0')
 depends=('libarchive')
 makedepends=('cargo' 'git')
+conflicts=("${pkgname%-git}" "${pkgname%-git}-bin")
 replaces=('Rust4Diva-git')
 options=(!debug !lto)
 source=("${pkgname%-git}::git+https://github.com/R3alCl0ud/Rust4Diva.git")
