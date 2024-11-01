@@ -1,38 +1,36 @@
-# Maintainer: NeptuneNepgear ultra.neppers@gmail.com
+# Maintainer: NeptuneNepgear <ultra.neppers@gmail.com>
+# Contributor: qwertyuiopleowo <newleowoxl@gmail.com>
 
-pkgname=Rust4Diva-git
-pkgver=r87.7c2d5e5
+pkgname=rust4diva-git
+pkgver=r208.dc5e3d3
 pkgrel=1
 pkgdesc="Project Diva Mod Manager written in rust"
 arch=('x86_64' 'aarch64')
-license=(GPL-3.0)
 url="https://github.com/R3alCl0ud/Rust4Diva"
-makedepends=(
-    cargo
-    git
-)
-depends=( libarchive )
-
-source=('git+https://github.com/R3alCl0ud/Rust4Diva.git')
+license=('GPL-3.0')
+depends=('libarchive')
+makedepends=('cargo' 'git')
+conflicts=("${pkgname%-git}" "${pkgname%-git}-bin")
+replaces=('Rust4Diva-git')
+options=(!debug !lto)
+source=("${pkgname%-git}::git+https://github.com/R3alCl0ud/Rust4Diva.git")
 sha256sums=('SKIP')
 
 pkgver() {
-    cd "${pkgname%-git}"
-    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+	cd "${pkgname%-git}"
+	printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
 }
-
 
 build() {
-    cd "${pkgname%-git}"
-    export RUSTUP_TOOLCHAIN=stable
-    export CARGO_TARGET_DIR=target
-    cargo build --frozen --release --all-features
+	cd "${pkgname%-git}"
+	export RUSTUP_TOOLCHAIN=stable
+	export CARGO_TARGET_DIR=target
+	cargo build --frozen --release --all-features
 }
 
-
 package() {
-    cd "${pkgname%-git}"
-    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/rust4diva"
-    install -Dm0755 -t "$pkgdir/usr/share/icons/" "assets/rust4diva.png"
-    install -Dm0755 -t "$pkgdir/usr/share/applications/" "assets/Rust4Diva.desktop"
+	cd "${pkgname%-git}"
+	install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/rust4diva"
+	install -Dm0755 -t "$pkgdir/usr/share/icons/" "assets/rust4diva.png"
+	install -Dm0755 -t "$pkgdir/usr/share/applications/" "assets/Rust4Diva.desktop"
 }
