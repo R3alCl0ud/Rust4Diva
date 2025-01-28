@@ -25,6 +25,8 @@ use crate::oneclick::{spawn_listener, try_send_mmdl};
 
 mod config;
 mod diva;
+mod divamodarchive;
+mod downloads;
 mod firstlaunch;
 mod gamebanana;
 mod language;
@@ -122,8 +124,6 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
         println!("Got scale from env: {scale}");
     }
 
-    // env::set_var("SLINT_BACKEND", "winit");
-
     let app = App::new()?;
     language::init_ui(&app).await;
 
@@ -176,6 +176,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     modmanagement::init(&app, dark_rx.resubscribe()).await;
     modpacks::init(&app).await;
     gamebanana::init(&app, url_rx, dark_rx.resubscribe()).await;
+    downloads::init(&app).await;
 
     println!("Does the app run?");
 

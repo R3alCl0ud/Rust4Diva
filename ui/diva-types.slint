@@ -15,14 +15,14 @@ export struct ModPackElement {
 }
 
 
-export struct SlGbSubmitter {
+export struct SearchModAuthor {
     name: string,
     avatar_url: string,
 }
 
-export struct GbPreviewData {
+export struct SearchPreviewData {
     name: string,
-    author: SlGbSubmitter,
+    author: SearchModAuthor,
     updated: string,
     item-type: string,
     id: int,
@@ -34,6 +34,10 @@ export struct GbPreviewData {
 
 export enum GbSearchSort {
     default, new, updated,
+}
+
+export enum SearchProvider {
+    GameBanana, DivaModArchive,
 }
 
 export struct Download {

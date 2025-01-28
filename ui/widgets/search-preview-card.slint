@@ -1,10 +1,10 @@
 import { VerticalBox, Palette, Button, Spinner } from "std-widgets.slint";
 import { GameBananaLogic, LangTL } from "../applogic.slint";
-import { GbPreviewData } from "../diva-types.slint";
+import { SearchPreviewData } from "../diva-types.slint";
 
 
-export component GbPreviewCard {
-    in property <GbPreviewData> data: {
+export component SearchPreviewCard {
+    in property <SearchPreviewData> data: {
         image: @image-url("../assets/test-preview.jpg"),
         name:"Onneb's Song Pack",
         author: { name: "Onneb" },

@@ -2,7 +2,7 @@ import { Palette, Button, VerticalBox, HorizontalBox, StandardTableView, TabWidg
 
 import { Palette as CosmicPalette } from "styling.slint";
 import { DivaModElement, ModPackElement } from "diva-types.slint";
-import { GbPreviewData, Download } from "diva-types.slint";
+import { SearchPreviewData, Download } from "diva-types.slint";
 
 
 import { FileTable } from "widgets/filetable.slint";
@@ -13,7 +13,7 @@ import { InfoDialog } from "widgets/info-dialog.slint";
 import { TextBox } from "widgets/text-box.slint";
 import { DeletePackDialog } from "widgets/delete-pack-dialog.slint";
 import { ModCtxMenu } from "widgets/modctxmenu.slint";
-import { GbPreviewCard } from "widgets/gb-search-card.slint";
+import { SearchPreviewCard } from "widgets/search-preview-card.slint";
 
 
 import { SettingsWindow, SettingsLogic } from "subwindows/settings.slint";
@@ -21,16 +21,16 @@ import { EditModDialog } from "subwindows/editmod.slint";
 import { FirstSetup, SetupLogic } from "subwindows/setup.slint";
 
 import { ModPacksTab } from "tabs/modpacks.slint";
-import { GameBanana } from "tabs/gamebanana.slint";
+import { OnlineSearch } from "tabs/gamebanana.slint";
 
 import { ConfirmDeletePack } from "dialogs/deletepack.slint";
 import { ErrorMessageWindow } from "dialogs/errormsg.slint";
 import { ConfirmDelete } from "dialogs/confirmdelete.slint";
 
 import { ModpackLogic, ModLogic, WindowLogic, DivaLogic, GameBananaLogic, HyperLink, LangTL } from "applogic.slint";
-import { GbDetailsWindow } from "subwindows/gb-item.slint";
+import { SearchDetailsWindow } from "subwindows/gb-item.slint";
 
-export { GbPreviewData, GameBananaLogic, GbDetailsWindow }
+export { SearchPreviewData, GameBananaLogic, SearchDetailsWindow }
 export { ModPackElement, EditModDialog, ModpackLogic, ModLogic, SettingsWindow, ConfirmDeletePack, HyperLink, LangTL }
 export { WindowLogic, SettingsLogic, ErrorMessageWindow, FirstSetup, SetupLogic, ConfirmDelete, DivaLogic, Palette }
 
@@ -70,7 +70,7 @@ export component App inherits Window {
     in-out property <bool> dml-enabled: false;
     in-out property <int> temp-pos;
 
-    in property <[GbPreviewData]> s-results:[];
+    in property <[SearchPreviewData]> s-results:[];
     in property <bool> s-prog-vis: false;
     in property <int> n-results: 0;
     in-out property <int> s-page: 0;
@@ -220,7 +220,7 @@ export component App inherits Window {
 
             search-tab := Tab {
                 title: LangTL.get-localized-string("tab:search");
-                GameBanana {
+                OnlineSearch {
                     height: 100%;
                     width: 100%;
                     results: s-results;

@@ -16,7 +16,7 @@ use crate::diva::{get_temp_folder, open_error_window};
 use crate::modmanagement::{get_mods, load_mods, set_mods_table, unpack_mod_path};
 use crate::util::reqwest_client;
 use crate::{
-    App, Download, GameBananaLogic, GbDetailsWindow, GbPreviewData, HyperLink, SlGbSubmitter,
+    App, Download, GameBananaLogic, SearchDetailsWindow, SearchPreviewData, HyperLink, SearchModAuthor,
     R4D_CFG,
 };
 use slint::{ComponentHandle, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel, Weak};
@@ -135,7 +135,7 @@ pub struct GBSearch {
     files: Vec<GbModDownload>,
 }
 
-impl From<GBSearch> for GbPreviewData {
+impl From<GBSearch> for SearchPreviewData {
     fn from(value: GBSearch) -> Self {
         let mut imgurl = "".to_owned();
         if let Some(img) = value.preview_media.images.first() {
@@ -184,9 +184,9 @@ pub struct GbSubmitter {
     upic_url: String,
 }
 
-impl From<GbSubmitter> for SlGbSubmitter {
-    fn from(submitter: GbSubmitter) -> SlGbSubmitter {
-        SlGbSubmitter {
+impl From<GbSubmitter> for SearchModAuthor {
+    fn from(submitter: GbSubmitter) -> SearchModAuthor {
+        SearchModAuthor {
             name: submitter.name.into(),
             avatar_url: submitter.avatar_url.into(),
         }
@@ -311,7 +311,7 @@ pub async fn init(ui: &App, url_rx: Receiver<String>, dark_rx: broadcast::Receiv
                                 let model = ui.get_s_results();
                                 let results = match model
                                     .as_any()
-                                    .downcast_ref::<VecModel<GbPreviewData>>()
+                                    .downcast_ref::<VecModel<SearchPreviewData>>()
                                 {
                                     Some(vec) => vec,
                                     None => {
@@ -405,7 +405,7 @@ pub async fn get_and_set_preview_image(weak: Weak<App>, item: GBSearch) {
     let _ = weak.upgrade_in_event_loop(move |ui| {
         let image = slint::Image::from_rgba8(buffer);
         let model = ui.get_s_results();
-        let results = match model.as_any().downcast_ref::<VecModel<GbPreviewData>>() {
+        let results = match model.as_any().downcast_ref::<VecModel<SearchPreviewData>>() {
             Some(results) => results,
             None => {
                 return;
@@ -500,11 +500,11 @@ pub fn _missing_image() -> slint::Image {
 }
 
 pub fn create_deets_window(
-    item: GbPreviewData,
+    item: SearchPreviewData,
     weak: Weak<App>,
     dark_rx: broadcast::Receiver<ColorScheme>,
-) -> GbDetailsWindow {
-    let deets = GbDetailsWindow::new().unwrap();
+) -> SearchDetailsWindow {
+    let deets = SearchDetailsWindow::new().unwrap();
     if let Ok(cfg) = R4D_CFG.try_lock() {
         deets.invoke_set_color_scheme(if cfg.dark_mode {
             ColorScheme::Dark

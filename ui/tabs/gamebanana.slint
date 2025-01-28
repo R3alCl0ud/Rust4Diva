@@ -1,7 +1,7 @@
-import { GbPreviewCard } from "../widgets/gb-search-card.slint";
+import { SearchPreviewCard } from "../widgets/search-preview-card.slint";
 import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch, Button, ComboBox } from "std-widgets.slint";
 import { GameBananaLogic, LangTL } from "../applogic.slint";
-import { GbPreviewData, GbSearchSort } from "../diva-types.slint";
+import { SearchPreviewData, GbSearchSort } from "../diva-types.slint";
 import { GbSearchTable } from "../widgets/search-table.slint";
 
 
@@ -21,7 +21,7 @@ component ToggleGrid {
     }
 }
 
-export component GameBanana {
+export component OnlineSearch {
 
     out property <string> s-term;
     out property <int> s-sort;
@@ -29,7 +29,7 @@ export component GameBanana {
     in property <int> n-results: 0;
     in-out property <int> page: 0;
     out property <int> x-displays: 4;
-    in property <[GbPreviewData]> results: [
+    in property <[SearchPreviewData]> results: [
         {
             image: @image-url("../assets/test-preview.jpg"),
             name:"Onneb's Song Pack",
@@ -158,7 +158,7 @@ export component GameBanana {
                         for idy in results.length / x-displays + (mod(results.length, x-displays) == 0 ? 0 : 1): HorizontalBox {
                             spacing: max(mod(root.width / x-displays, 245px),8px);
                             padding-left: (card-view.width - ((236px + self.spacing) * x-displays - self.spacing)) / 2;
-                            for idx in min(results.length - x-displays * idy, x-displays): GbPreviewCard {
+                            for idx in min(results.length - x-displays * idy, x-displays): SearchPreviewCard {
                                 data: results[idy * x-displays + idx];
                             }
                         }

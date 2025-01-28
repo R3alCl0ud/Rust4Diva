@@ -1,6 +1,6 @@
 [package]
 name = "rust4diva"
-version = "0.4.5"
+version = "0.5.0"
 edition = "2021"
 build = "build.rs"
 readme = "readme.md"
@@ -10,20 +10,21 @@ description = "Cross-platform mod manager for Hatsune Miku Project Diva Mega Mix
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-regex = "1.11.0"
-sonic-rs = "0.3.13 "
-serde = { version = "1.0.210", features = ["derive"] }
+regex = "1.11.1"
+sonic-rs = "0.3.16 "
+serde = { version = "1.0.215", features = ["derive"] }
 toml = { version = "0.8.19" }
 toml_edit = "0.22.22"
 dirs = "5.0.1"
 keyvalues-parser = "0.2.0"
 compress-tools = "0.15.1"
-reqwest = { version = "0.12.8", features = ["stream"] }
-reqwest-streams = "0.8.0"
-tokio = { version = "1.40.0", features = ["full"] }
-interprocess = { version = "2.2.1", features = ["tokio"] }
+cra = "0.1.4"
+reqwest = { version = "0.12.9", features = ["stream"] }
+reqwest-streams = "0.8.2"
+tokio = { version = "1.41.1", features = ["full"] }
+interprocess = { version = "2.2.2", features = ["tokio"] }
 tokio-macros = { version = "2.4.0" }
-slint = { version = "1.8.0", default-features = false, features = [
+slint = { version = "1.9.2", default-features = false, features = [
     "compat-1-2",
     "std",
     "gettext",
@@ -31,21 +32,22 @@ slint = { version = "1.8.0", default-features = false, features = [
 slint-interpreter = "1.8.0"
 futures-util = "0.3.31"
 cfg-if = "1.0.0"
-rfd = "0.15.0"
+rfd = "0.15.1"
 filenamify = "0.1.2"
-image = "0.25.2"
+image = "0.25.5"
 chrono = "0.4.38"
 sha2 = "0.10.8"
 base64ct = { version = "1.6.0", features = ["alloc"] }
-open = "5.3.0"
+open = "5.3.1"
 table_enum = "0.3.0"
+time = { version = "0.3", features = ["serde", "serde-human-readable"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52.0"
 
 [build-dependencies]
 slint-build = "1.8.0"
-winresource = "0.1.17"
+winresource = "0.1.19"
 
 [package.metadata.bundle]
 name = "Rust4Diva"
@@ -53,7 +55,10 @@ identifier = "xyz.rust4diva.Rust4Diva"
 resources = ["assets"]
 deb_depends = ["libarchive"]
 osx_url_schemes = ["divamodmanager"]
-linux_mime_types = ["x-scheme-handler/divamodmanager"]
+linux_mime_types = [
+    "x-scheme-handler/divamodmanager",
+    "x-scheme-handler/rustydiva",
+]
 icon = [
     "assets/rust4diva-32x32.png",
     "assets/rust4diva-128.png",
