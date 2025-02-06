@@ -2,7 +2,7 @@ import { SearchPreviewCard } from "../widgets/search-preview-card.slint";
 import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch, Button, ComboBox } from "std-widgets.slint";
 import { GameBananaLogic, LangTL } from "../applogic.slint";
 import { SearchPreviewData, GbSearchSort } from "../diva-types.slint";
-import { GbSearchTable } from "../widgets/search-table.slint";
+import { OnlineSearchTable } from "../widgets/search-table.slint";
 
 
 component ToggleGrid {
@@ -164,7 +164,7 @@ export component OnlineSearch {
                         }
                     }
                 }
-                if !grid-list.checked: GbSearchTable {
+                if !grid-list.checked: OnlineSearchTable {
                     results: results;
                     width: 100%;
                     height: 100%;

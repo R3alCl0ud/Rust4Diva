@@ -2,6 +2,10 @@ use std::error::Error;
 
 use serde::{Deserialize, Serialize};
 
+use crate::util::reqwest_client;
+
+pub const DMA_DOMAIN: &str = "https://divamodarchive.com";
+
 #[repr(i32)]
 #[derive(PartialEq, Serialize, Deserialize)]
 pub enum PostType {
@@ -68,6 +72,18 @@ pub struct Comment {
     pub text: String,
 }
 
-pub fn search_dma(query: String) -> Result<Vec<Post>, Box<dyn Error>> {
-    Ok(vec![])
+pub async fn search(query: String) -> Result<Vec<Post>, Box<dyn Error>> {
+
+    let mut client = reqwest_client();
+    let mut req = client.get(format!("{}/posts", DMA_DOMAIN)).query(&["query", &query]);
+    let res = req.send().await?.text().await?;
+
+    match sonic_rs::from_str::<Vec<Post>>(&res) {
+        Ok(posts) => Ok(posts),
+        Err(e) => {
+            eprintln!("{}", res); // log the res that failed to parse
+            Err(e.into())
+        }
+
+    }
 }
