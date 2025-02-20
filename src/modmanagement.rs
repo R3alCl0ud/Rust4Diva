@@ -857,7 +857,12 @@ pub fn get_mods_in_order() -> Vec<DivaMod> {
             }
         };
         for p in prio {
-            match gmods.get(&p.dir_name().expect("dir name should unwrap")) {
+            // if mod is deleted on the file system we want to skip it
+            let name = match p.dir_name() {
+                Some(dir) => dir,
+                None => continue,
+            };
+            match gmods.get(&name) {
                 Some(m) => {
                     mods.push(m.clone());
                 }
