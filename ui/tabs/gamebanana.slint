@@ -1,6 +1,6 @@
 import { SearchPreviewCard } from "../widgets/search-preview-card.slint";
 import { VerticalBox, HorizontalBox, ListView, Palette, GridBox, LineEdit, ProgressIndicator, Switch, Button, ComboBox } from "std-widgets.slint";
-import { GameBananaLogic, LangTL } from "../applogic.slint";
+import { GameBananaLogic, LangTL, DMALogic } from "../applogic.slint";
 import { SearchPreviewData, GbSearchSort } from "../diva-types.slint";
 import { OnlineSearchTable } from "../widgets/search-table.slint";
 
@@ -105,6 +105,10 @@ export component OnlineSearch {
     }
     GridBox {
         Row {
+            search-provider := ComboBox {
+                model: ["Diva Mod Archive", "Game Banana"];
+                current-index: 0;
+            }
 
             Text {
                 vertical-alignment: center;
@@ -125,12 +129,17 @@ export component OnlineSearch {
 
             s-box := LineEdit {
                 // col: 1;
-                colspan: 5;
+                colspan: 4;
                 accepted(search) => {
                     page = 1;
                     s-term = search;
                     s-sort = sort-select.current-index;
-                    GameBananaLogic.search(s-term, page, s-sort);
+                    if search-provider.current-index == 1 {
+                        GameBananaLogic.search(s-term, page, s-sort);
+                    }
+                    if search-provider.current-index == 0 {
+                        DMALogic.search(s-term, page, s-sort);
+                    }
                 }
             }
 
@@ -183,7 +192,9 @@ export component OnlineSearch {
                 clicked => {
                     if !loading {
                         page += 1;
-                        GameBananaLogic.search(s-term, page, s-sort);
+                        if search-provider.current-index == 1 {
+                            GameBananaLogic.search(s-term, page, s-sort);
+                        }
                     }
                 }
             }

@@ -176,6 +176,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     modmanagement::init(&app, dark_rx.resubscribe()).await;
     modpacks::init(&app).await;
     gamebanana::init(&app, url_rx, dark_rx.resubscribe()).await;
+    divamodarchive::init(&app, dark_rx.resubscribe()).await;
     downloads::init(&app).await;
 
     println!("Does the app run?");

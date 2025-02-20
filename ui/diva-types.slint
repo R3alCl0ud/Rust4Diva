@@ -20,17 +20,7 @@ export struct SearchModAuthor {
     avatar_url: string,
 }
 
-export struct SearchPreviewData {
-    name: string,
-    author: SearchModAuthor,
-    updated: string,
-    item-type: string,
-    id: int,
-    image: image,
-    image-url: string,
-    image-loaded: bool,
-    submitted: string,
-}
+
 
 export enum GbSearchSort {
     default, new, updated,
@@ -48,4 +38,17 @@ export struct Download {
     progress: int,
     failed: bool,
     inprogress: bool,
+}
+export struct SearchPreviewData {
+    name: string,
+    author: SearchModAuthor,
+    updated: string,
+    item-type: string,
+    id: int,
+    image: image,
+    image-url: string,
+    image-loaded: bool,
+    submitted: string,
+    files: [Download],
+    preloaded: bool,
 }

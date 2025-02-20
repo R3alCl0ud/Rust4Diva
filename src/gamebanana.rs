@@ -17,7 +17,8 @@ use crate::downloads::create_deets_window;
 use crate::modmanagement::{get_mods, load_mods, set_mods_table, unpack_mod_path};
 use crate::util::reqwest_client;
 use crate::{
-    downloads, App, Download, GameBananaLogic, HyperLink, SearchDetailsWindow, SearchModAuthor, SearchPreviewData, R4D_CFG
+    downloads, App, Download, GameBananaLogic, HyperLink, SearchDetailsWindow, SearchModAuthor,
+    SearchPreviewData, R4D_CFG,
 };
 use slint::{ComponentHandle, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel, Weak};
 use tokio::sync::mpsc::{channel, Receiver};
@@ -162,6 +163,8 @@ impl From<GBSearch> for SearchPreviewData {
             image_url: imgurl.into(),
             image_loaded: false,
             submitted: added.into(),
+            preloaded: false,
+            files: Default::default(),
         }
     }
 }
@@ -486,13 +489,9 @@ pub async fn fetch_mod_info(mod_id: i32) -> Result<GbMod, Box<dyn Error + Send +
     }
 }
 
-
-
 pub fn _missing_image() -> slint::Image {
     slint::Image::from_rgba8(downloads::missing_image_buf())
 }
-
-
 
 pub async fn fetch_mod(id: i32) -> Result<GBSearch, Box<dyn Error + Send + Sync>> {
     let res = reqwest_client().get(get_mod_url(id)).send().await?;
