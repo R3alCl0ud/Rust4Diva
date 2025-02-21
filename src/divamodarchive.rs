@@ -109,7 +109,7 @@ impl From<User> for SearchModAuthor {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Post {
-    pub id: i64,
+    pub id: i32,
     pub name: String,
     pub text: String,
     pub images: Vec<String>,

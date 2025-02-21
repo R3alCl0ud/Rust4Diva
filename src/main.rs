@@ -23,6 +23,7 @@ use crate::modmanagement::{
 use crate::modpacks::ModPack;
 use crate::oneclick::{spawn_listener, try_send_mmdl};
 
+mod app;
 mod config;
 mod diva;
 mod divamodarchive;
@@ -62,6 +63,13 @@ pub static DML_CFG: LazyLock<Mutex<DivaModLoader>> = LazyLock::new(|| {
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
+    let settings = cosmic::app::Settings::default();
+    cosmic::app::run::<app::AppModel>(settings, ());
+    Ok(())
+}
+
+// #[tokio::main]
+async fn notmain() -> std::result::Result<(), Box<dyn Error>> {
     println!("Starting Rust4Diva Slint Edition");
     #[cfg(not(debug_assertions))]
     println!("{}", MIKU_ART);
