@@ -1,13 +1,14 @@
+use std::sync::mpsc::Receiver;
 use std::{cmp::min, error::Error};
-
-use serde::{Deserialize, Serialize};
-use slint::private_unstable_api::re_exports::ColorScheme;
-use slint::{ComponentHandle, Model, ModelRc, SharedString, ToSharedString, VecModel, Weak};
-use tokio::sync::broadcast;
 
 use crate::diva::open_error_window;
 use crate::downloads::{get_image, missing_image_buf};
+use crate::SearchProvider;
 use crate::{util::reqwest_client, App, DMALogic, Download, SearchModAuthor, SearchPreviewData};
+use serde::{Deserialize, Serialize};
+use slint::private_unstable_api::re_exports::ColorScheme;
+use slint::{ComponentHandle, Model, ModelRc, SharedString, ToSharedString, VecModel, Weak};
+use tokio::sync::broadcast::{self};
 pub const DMA_DOMAIN: &str = "https://divamodarchive.com";
 
 #[repr(i32)]
@@ -73,12 +74,13 @@ impl From<Post> for SearchPreviewData {
         for i in 0..min(value.files.len(), value.file_names.len()) {
             files.push(Download {
                 failed: false,
-                id: value.id,
+                id: (value.id as i64 | ((i as i64) << 32)).to_shared_string(),
                 inprogress: false,
                 name: value.file_names[i].clone().into(),
                 progress: 0,
                 size: 0,
                 url: value.files[i].clone().into(),
+                provider: SearchProvider::DivaModArchive,
             });
         }
         Self {
@@ -90,10 +92,10 @@ impl From<Post> for SearchPreviewData {
             image_url: img_url,
             item_type: value.post_type.to_shared_string(),
             name: value.name.into(),
-            preloaded: true,
             submitted: value.time.clone().into(),
             updated: value.time.clone().into(),
             description: value.text.clone().into(),
+            provider: SearchProvider::DivaModArchive,
         }
     }
 }
@@ -109,7 +111,7 @@ impl From<User> for SearchModAuthor {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Post {
-    pub id: i64,
+    pub id: i32,
     pub name: String,
     pub text: String,
     pub images: Vec<String>,
@@ -124,7 +126,7 @@ pub struct Post {
 }
 
 #[derive(Clone)]
-pub struct Comment {
+pub struct _Comment {
     pub id: i32,
     pub user: User,
     pub text: String,
@@ -142,10 +144,12 @@ pub async fn init(ui: &App, _dark_rx: broadcast::Receiver<ColorScheme>) {
                 match search(term.to_string()).await {
                     Ok(posts) => ui_search_handle.upgrade_in_event_loop(move |ui| {
                         let res_vec_model: VecModel<SearchPreviewData> = VecModel::default();
+                        let posts_len = posts.len();
                         for post in posts.iter() {
                             res_vec_model.push(post.clone().into());
                         }
                         ui.set_s_results(ModelRc::new(res_vec_model));
+                        ui.set_n_results(posts_len as i32);
                         ui.set_s_prog_vis(false);
                         for post in posts {
                             let weak = ui_result_handle.clone();
@@ -206,4 +210,12 @@ pub async fn get_and_set_preview_image(weak: Weak<App>, item: Post) {
             }
         }
     });
+}
+
+pub fn handle_oneclick(
+    mut url_rx: Receiver<String>,
+    ui_handle: Weak<App>,
+    dark_rx: broadcast::Receiver<ColorScheme>,
+) -> tokio::task::JoinHandle<()> {
+    return tokio::spawn(async move {});
 }

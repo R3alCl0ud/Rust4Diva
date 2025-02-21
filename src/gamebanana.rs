@@ -1,27 +1,20 @@
 use std::error::Error;
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
 
 use chrono::DateTime;
-use futures_util::StreamExt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use slint::private_unstable_api::re_exports::ColorScheme;
 use tokio::sync::broadcast;
-use tokio::time::sleep;
 // use slint::Pal
-use crate::diva::{get_temp_folder, open_error_window};
+use crate::diva::open_error_window;
 use crate::downloads::{create_deets_window, get_image};
-use crate::modmanagement::{get_mods, load_mods, set_mods_table, unpack_mod_path};
 use crate::util::reqwest_client;
 use crate::{
-    downloads, App, Download, GameBananaLogic, HyperLink, SearchDetailsWindow, SearchModAuthor,
-    SearchPreviewData, R4D_CFG,
+    downloads, App, Download, GameBananaLogic, SearchModAuthor, SearchPreviewData, SearchProvider,
 };
-use slint::{ComponentHandle, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel, Weak};
-use tokio::sync::mpsc::{channel, Receiver};
+use slint::{ComponentHandle, Model, ModelRc, ToSharedString, VecModel, Weak};
+use tokio::sync::mpsc::Receiver;
 
 const GB_DOMAIN: &str = "https://gamebanana.com";
 const GB_DIVA_ID: i32 = 16522;
@@ -66,19 +59,20 @@ impl From<GbModDownload> for Download {
     fn from(value: GbModDownload) -> Self {
         Self {
             failed: false,
-            id: value.id as i32,
+            id: value.id.to_shared_string(),
             name: value.file.into(),
             progress: 0,
             size: value.filesize as i32,
             url: value.download_url.into(),
             inprogress: false,
+            provider: SearchProvider::GameBanana,
         }
     }
 }
 
 impl PartialEq<i32> for Download {
     fn eq(&self, other: &i32) -> bool {
-        self.id == *other
+        self.id == *other.to_shared_string()
     }
 }
 
@@ -163,9 +157,9 @@ impl From<GBSearch> for SearchPreviewData {
             image_url: imgurl.into(),
             image_loaded: false,
             submitted: added.into(),
-            preloaded: false,
+            provider: SearchProvider::GameBanana,
             files: Default::default(),
-            description: "".into()
+            description: "".into(),
         }
     }
 }
@@ -379,7 +373,7 @@ pub fn handle_dmm_oneclick(
                     let files: VecModel<Download> = VecModel::default();
                     for file in m.files.clone() {
                         let mut f: Download = file.clone().into();
-                        if f.id == item.file_id {
+                        if f.id == item.file_id.to_shared_string() {
                             f.inprogress = true;
                         }
                         files.push(f);
@@ -426,8 +420,6 @@ pub async fn get_and_set_preview_image(weak: Weak<App>, item: GBSearch) {
         }
     });
 }
-
-
 
 pub async fn search_gb(
     search: String,

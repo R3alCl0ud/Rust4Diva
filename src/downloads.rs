@@ -87,27 +87,30 @@ pub fn create_deets_window(
     deets.set_data(item.clone());
     let deets_weak = deets.as_weak();
 
-    if !item.preloaded {
-        tokio::spawn(async move {
-            match crate::gamebanana::fetch_mod_info(item_id).await {
-                Ok(module) => {
-                    let _ = deets_weak.upgrade_in_event_loop(move |deets| {
-                        let vecmod: VecModel<Download> = VecModel::default();
-                        for file in module.files.unwrap_or(vec![]) {
-                            vecmod.push(file.into());
-                        }
-                        deets.set_files(ModelRc::new(vecmod));
-                        deets.set_description(
-                            module.text.unwrap_or_default().replace("<br>", "\n").into(),
-                        );
-                    });
+    match item.provider {
+        crate::SearchProvider::GameBanana => {
+            tokio::spawn(async move {
+                match crate::gamebanana::fetch_mod_info(item_id).await {
+                    Ok(module) => {
+                        let _ = deets_weak.upgrade_in_event_loop(move |deets| {
+                            let vecmod: VecModel<Download> = VecModel::default();
+                            for file in module.files.unwrap_or(vec![]) {
+                                vecmod.push(file.into());
+                            }
+                            deets.set_files(ModelRc::new(vecmod));
+                            deets.set_description(
+                                module.text.unwrap_or_default().replace("<br>", "\n").into(),
+                            );
+                        });
+                    }
+                    Err(e) => open_error_window(e.to_string()),
                 }
-                Err(e) => open_error_window(e.to_string()),
-            }
-        });
-    } else {
-        deets.set_description(item.description);
-        deets.set_files(item.files);
+            });
+        }
+        crate::SearchProvider::DivaModArchive => {
+            deets.set_description(item.description);
+            deets.set_files(item.files);
+        }
     }
     let weak = weak.clone();
     let deets_weak = deets.as_weak();
@@ -124,7 +127,7 @@ pub fn create_deets_window(
             };
             if let Some(idx) = files.iter().position(|i| i.id == download.id) {
                 let deets_weak = deets_weak.clone();
-                let (tx, mut rx) = channel::<usize>(30000);
+                let (tx, mut rx) = channel::<(usize, u64)>(30000);
                 let row = idx.clone();
                 tokio::spawn(async move {
                     let wait_time = tokio::time::Duration::from_millis(50);
@@ -133,7 +136,10 @@ pub fn create_deets_window(
                             let row = row.clone();
                             let _ = deets_weak.upgrade_in_event_loop(move |deets| {
                                 if let Some(mut dl) = deets.get_files().row_data(row) {
-                                    dl.progress += len as i32;
+                                    dl.progress += len.0 as i32;
+                                    if len.1 != 0 && dl.size != len.1 as i32 {
+                                        dl.size = len.1 as i32;
+                                    }
                                     deets.get_files().set_row_data(row, dl);
                                 }
                             });
@@ -159,13 +165,16 @@ pub fn create_deets_window(
                         }
                     };
                     println!("{}", res.status());
+                    println!("{}", res.content_length().unwrap_or(0));
+                    let file_size = res.content_length().unwrap_or(0);
+
                     let mut stream = res.bytes_stream();
                     let mut bytes = vec![];
                     let tx = tx;
                     while let Some(chunk) = stream.next().await {
                         match chunk {
                             Ok(chunk) => {
-                                let _ = tx.try_send(chunk.len());
+                                let _ = tx.try_send((chunk.len(), file_size.clone()));
                                 bytes.push(chunk);
                             }
                             Err(e) => {

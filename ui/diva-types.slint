@@ -31,13 +31,14 @@ export enum SearchProvider {
 }
 
 export struct Download {
-    id: int,
+    id: string,
     url: string,
     name: string,
     size: int,
     progress: int,
     failed: bool,
     inprogress: bool,
+    provider: SearchProvider
 }
 export struct SearchPreviewData {
     name: string,
@@ -50,6 +51,6 @@ export struct SearchPreviewData {
     image-loaded: bool,
     submitted: string,
     files: [Download],
-    preloaded: bool,
     description: string,
+    provider: SearchProvider,
 }

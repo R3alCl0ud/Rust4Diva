@@ -1,5 +1,5 @@
 import { GbFileTable} from "../widgets/filetable.slint";
-import { Download, SearchPreviewData } from "../diva-types.slint";
+import { Download, SearchPreviewData, SearchProvider } from "../diva-types.slint";
 import { GridBox, VerticalBox, Palette, ScrollView, Button } from "std-widgets.slint";
 import { HyperLink, LangTL } from "../applogic.slint";
 
@@ -86,11 +86,11 @@ export component SearchDetailsWindow inherits Dialog {
                 colorize-icon: true;
                 icon: @image-url("../assets/cloud-solid.svg");
                 clicked => {
-                    if data.preloaded == false {
+                    if data.provider == SearchProvider.GameBanana {
                         debug("https://gamebanana.com/mods/" + data.id);
                         HyperLink.open-hyperlink("https://gamebanana.com/mods/" + data.id);
                     }
-                    if data.preloaded {
+                    if data.provider == SearchProvider.DivaModArchive {
                         debug("https://divamodarchive.com/post/" + data.id);
                         HyperLink.open-hyperlink("https://divamodarchive.com/post/" + data.id);
                     }
