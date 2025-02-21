@@ -2,16 +2,16 @@ use std::{cmp::min, error::Error};
 
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
-use slint::{ComponentHandle, ModelRc, SharedString, ToSharedString, VecModel};
-use tokio::sync::{broadcast, mpsc::Receiver};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, ToSharedString, VecModel, Weak};
+use tokio::sync::broadcast;
 
 use crate::diva::open_error_window;
-use crate::gamebanana::GBSearch;
+use crate::downloads::{get_image, missing_image_buf};
 use crate::{util::reqwest_client, App, DMALogic, Download, SearchModAuthor, SearchPreviewData};
 pub const DMA_DOMAIN: &str = "https://divamodarchive.com";
 
 #[repr(i32)]
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub enum PostType {
     Plugin = 0,
     Module = 1,
@@ -93,6 +93,7 @@ impl From<Post> for SearchPreviewData {
             preloaded: true,
             submitted: value.time.clone().into(),
             updated: value.time.clone().into(),
+            description: value.text.clone().into(),
         }
     }
 }
@@ -106,9 +107,9 @@ impl From<User> for SearchModAuthor {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Post {
-    pub id: i32,
+    pub id: i64,
     pub name: String,
     pub text: String,
     pub images: Vec<String>,
@@ -129,34 +130,45 @@ pub struct Comment {
     pub text: String,
 }
 
-pub async fn init(ui: &App, dark_rx: broadcast::Receiver<ColorScheme>) {
+pub async fn init(ui: &App, _dark_rx: broadcast::Receiver<ColorScheme>) {
     let ui_search_handle = ui.as_weak();
-    ui.global::<DMALogic>().on_search(move |term, page, sort| {
-        println!("{}", term);
-        let ui_search_handle = ui_search_handle.clone();
-        tokio::spawn(async move {
-            match search(term.to_string()).await {
-                Ok(posts) => ui_search_handle.upgrade_in_event_loop(move |ui| {
-                    let res_vec_model: VecModel<SearchPreviewData> = VecModel::default();
-                    for post in posts {
-                        res_vec_model.push(post.into());
+    ui.global::<DMALogic>()
+        .on_search(move |term, _page, _sort| {
+            println!("{}", term);
+            let ui_search_handle = ui_search_handle.clone();
+            let ui_result_handle = ui_search_handle.clone();
+            ui_search_handle.unwrap().set_s_prog_vis(true);
+            tokio::spawn(async move {
+                match search(term.to_string()).await {
+                    Ok(posts) => ui_search_handle.upgrade_in_event_loop(move |ui| {
+                        let res_vec_model: VecModel<SearchPreviewData> = VecModel::default();
+                        for post in posts.iter() {
+                            res_vec_model.push(post.clone().into());
+                        }
+                        ui.set_s_results(ModelRc::new(res_vec_model));
+                        ui.set_s_prog_vis(false);
+                        for post in posts {
+                            let weak = ui_result_handle.clone();
+                            let post = post.clone();
+                            tokio::spawn(async move {
+                                get_and_set_preview_image(weak, post).await;
+                            });
+                        }
+                    }),
+                    Err(err) => {
+                        open_error_window(err.to_string());
+                        Ok(())
                     }
-                    ui.set_s_results(ModelRc::new(res_vec_model));
-                }),
-                Err(err) => {
-                    open_error_window(err.to_string());
-                    Ok(())
                 }
-            }
+            });
         });
-    });
 }
 
 pub async fn search(query: String) -> Result<Vec<Post>, Box<dyn Error>> {
-    let mut client = reqwest_client();
-    let mut req = client
+    let client = reqwest_client();
+    let req = client
         .get(format!("{}/api/v1/posts", DMA_DOMAIN))
-        .query(&[("query", &query)]);
+        .query(&[("query", &query), ("limit", &"2000".to_owned())]);
     let res = req.send().await?.text().await?;
 
     match sonic_rs::from_str::<Vec<Post>>(&res) {
@@ -166,4 +178,32 @@ pub async fn search(query: String) -> Result<Vec<Post>, Box<dyn Error>> {
             Err(e.into())
         }
     }
+}
+
+pub async fn get_and_set_preview_image(weak: Weak<App>, item: Post) {
+    let mut buffer = missing_image_buf();
+    if !item.images.is_empty() {
+        if let Ok(buf) = get_image(item.images.first().unwrap().clone()).await {
+            buffer = buf;
+        }
+    }
+    let _ = weak.upgrade_in_event_loop(move |ui| {
+        let image = slint::Image::from_rgba8(buffer);
+        let model = ui.get_s_results();
+        let results = match model.as_any().downcast_ref::<VecModel<SearchPreviewData>>() {
+            Some(results) => results,
+            None => {
+                return;
+            }
+        };
+        for i in 0..results.row_count() {
+            let mut row = results.row_data(i).unwrap();
+            if row.id == item.id as i32 {
+                row.image = image;
+                row.image_loaded = true;
+                results.set_row_data(i, row);
+                return;
+            }
+        }
+    });
 }

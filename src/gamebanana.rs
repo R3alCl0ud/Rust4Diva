@@ -13,7 +13,7 @@ use tokio::sync::broadcast;
 use tokio::time::sleep;
 // use slint::Pal
 use crate::diva::{get_temp_folder, open_error_window};
-use crate::downloads::create_deets_window;
+use crate::downloads::{create_deets_window, get_image};
 use crate::modmanagement::{get_mods, load_mods, set_mods_table, unpack_mod_path};
 use crate::util::reqwest_client;
 use crate::{
@@ -165,6 +165,7 @@ impl From<GBSearch> for SearchPreviewData {
             submitted: added.into(),
             preloaded: false,
             files: Default::default(),
+            description: "".into()
         }
     }
 }
@@ -426,24 +427,7 @@ pub async fn get_and_set_preview_image(weak: Weak<App>, item: GBSearch) {
     });
 }
 
-pub async fn get_image(
-    url: String,
-) -> Result<SharedPixelBuffer<Rgba8Pixel>, Box<dyn Error + Sync + Send>> {
-    let client = reqwest::Client::new();
-    let req = client.get(url);
-    let res = req.send().await?;
-    let bytes = res.bytes().await?;
-    let image = image::load_from_memory(&bytes)?;
-    let image = image
-        .resize(880 as u32, 496 as u32, image::imageops::FilterType::Nearest)
-        .into_rgba8();
-    let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
-        image.as_raw(),
-        image.width(),
-        image.height(),
-    );
-    Ok(buffer)
-}
+
 
 pub async fn search_gb(
     search: String,

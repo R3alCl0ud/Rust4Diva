@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write, path::PathBuf};
+use std::{error::Error, fs::File, io::Write, path::PathBuf};
 
 use futures_util::StreamExt;
 use slint::{ComponentHandle, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel, Weak};
@@ -11,12 +11,27 @@ use crate::{
     diva::{get_temp_folder, open_error_window},
     modmanagement::{get_mods, load_mods, set_mods_table, unpack_mod_path},
     util::reqwest_client,
-    App, Download, GameBananaLogic, HyperLink, SearchDetailsWindow, SearchPreviewData, R4D_CFG,
+    App, Download, DownloadLogic, GameBananaLogic, HyperLink, SearchDetailsWindow,
+    SearchPreviewData, R4D_CFG,
 };
 use slint::private_unstable_api::re_exports::ColorScheme;
 
-pub async fn init(app: &App) {}
+pub async fn init(app: &App, dark_rx: broadcast::Receiver<ColorScheme>) {
+    let ui_open_preview = app.as_weak();
 
+    app.global::<DownloadLogic>()
+        .on_open_preview(move |preview_item| {
+            let ui_open_preview = ui_open_preview.clone();
+            println!(
+                "downloads::on_open_preview(preview_item) : Opening Preview Window For: {}",
+                preview_item.name
+            );
+            let deets = create_deets_window(preview_item, ui_open_preview, dark_rx.resubscribe());
+            deets.show().unwrap();
+        });
+}
+
+/// Provides a [`SharedPixelBuffer`] containing [`Rgba8Pixel`] data of the missing-image.png texture
 pub fn missing_image_buf() -> SharedPixelBuffer<Rgba8Pixel> {
     let bytes = include_bytes!("../ui/assets/missing-image.png");
     let image = image::load_from_memory(bytes).unwrap();
@@ -53,7 +68,7 @@ pub fn create_deets_window(
         let url = item.image_url.to_string();
         println!("Loading image for preview window: {}", url);
         tokio::spawn(async move {
-            let buf = match crate::gamebanana::get_image(url).await {
+            let buf = match get_image(url).await {
                 Ok(buf) => buf,
                 Err(e) => {
                     eprintln!("{e}");
@@ -69,27 +84,31 @@ pub fn create_deets_window(
             });
         });
     }
-    deets.set_data(item);
+    deets.set_data(item.clone());
     let deets_weak = deets.as_weak();
 
-    tokio::spawn(async move {
-        match crate::gamebanana::fetch_mod_info(item_id).await {
-            Ok(module) => {
-                let _ = deets_weak.upgrade_in_event_loop(move |deets| {
-                    let vecmod: VecModel<Download> = VecModel::default();
-                    for file in module.files.unwrap_or(vec![]) {
-                        vecmod.push(file.into());
-                    }
-                    deets.set_files(ModelRc::new(vecmod));
-                    deets.set_description(
-                        module.text.unwrap_or_default().replace("<br>", "\n").into(),
-                    );
-                });
+    if !item.preloaded {
+        tokio::spawn(async move {
+            match crate::gamebanana::fetch_mod_info(item_id).await {
+                Ok(module) => {
+                    let _ = deets_weak.upgrade_in_event_loop(move |deets| {
+                        let vecmod: VecModel<Download> = VecModel::default();
+                        for file in module.files.unwrap_or(vec![]) {
+                            vecmod.push(file.into());
+                        }
+                        deets.set_files(ModelRc::new(vecmod));
+                        deets.set_description(
+                            module.text.unwrap_or_default().replace("<br>", "\n").into(),
+                        );
+                    });
+                }
+                Err(e) => open_error_window(e.to_string()),
             }
-            Err(e) => open_error_window(e.to_string()),
-        }
-    });
-
+        });
+    } else {
+        deets.set_description(item.description);
+        deets.set_files(item.files);
+    }
     let weak = weak.clone();
     let deets_weak = deets.as_weak();
     deets
@@ -206,4 +225,52 @@ pub fn create_deets_window(
         slint::CloseRequestResponse::HideWindow
     });
     deets
+}
+
+/// dummy implementation
+pub async fn _get_and_set_preview_image(weak: Weak<App>, item: SearchPreviewData) {
+    let mut buffer = missing_image_buf();
+    if !item.image_url.is_empty() {
+        if let Ok(buf) = get_image(item.image_url.to_string()).await {
+            buffer = buf;
+        }
+    }
+    let _ = weak.upgrade_in_event_loop(move |ui| {
+        let image = slint::Image::from_rgba8(buffer);
+        let model = ui.get_s_results();
+        let results = match model.as_any().downcast_ref::<VecModel<SearchPreviewData>>() {
+            Some(results) => results,
+            None => {
+                return;
+            }
+        };
+        for i in 0..results.row_count() {
+            let mut row = results.row_data(i).unwrap();
+            if row.id == item.id as i32 {
+                row.image = image;
+                row.image_loaded = true;
+                results.set_row_data(i, row);
+                return;
+            }
+        }
+    });
+}
+
+pub async fn get_image(
+    url: String,
+) -> Result<SharedPixelBuffer<Rgba8Pixel>, Box<dyn Error + Sync + Send>> {
+    let client = reqwest::Client::new();
+    let req = client.get(url);
+    let res = req.send().await?;
+    let bytes = res.bytes().await?;
+    let image = image::load_from_memory(&bytes)?;
+    let image = image
+        .resize(880 as u32, 496 as u32, image::imageops::FilterType::Nearest)
+        .into_rgba8();
+    let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+        image.as_raw(),
+        image.width(),
+        image.height(),
+    );
+    Ok(buffer)
 }

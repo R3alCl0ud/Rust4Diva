@@ -7,6 +7,11 @@ export global DivaLogic {
     callback download-dml();
 }
 
+export global DownloadLogic {
+    callback open-preview(SearchPreviewData);
+    callback download(Download);
+}
+
 export global GameBananaLogic {
     callback search(string, int, int);
     callback list-files(SearchPreviewData);

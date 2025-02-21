@@ -41,6 +41,8 @@ base64ct = { version = "1.6.0", features = ["alloc"] }
 open = "5.3.1"
 table_enum = "0.3.0"
 time = { version = "0.3", features = ["serde", "serde-human-readable"] }
+# html2md = "0.2.15"
+# markdown = "=1.0.0-alpha.22"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52.0"

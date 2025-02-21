@@ -86,8 +86,14 @@ export component SearchDetailsWindow inherits Dialog {
                 colorize-icon: true;
                 icon: @image-url("../assets/cloud-solid.svg");
                 clicked => {
-                    debug("https://gamebanana.com/mods/" + data.id);
-                    HyperLink.open-hyperlink("https://gamebanana.com/mods/" + data.id);
+                    if data.preloaded == false {
+                        debug("https://gamebanana.com/mods/" + data.id);
+                        HyperLink.open-hyperlink("https://gamebanana.com/mods/" + data.id);
+                    }
+                    if data.preloaded {
+                        debug("https://divamodarchive.com/post/" + data.id);
+                        HyperLink.open-hyperlink("https://divamodarchive.com/post/" + data.id);
+                    }
                 }
             }
         }
