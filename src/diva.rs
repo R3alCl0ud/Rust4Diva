@@ -266,7 +266,7 @@ pub static MIKU_ART: &'static str = r#"
 　　🟦　🟦　　　🟦🟦　　　　🟦　　　　　　🟦　　　　　　　　　　　　　　　　　🟦🟦　　　　　"#;
 
 pub fn open_error_window(message: String) {
-    println!("{message}");
+    println!("diva.rs::open_error_window(message) : {message}");
     let _ = invoke_from_event_loop(move || match ErrorMessageWindow::new() {
         Ok(error_win) => {
             error_win.set_msg(message.into());

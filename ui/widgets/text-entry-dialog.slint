@@ -15,7 +15,7 @@ export component TextEntryDialog {
 
         x: parent.offset_x;
         y: parent.offset_y + 15px;
-        close-on-click: false;
+        close-policy: PopupClosePolicy.no-auto-close;
         key-handler := FocusScope {
             key-pressed(e) => {
                 if (e.text == Key.Escape) {

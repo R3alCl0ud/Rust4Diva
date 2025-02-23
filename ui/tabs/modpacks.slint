@@ -64,7 +64,8 @@ export component ModPacksTab {
 
             packs := ComboBox {
                 model: modpacks;
-                colspan: 8;
+                col: 3;
+                colspan: 7;
                 height: btn-height;
                 selected(pack) => {
                     ModpackLogic.change-modpack(pack);

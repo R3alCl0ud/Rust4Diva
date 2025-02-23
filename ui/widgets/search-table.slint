@@ -1,12 +1,12 @@
 import { Button, ProgressIndicator, ListView, Palette, Spinner } from "std-widgets.slint";
 import { TableViewCellNoTouch, TableViewCell, TableViewRow, TableViewColumn } from "common-table.slint";
 import { FileTableRow } from "filetable.slint";
-import { GbPreviewData } from "../diva-types.slint";
+import { SearchPreviewData } from "../diva-types.slint";
 import { FontSettings as CosmicFontSettings } from "../styling.slint";
 import { GameBananaLogic, LangTL } from "../applogic.slint";
 
-export component GbSearchTable {
-    in-out property <[GbPreviewData]> results;
+export component OnlineSearchTable {
+    in-out property <[SearchPreviewData]> results;
     in-out property <[TableColumn]> columns: [
         { title: "Preview", width: 118px },
         { title: "Name" },

@@ -52,6 +52,8 @@ pub struct DivaMod {
     pub config: DocumentMut,
 }
 
+
+/// Data Object for Diva Mod Loader's config.toml
 #[derive(Clone, Deserialize, Serialize)]
 pub struct DivaModLoader {
     #[serde(default)]
@@ -63,9 +65,9 @@ pub struct DivaModLoader {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub version: String,
     ///
-    /// This field tells dml what order to load mods in.
+    /// This field tells Diva Mod Loader what order to load mods in.
     ///
-    /// It also happens that it will also only load mods in the array.
+    /// Only mod folders specified in the array will be attempted to load.
     ///
     /// The items are the name of the folder that the mod is stored in.
     ///
