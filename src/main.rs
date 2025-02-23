@@ -8,6 +8,7 @@ use std::sync::{LazyLock, Mutex};
 use config::write_config;
 use diva::get_rust4diva_version;
 use modmanagement::{is_dml_installed, is_dml_installed_at};
+use oneclick::check_valid_oneclick_url;
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint_interpreter::ComponentHandle;
 use tokio::sync::broadcast;
@@ -16,7 +17,6 @@ use crate::config::{load_diva_config, DivaConfig};
 #[cfg(not(debug_assertions))]
 use crate::diva::MIKU_ART;
 use crate::diva::{create_tmp_if_not, find_diva_folder, open_error_window};
-use crate::gamebanana::parse_dmm_url;
 use crate::modmanagement::{
     get_mods, load_diva_ml_config, load_mods, set_mods_table, DivaMod, DivaModLoader,
 };
@@ -63,6 +63,8 @@ pub static DML_CFG: LazyLock<Mutex<DivaModLoader>> = LazyLock::new(|| {
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
     println!("Starting Rust4Diva Slint Edition");
+    #[cfg(debug_assertions)]
+    println!("Debug Build - {}", get_rust4diva_version());
     #[cfg(not(debug_assertions))]
     println!("{}", MIKU_ART);
     let args = env::args();
@@ -70,9 +72,8 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     let mut dmm_url = None;
 
     for arg in args {
-        match parse_dmm_url(arg.clone()) {
-            Some(_dmm) => {
-                println!("{}", arg.clone());
+        match check_valid_oneclick_url(arg.clone()) {
+            Some(_provider) => {
                 dmm_url = Some(arg.clone());
                 match try_send_mmdl(arg.clone()).await {
                     Ok(_) => {
@@ -175,9 +176,10 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
     config::init_ui(&app, dark_tx).await;
     modmanagement::init(&app, dark_rx.resubscribe()).await;
     modpacks::init(&app).await;
-    gamebanana::init(&app, url_rx, dark_rx.resubscribe()).await;
+    gamebanana::init(&app, dark_rx.resubscribe()).await;
     divamodarchive::init(&app, dark_rx.resubscribe()).await;
     downloads::init(&app, dark_rx.resubscribe()).await;
+    let _ = oneclick::handle_dmm_oneclick(url_rx, app.as_weak(), dark_rx.resubscribe());
 
     println!("Does the app run?");
 

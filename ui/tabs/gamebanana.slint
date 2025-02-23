@@ -108,6 +108,13 @@ export component OnlineSearch {
             search-provider := ComboBox {
                 model: ["Diva Mod Archive", "Game Banana"];
                 current-index: 0;
+                changed current-index => {
+                    if self.current-index == 0 {
+                        sort-select.model = ["Newest", "Oldest", "Downloads", "Likes"];
+                    } else if self.current-index == 1 {
+                        sort-select.model = ["Relevance", "Popularity", "New", "Updated"];
+                    }
+                }
             }
 
             Text {
@@ -117,7 +124,7 @@ export component OnlineSearch {
             }
 
             sort-select := ComboBox {
-                model: ["Relevance", "Popularity", "New", "Updated"];
+                model: ["Newest", "Oldest", "Downloads", "Likes"];
                 current-index: 0;
             }
 

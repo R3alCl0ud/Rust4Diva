@@ -127,7 +127,7 @@ pub struct GBSearch {
     #[serde(rename(deserialize = "_aPreviewMedia"))]
     preview_media: GbPreview,
     #[serde(rename(deserialize = "_aFiles"), default)]
-    files: Vec<GbModDownload>,
+    pub files: Vec<GbModDownload>,
 }
 
 impl From<GBSearch> for SearchPreviewData {
@@ -286,7 +286,7 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
     });
 }
 
-pub async fn init(ui: &App, url_rx: Receiver<String>, dark_rx: broadcast::Receiver<ColorScheme>) {
+pub async fn init(ui: &App, dark_rx: broadcast::Receiver<ColorScheme>) {
     let ui_search_handle = ui.as_weak();
 
     ui.global::<GameBananaLogic>()
@@ -343,55 +343,11 @@ pub async fn init(ui: &App, url_rx: Receiver<String>, dark_rx: broadcast::Receiv
         let deets = create_deets_window(item, weak, dark_rx);
         deets.show().unwrap();
     });
-    let ui_oneclick_handle = ui.as_weak();
-    let _ = handle_dmm_oneclick(url_rx, ui_oneclick_handle, dark_rx.resubscribe());
+    // let ui_oneclick_handle = ui.as_weak();
+    // let _ = handle_dmm_oneclick(url_rx, ui_oneclick_handle, dark_rx.resubscribe());
 }
 
-pub fn handle_dmm_oneclick(
-    mut url_rx: Receiver<String>,
-    ui_handle: Weak<App>,
-    dark_rx: broadcast::Receiver<ColorScheme>,
-) -> tokio::task::JoinHandle<()> {
-    return tokio::spawn(async move {
-        while !url_rx.is_closed() {
-            if let Some(url) = url_rx.recv().await {
-                let item = match parse_dmm_url(url) {
-                    Some(item) => item,
-                    None => continue,
-                };
-                let m = match fetch_mod(item.item_id).await {
-                    Ok(m) => m,
-                    Err(e) => {
-                        open_error_window(e.to_string());
-                        continue;
-                    }
-                };
-                let weak = ui_handle.clone();
-                let rx = dark_rx.resubscribe();
-                let _ = slint::invoke_from_event_loop(move || {
-                    let deets = create_deets_window(m.clone().into(), weak, rx);
-                    let files: VecModel<Download> = VecModel::default();
-                    for file in m.files.clone() {
-                        let mut f: Download = file.clone().into();
-                        if f.id == item.file_id.to_shared_string() {
-                            f.inprogress = true;
-                        }
-                        files.push(f);
-                    }
-                    deets.set_files(ModelRc::new(files));
-                    if let Some(file) = m.files.iter().find(|f| f.id == item.file_id) {
-                        deets
-                            .global::<GameBananaLogic>()
-                            .invoke_download(file.clone().into());
-                    }
-                    deets.show().unwrap();
-                });
-                // cre
-            }
-        }
-        println!("Oneclick receiver closed");
-    });
-}
+
 
 pub async fn get_and_set_preview_image(weak: Weak<App>, item: GBSearch) {
     let mut buffer = downloads::missing_image_buf();

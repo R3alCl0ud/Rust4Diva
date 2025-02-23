@@ -5,6 +5,7 @@ use crate::diva::open_error_window;
 use crate::downloads::{get_image, missing_image_buf};
 use crate::SearchProvider;
 use crate::{util::reqwest_client, App, DMALogic, Download, SearchModAuthor, SearchPreviewData};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use slint::private_unstable_api::re_exports::ColorScheme;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, ToSharedString, VecModel, Weak};
@@ -212,10 +213,26 @@ pub async fn get_and_set_preview_image(weak: Weak<App>, item: Post) {
     });
 }
 
-pub fn handle_oneclick(
-    mut url_rx: Receiver<String>,
-    ui_handle: Weak<App>,
-    dark_rx: broadcast::Receiver<ColorScheme>,
-) -> tokio::task::JoinHandle<()> {
-    return tokio::spawn(async move {});
+pub async fn fetch_post(id: String) -> Result<Post, Box<dyn Error + Sync + Send>> {
+    let client = reqwest_client();
+    let builder = client.get(format!("{}/api/v1/posts/{}", DMA_DOMAIN, id));
+    let res = builder.send().await?;
+    let text = res.text().await?;
+
+    match sonic_rs::from_str::<Post>(&text) {
+        Ok(post) => Ok(post),
+        Err(e) => {
+            eprintln!("dma.rs @ fetch_post(id) -> {}", text); // log the res that failed to parse
+            Err(e.into())
+        }
+    }
+}
+
+pub fn parse_oneclick_url(url: String) -> Option<String> {
+    let regex = Regex::new(r"divamodmanager:dma/(\d+)").unwrap();
+
+    let Some(m_info) = regex.captures(url.as_str()) else {
+        return None;
+    };
+    return Some(m_info.get(1).unwrap().as_str().to_string());
 }
