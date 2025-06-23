@@ -1,10 +1,11 @@
 import { VerticalBox, Palette, Button, Spinner } from "std-widgets.slint";
-import { GameBananaLogic, LangTL } from "../applogic.slint";
-import { GbPreviewData } from "../diva-types.slint";
+import { GameBananaLogic, DownloadLogic, LangTL } from "../applogic.slint";
+import { SearchPreviewData } from "../diva-types.slint";
 
 
-export component GbPreviewCard {
-    in property <GbPreviewData> data: {
+
+export component SearchPreviewCard {
+    in property <SearchPreviewData> data: {
         image: @image-url("../assets/test-preview.jpg"),
         name:"Onneb's Song Pack",
         author: { name: "Onneb" },
@@ -70,7 +71,8 @@ export component GbPreviewCard {
                 colorize-icon: true;
                 icon: @image-url("../assets/cloud-arrow-down-solid.svg");
                 clicked => {
-                    GameBananaLogic.list-files(data);
+                    DownloadLogic.open-preview(data);
+                    // GameBananaLogic.list-files(data);
                 }
             }
         }

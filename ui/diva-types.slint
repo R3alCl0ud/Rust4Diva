@@ -14,15 +14,36 @@ export struct ModPackElement {
     path: string,
 }
 
-
-export struct SlGbSubmitter {
+export struct SearchModAuthor {
     name: string,
     avatar_url: string,
 }
 
-export struct GbPreviewData {
+
+
+export enum GbSearchSort {
+    default, new, updated,
+}
+
+
+export enum SearchProvider {
+    GameBanana, DivaModArchive,
+}
+
+export struct Download {
+    id: string,
+    url: string,
     name: string,
-    author: SlGbSubmitter,
+    size: int,
+    progress: int,
+    failed: bool,
+    inprogress: bool,
+    provider: SearchProvider
+}
+
+export struct SearchPreviewData {
+    name: string,
+    author: SearchModAuthor,
     updated: string,
     item-type: string,
     id: int,
@@ -30,18 +51,7 @@ export struct GbPreviewData {
     image-url: string,
     image-loaded: bool,
     submitted: string,
-}
-
-export enum GbSearchSort {
-    default, new, updated,
-}
-
-export struct Download {
-    id: int,
-    url: string,
-    name: string,
-    size: int,
-    progress: int,
-    failed: bool,
-    inprogress: bool,
+    files: [Download],
+    description: string,
+    provider: SearchProvider,
 }

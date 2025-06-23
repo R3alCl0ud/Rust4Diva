@@ -36,28 +36,31 @@ Get new mods online directly in the app
 
 ## Linux
 install libarchive & git & rust (rustup recommended) from package manager
-```
+```sh
 git clone https://github.com/R3alCl0ud/Rust4Diva.git
 cd Rust4Diva
 cargo build
+cargo run # runs the built application
 ```
 
 ## Windows
 install vcpkg<br>
 install libarchive using vcpkg (Note, build will fail if the path to vcpkg has a space in it)
-```
+```sh
 cargo build
+cargo run # runs the built application
 ```
 
 ## Mac OS
 install brew<br>
 install git<br>
-```
+```sh
 brew install libarchive
 brew install rustup
 git clone https://github.com/R3alCl0ud/Rust4Diva.git
 cd Rust4Diva
 PKG_CONFIG_PATH="/usr/local/opt/libarchive/lib/pkgconfig" cargo build
+cargo run # runs the built application
 ```
 
 # License
