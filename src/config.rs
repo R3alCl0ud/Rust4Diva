@@ -130,7 +130,7 @@ impl From<OldDivaConfig> for DivaConfig {
             use_system_theme: true,
             use_system_scaling: true,
             scale: 1.0,
-            lang: 1,
+            lang: 0,
             use_dirname: false,
         }
     }
