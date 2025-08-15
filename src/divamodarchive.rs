@@ -133,47 +133,112 @@ pub struct _Comment {
     pub text: String,
 }
 
-pub async fn init(ui: &App, _dark_rx: broadcast::Receiver<ColorScheme>) {
-    let ui_search_handle = ui.as_weak();
-    ui.global::<DMALogic>()
-        .on_search(move |term, _page, _sort| {
-            println!("{}", term);
-            let ui_search_handle = ui_search_handle.clone();
-            let ui_result_handle = ui_search_handle.clone();
-            ui_search_handle.unwrap().set_s_prog_vis(true);
-            tokio::spawn(async move {
-                match search(term.to_string()).await {
-                    Ok(posts) => ui_search_handle.upgrade_in_event_loop(move |ui| {
-                        let res_vec_model: VecModel<SearchPreviewData> = VecModel::default();
-                        let posts_len = posts.len();
-                        for post in posts.iter() {
-                            res_vec_model.push(post.clone().into());
-                        }
-                        ui.set_s_results(ModelRc::new(res_vec_model));
-                        ui.set_n_results(posts_len as i32);
-                        ui.set_s_prog_vis(false);
-                        for post in posts {
-                            let weak = ui_result_handle.clone();
-                            let post = post.clone();
-                            tokio::spawn(async move {
-                                get_and_set_preview_image(weak, post).await;
-                            });
-                        }
-                    }),
-                    Err(err) => {
-                        open_error_window(err.to_string());
-                        Ok(())
-                    }
-                }
-            });
-        });
+pub enum DMASearchSort {
+    Newest(String),
+    Oldest(String),
+    Downloads(String),
+    Likes(String),
 }
 
-pub async fn search(query: String) -> Result<Vec<Post>, Box<dyn Error>> {
+impl Default for DMASearchSort {
+    fn default() -> Self {
+        Self::Newest("time:desc".to_owned())
+    }
+}
+
+impl Into<String> for DMASearchSort {
+    fn into(self) -> String {
+        match self {
+            Self::Newest(s) => s,
+            Self::Oldest(s) => s,
+            Self::Downloads(s) => s,
+            Self::Likes(s) => s,
+        }
+    }
+}
+
+impl From<i32> for DMASearchSort {
+    fn from(value: i32) -> Self {
+        match value {
+            1 => Self::Oldest("time:asc".to_owned()),
+            2 => Self::Downloads("download_count:desc".to_owned()),
+            3 => Self::Likes("like_count:desc".to_owned()),
+            _ => Self::default(),
+        }
+    }
+}
+
+pub async fn init(ui: &App, _dark_rx: broadcast::Receiver<ColorScheme>) {
+    let ui_search_handle = ui.as_weak();
+    ui.global::<DMALogic>().on_search(move |term, _page, sort| {
+        println!("{}", term);
+        let ui_search_handle = ui_search_handle.clone();
+        let ui_result_handle = ui_search_handle.clone();
+        ui_search_handle.unwrap().set_s_prog_vis(true);
+        tokio::spawn(async move {
+            match search(term.to_string(), sort).await {
+                Ok(posts) => ui_search_handle.upgrade_in_event_loop(move |ui| {
+                    let res_vec_model: VecModel<SearchPreviewData> = VecModel::default();
+                    let posts_len = posts.len();
+                    for post in posts.iter() {
+                        res_vec_model.push(post.clone().into());
+                    }
+                    ui.set_s_results(ModelRc::new(res_vec_model));
+                    ui.set_n_results(posts_len as i32);
+                    ui.set_s_prog_vis(false);
+                    for post in posts {
+                        let weak = ui_result_handle.clone();
+                        let post = post.clone();
+                        tokio::spawn(async move {
+                            get_and_set_preview_image(weak, post).await;
+                        });
+                    }
+                }),
+                Err(err) => {
+                    open_error_window(err.to_string());
+                    Ok(())
+                }
+            }
+        });
+    });
+
+    let ui_search_handle = ui.as_weak();
+    let ui_search_handle = ui_search_handle.clone();
+    let ui_result_handle = ui_search_handle.clone();
+    tokio::spawn(async move {
+        match search(String::new(), 0).await {
+            Ok(posts) => ui_search_handle.upgrade_in_event_loop(move |ui| {
+                let res_vec_model: VecModel<SearchPreviewData> = VecModel::default();
+                let posts_len = posts.len();
+                for post in posts.iter() {
+                    res_vec_model.push(post.clone().into());
+                }
+                ui.set_s_results(ModelRc::new(res_vec_model));
+                ui.set_n_results(posts_len as i32);
+                ui.set_s_prog_vis(false);
+                for post in posts {
+                    let weak = ui_result_handle.clone();
+                    let post = post.clone();
+                    tokio::spawn(async move {
+                        get_and_set_preview_image(weak, post).await;
+                    });
+                }
+            }),
+            Err(err) => {
+                open_error_window(err.to_string());
+                Ok(())
+            }
+        }
+    });
+}
+
+pub async fn search(query: String, sort: i32) -> Result<Vec<Post>, Box<dyn Error>> {
     let client = reqwest_client();
-    let req = client
-        .get(format!("{}/api/v1/posts", DMA_DOMAIN))
-        .query(&[("query", &query), ("limit", &"2000".to_owned())]);
+    let req = client.get(format!("{}/api/v1/posts", DMA_DOMAIN)).query(&[
+        ("query", &query),
+        ("limit", &"2000".to_owned()),
+        ("sort", &DMASearchSort::from(sort).into()),
+    ]);
     let res = req.send().await?.text().await?;
 
     match sonic_rs::from_str::<Vec<Post>>(&res) {

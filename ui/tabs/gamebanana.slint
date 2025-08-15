@@ -109,10 +109,14 @@ export component OnlineSearch {
                 model: ["Diva Mod Archive", "Game Banana"];
                 current-index: 0;
                 changed current-index => {
+                    page = 1;
+                    s-sort = 0;
                     if self.current-index == 0 {
                         sort-select.model = ["Newest", "Oldest", "Downloads", "Likes"];
+                        DMALogic.search(s-term, page, s-sort);
                     } else if self.current-index == 1 {
                         sort-select.model = ["Relevance", "Popularity", "New", "Updated"];
+                        GameBananaLogic.search(s-term, page, s-sort);
                     }
                 }
             }
@@ -126,6 +130,16 @@ export component OnlineSearch {
             sort-select := ComboBox {
                 model: ["Newest", "Oldest", "Downloads", "Likes"];
                 current-index: 0;
+
+                changed current-index => {
+                    page = 1;
+                    s-sort = self.current-index;
+                    if search-provider.current-index == 0 {
+                        DMALogic.search(s-term, page, s-sort);
+                    } else if search-provider.current-index == 1 {
+                        GameBananaLogic.search(s-term, page, s-sort);
+                    }
+                }
             }
 
             Text {
@@ -140,11 +154,9 @@ export component OnlineSearch {
                 accepted(search) => {
                     page = 1;
                     s-term = search;
-                    s-sort = sort-select.current-index;
                     if search-provider.current-index == 1 {
                         GameBananaLogic.search(s-term, page, s-sort);
-                    }
-                    if search-provider.current-index == 0 {
+                    } else if search-provider.current-index == 0 {
                         DMALogic.search(s-term, page, s-sort);
                     }
                 }
