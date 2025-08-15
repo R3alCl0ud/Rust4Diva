@@ -20,6 +20,7 @@ const GB_DOMAIN: &str = "https://gamebanana.com";
 const GB_DIVA_ID: i32 = 16522;
 const GB_MOD_DATA: &'static str = "apiv11/Mod";
 const GB_MOD_SEARCH: &str = "apiv11/Util/Search/Results";
+const GB_MOD_INDEX: &str = "apiv11/Mod/Index";
 #[allow(dead_code)]
 const GB_DIVA_SUBFEED: &str = "apiv11/Game/16522/Subfeed";
 
@@ -249,10 +250,10 @@ impl Default for GbSearchSort {
 impl Into<String> for GbSearchSort {
     fn into(self) -> String {
         match self {
-            GbSearchSort::Relevance(s) => s,
-            GbSearchSort::Popularity(s) => s,
-            GbSearchSort::Newest(s) => s,
-            GbSearchSort::Updated(s) => s,
+            Self::Relevance(s) => s,
+            Self::Popularity(s) => s,
+            Self::Newest(s) => s,
+            Self::Updated(s) => s,
         }
     }
 }
@@ -263,6 +264,41 @@ impl From<i32> for GbSearchSort {
             1 => Self::Popularity("popularity".to_owned()),
             2 => Self::Newest("date".to_owned()),
             3 => Self::Updated("udate".to_owned()),
+            _ => Self::default(),
+        }
+    }
+}
+
+pub enum GbIndexSort {
+    Relevance(String),
+    Popularity(String),
+    Newest(String),
+    Updated(String),
+}
+
+impl Default for GbIndexSort {
+    fn default() -> Self {
+        Self::Relevance("Generic_NewAndUpdated".to_owned())
+    }
+}
+
+impl Into<String> for GbIndexSort {
+    fn into(self) -> String {
+        match self {
+            Self::Relevance(s) => s,
+            Self::Popularity(s) => s,
+            Self::Newest(s) => s,
+            Self::Updated(s) => s,
+        }
+    }
+}
+
+impl From<i32> for GbIndexSort {
+    fn from(value: i32) -> Self {
+        match value {
+            1 => Self::Popularity("Generic_MostDownloaded".to_owned()),
+            2 => Self::Newest("Generic_Newest".to_owned()),
+            3 => Self::Updated("Generic_LatestUpdated".to_owned()),
             _ => Self::default(),
         }
     }
@@ -288,14 +324,18 @@ pub fn parse_dmm_url(dmm_url: String) -> Option<GbDmmItem> {
 
 pub async fn init(ui: &App, dark_rx: broadcast::Receiver<ColorScheme>) {
     let ui_search_handle = ui.as_weak();
-
     ui.global::<GameBananaLogic>()
         .on_search(move |search, page, sort| {
             let ui_search_handle = ui_search_handle.clone();
             let ui_result_handle = ui_search_handle.clone();
             ui_search_handle.unwrap().set_s_prog_vis(true);
             tokio::spawn(async move {
-                match search_gb(search.to_string(), page.clone(), sort.clone()).await {
+                let res = if search.len() == 0 {
+                    index_gb(page.clone(), sort.clone()).await
+                } else {
+                    search_gb(search.to_string(), page.clone(), sort.clone()).await
+                };
+                match res {
                     Ok(res) => {
                         let _ = ui_result_handle.upgrade_in_event_loop(move |ui| {
                             let mut items = vec![];
@@ -347,8 +387,6 @@ pub async fn init(ui: &App, dark_rx: broadcast::Receiver<ColorScheme>) {
     // let _ = handle_dmm_oneclick(url_rx, ui_oneclick_handle, dark_rx.resubscribe());
 }
 
-
-
 pub async fn get_and_set_preview_image(weak: Weak<App>, item: GBSearch) {
     let mut buffer = downloads::missing_image_buf();
     if let Some(preview) = item.preview_media.images.first() {
@@ -390,6 +428,29 @@ pub async fn search_gb(
         ("_sOrder", GbSearchSort::from(sort).into()),
         ("_idGameRow", GB_DIVA_ID.to_string()),
         ("_sModelName", "Mod".to_owned()),
+    ]);
+    // req.
+    let res = req.send().await?.text().await?;
+    match sonic_rs::from_str::<GbSearchResults>(&res) {
+        Ok(results) => Ok(results),
+        Err(e) => {
+            eprintln!("{}", res); // log the res that failed to parse
+            Err(e.into())
+        }
+    }
+    // Ok(sonic_rs::from_str::<GbSearchResults>(&res)?)
+}
+
+pub async fn index_gb(
+    page: i32,
+    sort: i32,
+) -> Result<GbSearchResults, Box<dyn Error + Send + Sync>> {
+    let client = reqwest::Client::new();
+    let req = client.get(format!("{GB_DOMAIN}/{GB_MOD_INDEX}")).query(&[
+        ("_nPage", page.to_string()),
+        ("_nPerpage", "30".to_owned()),
+        ("_sSort", GbIndexSort::from(sort).into()),
+        ("_aFilters[Generic_Game]", GB_DIVA_ID.to_string()),
     ]);
     // req.
     let res = req.send().await?.text().await?;
