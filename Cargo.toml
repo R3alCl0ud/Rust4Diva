@@ -55,7 +55,7 @@ winresource = "0.1.19"
 name = "Rust4Diva"
 identifier = "xyz.rust4diva.Rust4Diva"
 resources = ["assets"]
-deb_depends = ["libarchive"]
+deb_depends = ["libarchive13"]
 osx_url_schemes = ["divamodmanager"]
 linux_mime_types = [
     "x-scheme-handler/divamodmanager",
